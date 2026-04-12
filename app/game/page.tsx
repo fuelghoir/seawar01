@@ -66,7 +66,7 @@ function GameContent() {
   const gameId = BigInt(gameIdStr);
 
   const { address, isConnected } = useAccount();
-  const { connect, connectors } = useConnect();
+  const { connectAsync, connectors } = useConnect();
   const { isReady } = useMiniApp();
   const queryClient = useQueryClient();
 
@@ -78,12 +78,21 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect wallet once providers are ready
+  // Auto-connect: try each connector until one works
   useEffect(() => {
-    if (!isConnected && isReady && connectors.length > 0) {
-      connect({ connector: connectors[0] });
-    }
-  }, [isConnected, isReady, connectors, connect]);
+    if (isConnected || !isReady || connectors.length === 0) return;
+    const tryConnect = async () => {
+      for (const connector of connectors) {
+        try {
+          await connectAsync({ connector });
+          break;
+        } catch {
+          // try next
+        }
+      }
+    };
+    tryConnect();
+  }, [isConnected, isReady, connectors, connectAsync]);
 
   // --- contract reads ---
 

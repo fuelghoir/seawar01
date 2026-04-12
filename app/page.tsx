@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import { useRouter } from "next/navigation";
@@ -22,11 +22,12 @@ export default function Home() {
   const { context, isReady, isInMiniApp } = useMiniApp();
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const { connect, connectors } = useConnect();
+  const { connectAsync, connectors } = useConnect();
 
   const [joinGameId, setJoinGameId] = useState("");
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Auth (only in mini app context)
   useEffect(() => {
@@ -40,12 +41,27 @@ export default function Home() {
     if (isReady && isInMiniApp) authenticate();
   }, [isReady, isInMiniApp]);
 
-  // Auto-connect wallet once providers are ready
-  useEffect(() => {
-    if (!isConnected && isReady && connectors.length > 0) {
-      connect({ connector: connectors[0] });
+  // Try connecting with each connector until one works
+  const tryConnect = useCallback(async () => {
+    if (isConnected || isConnecting || connectors.length === 0) return;
+    setIsConnecting(true);
+    for (const connector of connectors) {
+      try {
+        await connectAsync({ connector });
+        break;
+      } catch {
+        // try next connector
+      }
     }
-  }, [isConnected, isReady, connectors, connect]);
+    setIsConnecting(false);
+  }, [isConnected, isConnecting, connectors, connectAsync]);
+
+  // Auto-connect on load
+  useEffect(() => {
+    if (isReady && !isConnected) {
+      tryConnect();
+    }
+  }, [isReady, isConnected, tryConnect]);
 
   // Contract write
   const {
@@ -121,12 +137,6 @@ export default function Home() {
     }
   };
 
-  const handleConnect = () => {
-    if (connectors.length > 0) {
-      connect({ connector: connectors[0] });
-    }
-  };
-
   const displayName = context?.user?.displayName || "Captain";
 
   return (
@@ -144,9 +154,10 @@ export default function Home() {
             <p className={styles.connectText}>Connect your wallet to play</p>
             <button
               className={styles.primaryButton}
-              onClick={handleConnect}
+              onClick={tryConnect}
+              disabled={isConnecting}
             >
-              Connect Wallet
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
             </button>
           </div>
         ) : (
