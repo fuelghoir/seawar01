@@ -1,21 +1,29 @@
 "use client";
 import { ReactNode, useState } from "react";
 import { base } from "wagmi/chains";
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { coinbaseWallet, injected } from "wagmi/connectors";
+import { createConfig, createStorage, cookieStorage, http, WagmiProvider } from "wagmi";
+import { baseAccount, injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 import { MiniAppProvider } from "./providers/MiniAppProvider";
 
 const config = createConfig({
   chains: [base],
-  transports: { [base.id]: http() },
   connectors: [
-    farcasterMiniApp(),
     injected(),
-    coinbaseWallet({ appName: "Sea Battle", preference: "smartWalletOnly" }),
+    baseAccount({ appName: "Sea Battle" }),
   ],
+  storage: createStorage({ storage: cookieStorage }),
+  ssr: true,
+  transports: {
+    [base.id]: http(),
+  },
 });
+
+declare module "wagmi" {
+  interface Register {
+    config: typeof config;
+  }
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());

@@ -21,57 +21,25 @@ import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const MAX_GAMES_TO_LOAD = 20;
+const CONTRACT_NOT_SET = SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR;
 
 export default function Home() {
-  const { context, isReady } = useMiniApp();
+  const { context } = useMiniApp();
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const { connectAsync, connectors } = useConnect();
+  const { connect, connectors } = useConnect();
 
   const [joinGameId, setJoinGameId] = useState("");
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const connectAttempted = useRef(false);
+  const autoConnected = useRef(false);
 
-  // Auto-connect once on load — ref prevents infinite loop
+  // Auto-connect once: try injected first (Base app), then baseAccount
   useEffect(() => {
-    if (isConnected || !isReady || connectAttempted.current) return;
-    connectAttempted.current = true;
-
-    (async () => {
-      setIsConnecting(true);
-      for (const connector of connectors) {
-        try {
-          await connectAsync({ connector });
-          break;
-        } catch {
-          // try next
-        }
-      }
-      setIsConnecting(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady]);
-
-  const handleConnect = async () => {
-    setIsConnecting(true);
-    setError("");
-    let connected = false;
-    for (const connector of connectors) {
-      try {
-        await connectAsync({ connector });
-        connected = true;
-        break;
-      } catch {
-        // try next
-      }
-    }
-    if (!connected) {
-      setError("Could not connect wallet. Make sure you have a wallet installed.");
-    }
-    setIsConnecting(false);
-  };
+    if (isConnected || autoConnected.current || connectors.length === 0) return;
+    autoConnected.current = true;
+    connect({ connector: connectors[0] });
+  }, [isConnected, connectors, connect]);
 
   // Contract write
   const {
@@ -87,7 +55,9 @@ export default function Home() {
   useEffect(() => {
     if (writeError) {
       const msg = writeError.message || "Transaction failed";
-      setError(msg.length > 120 ? msg.slice(0, 120) + "..." : msg);
+      // Extract short reason from error
+      const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/);
+      setError(reasonMatch ? reasonMatch[1] : msg.slice(0, 150));
     }
   }, [writeError]);
 
@@ -117,6 +87,10 @@ export default function Home() {
   }, [isSuccess, receipt, action, joinGameId, router]);
 
   const handleCreateGame = () => {
+    if (CONTRACT_NOT_SET) {
+      setError("Contract not deployed. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env");
+      return;
+    }
     setError("");
     setAction("create");
     writeContract({
@@ -129,6 +103,10 @@ export default function Home() {
 
   const handleJoinGame = (id?: string) => {
     const gid = id || joinGameId;
+    if (CONTRACT_NOT_SET) {
+      setError("Contract not deployed. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env");
+      return;
+    }
     setError("");
     if (!gid || isNaN(Number(gid))) {
       setError("Enter a valid game ID");
@@ -146,12 +124,11 @@ export default function Home() {
   };
 
   // --- Available games list ---
-
   const { data: nextGameId } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
     abi: seaBattleAbi,
     functionName: "nextGameId",
-    query: { refetchInterval: 8000 },
+    query: { refetchInterval: 8000, enabled: !CONTRACT_NOT_SET },
   });
 
   const totalGames = nextGameId ? Number(nextGameId) : 0;
@@ -166,13 +143,9 @@ export default function Home() {
 
   const { data: gamesRaw } = useReadContracts({
     contracts: gameContracts,
-    query: {
-      enabled: loadCount > 0,
-      refetchInterval: 8000,
-    },
+    query: { enabled: loadCount > 0, refetchInterval: 8000 },
   });
 
-  // Filter available games: state === Created (0), not my game
   const availableGames: { id: number; player1: string }[] = [];
   if (gamesRaw) {
     for (let i = 0; i < gamesRaw.length; i++) {
@@ -186,10 +159,7 @@ export default function Home() {
         player1 !== ZERO_ADDR &&
         player1.toLowerCase() !== address?.toLowerCase()
       ) {
-        availableGames.push({
-          id: totalGames - 1 - i,
-          player1,
-        });
+        availableGames.push({ id: totalGames - 1 - i, player1 });
       }
     }
   }
@@ -211,19 +181,23 @@ export default function Home() {
             <p className={styles.connectText}>Connect your wallet to play</p>
             <button
               className={styles.primaryButton}
-              onClick={handleConnect}
-              disabled={isConnecting}
+              onClick={() => connectors[0] && connect({ connector: connectors[0] })}
             >
-              {isConnecting ? "Connecting..." : "Connect Wallet"}
+              Connect Wallet
             </button>
-            {error && <p className={styles.error}>{error}</p>}
           </div>
         ) : (
           <div className={styles.actions}>
+            {CONTRACT_NOT_SET && (
+              <div className={styles.contractWarning}>
+                Contract not deployed yet. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env
+              </div>
+            )}
+
             <button
               className={styles.primaryButton}
               onClick={handleCreateGame}
-              disabled={isPending || isConfirming}
+              disabled={isPending || isConfirming || CONTRACT_NOT_SET}
             >
               {isPending && action === "create"
                 ? "Confirm in wallet..."
@@ -248,17 +222,14 @@ export default function Home() {
               <button
                 className={styles.secondaryButton}
                 onClick={() => handleJoinGame()}
-                disabled={isPending || isConfirming || !joinGameId}
+                disabled={isPending || isConfirming || !joinGameId || CONTRACT_NOT_SET}
               >
-                {isPending && action === "join"
-                  ? "Joining..."
-                  : "Join"}
+                {isPending && action === "join" ? "Joining..." : "Join"}
               </button>
             </div>
 
             {error && <p className={styles.error}>{error}</p>}
 
-            {/* Available games */}
             {availableGames.length > 0 && (
               <div className={styles.gameList}>
                 <h3 className={styles.gameListTitle}>

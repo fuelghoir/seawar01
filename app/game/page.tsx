@@ -13,7 +13,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { base } from "wagmi/chains";
 import { keccak256, toHex, concatHex } from "viem";
 import sdk from "@farcaster/miniapp-sdk";
-import { useMiniApp } from "../providers/MiniAppProvider";
 import {
   seaBattleAbi,
   SEABATTLE_CONTRACT_ADDRESS,
@@ -66,10 +65,9 @@ function GameContent() {
   const gameId = BigInt(gameIdStr);
 
   const { address, isConnected } = useAccount();
-  const { connectAsync, connectors } = useConnect();
-  const { isReady } = useMiniApp();
+  const { connect, connectors } = useConnect();
   const queryClient = useQueryClient();
-  const connectAttempted = useRef(false);
+  const autoConnected = useRef(false);
 
   const [selectedCell, setSelectedCell] = useState<{
     x: number;
@@ -79,22 +77,12 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect once on load
+  // Auto-connect once
   useEffect(() => {
-    if (isConnected || !isReady || connectAttempted.current) return;
-    connectAttempted.current = true;
-    (async () => {
-      for (const connector of connectors) {
-        try {
-          await connectAsync({ connector });
-          break;
-        } catch {
-          // try next
-        }
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady]);
+    if (isConnected || autoConnected.current || connectors.length === 0) return;
+    autoConnected.current = true;
+    connect({ connector: connectors[0] });
+  }, [isConnected, connectors, connect]);
 
   // --- contract reads ---
 

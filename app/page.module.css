@@ -264,3 +264,15 @@
   text-align: center;
   margin-top: 8px;
 }
+
+.contractWarning {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(247, 217, 84, 0.1);
+  border: 1px solid rgba(247, 217, 84, 0.3);
+  border-radius: 10px;
+  color: #f7d954;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.5;
+}
