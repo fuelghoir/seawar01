@@ -10,7 +10,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { baseSepolia } from "wagmi/chains";
+import { base } from "wagmi/chains";
 import { decodeEventLog } from "viem";
 import {
   seaBattleAbi,
@@ -44,12 +44,18 @@ export default function Home() {
     if (isReady) authenticate();
   }, [isReady]);
 
-  // Auto-connect wallet
+  // Auto-connect wallet when inside Farcaster
   useEffect(() => {
-    if (!isConnected && connectors.length > 0) {
+    if (!isConnected && isReady && connectors.length > 0) {
       connect({ connector: connectors[0] });
     }
-  }, [isConnected, connectors, connect]);
+  }, [isConnected, isReady, connectors, connect]);
+
+  const handleConnect = () => {
+    if (connectors.length > 0) {
+      connect({ connector: connectors[0] });
+    }
+  };
 
   // Contract write
   const {
@@ -93,7 +99,7 @@ export default function Home() {
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
       functionName: "createGame",
-      chainId: baseSepolia.id,
+      chainId: base.id,
     });
   };
 
@@ -109,7 +115,7 @@ export default function Home() {
       abi: seaBattleAbi,
       functionName: "joinGame",
       args: [BigInt(joinGameId)],
-      chainId: baseSepolia.id,
+      chainId: base.id,
     });
   };
 
@@ -140,10 +146,15 @@ export default function Home() {
 
         {!isConnected ? (
           <div className={styles.connectSection}>
-            <p className={styles.connectText}>Connect your wallet to play</p>
+            <p className={styles.connectText}>
+              {isReady
+                ? "Connecting wallet..."
+                : "Open this app in Farcaster to connect"}
+            </p>
             <button
               className={styles.primaryButton}
-              onClick={() => connectors[0] && connect({ connector: connectors[0] })}
+              onClick={handleConnect}
+              disabled={connectors.length === 0}
             >
               Connect Wallet
             </button>
@@ -205,7 +216,7 @@ export default function Home() {
               {address.slice(0, 6)}...{address.slice(-4)}
             </span>
           )}
-          <span className={styles.network}>Base Sepolia</span>
+          <span className={styles.network}>Base</span>
         </div>
       </div>
     </div>

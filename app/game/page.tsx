@@ -10,7 +10,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { baseSepolia } from "wagmi/chains";
+import { base } from "wagmi/chains";
 import { keccak256, toHex, concatHex } from "viem";
 import sdk from "@farcaster/miniapp-sdk";
 import { useMiniApp } from "../providers/MiniAppProvider";
@@ -67,7 +67,7 @@ function GameContent() {
 
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
-  const { context: _context } = useMiniApp();
+  const { isReady } = useMiniApp();
   const queryClient = useQueryClient();
 
   const [selectedCell, setSelectedCell] = useState<{
@@ -78,12 +78,12 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect
+  // Auto-connect when inside Farcaster
   useEffect(() => {
-    if (!isConnected && connectors.length > 0) {
+    if (!isConnected && isReady && connectors.length > 0) {
       connect({ connector: connectors[0] });
     }
-  }, [isConnected, connectors, connect]);
+  }, [isConnected, isReady, connectors, connect]);
 
   // --- contract reads ---
 
@@ -209,7 +209,7 @@ function GameContent() {
         abi: seaBattleAbi,
         functionName: "commitBoard",
         args: [gameId, boardHash],
-        chainId: baseSepolia.id,
+        chainId: base.id,
       });
     },
     [gameId, gameIdStr, writeContract]
@@ -223,7 +223,7 @@ function GameContent() {
       abi: seaBattleAbi,
       functionName: "shoot",
       args: [gameId, selectedCell.x, selectedCell.y],
-      chainId: baseSepolia.id,
+      chainId: base.id,
     });
   }, [gameId, selectedCell, writeContract]);
 
@@ -237,7 +237,7 @@ function GameContent() {
       abi: seaBattleAbi,
       functionName: "reportHit",
       args: [gameId, lastShotX, lastShotY, isHit],
-      chainId: baseSepolia.id,
+      chainId: base.id,
     });
   }, [gameId, lastShotX, lastShotY, localData, writeContract]);
 
@@ -254,7 +254,7 @@ function GameContent() {
         boardArr as unknown as readonly number[],
         localData.salt as `0x${string}`,
       ],
-      chainId: baseSepolia.id,
+      chainId: base.id,
     });
   }, [gameId, localData, writeContract]);
 
