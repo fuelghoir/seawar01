@@ -1,0 +1,74 @@
+.cell {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  cursor: default;
+  user-select: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover {
+  transform: scale(1.1);
+  filter: brightness(1.3);
+}
+
+.empty {
+  background: #0d2137;
+  border: 1px solid #1a3a5c;
+}
+
+.ship {
+  background: #4a6a8a;
+  border: 1px solid #6a8aaa;
+}
+
+.hit {
+  background: #cc2222;
+  border: 1px solid #ff4444;
+  animation: hitPulse 0.3s ease;
+}
+
+.miss {
+  background: #1a3a5c;
+  border: 1px solid #2a4a6c;
+}
+
+.pending {
+  background: #0d2137;
+  border: 1px solid #00D4FF;
+  animation: pendingPulse 1s ease-in-out infinite;
+}
+
+.preview {
+  background: rgba(0, 212, 255, 0.3);
+  border: 1px solid #00D4FF;
+}
+
+.preview-invalid {
+  background: rgba(255, 68, 68, 0.3);
+  border: 1px solid #ff4444;
+}
+
+.marker {
+  color: #fff;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes hitPulse {
+  0% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pendingPulse {
+  0%, 100% { border-color: #00D4FF; box-shadow: 0 0 4px rgba(0, 212, 255, 0.3); }
+  50% { border-color: #00a0cc; box-shadow: 0 0 12px rgba(0, 212, 255, 0.6); }
+}

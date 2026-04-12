@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Source_Code_Pro } from "next/font/google";
+import { Inter } from "next/font/google";
 import { SafeArea } from "./components/SafeArea";
 import { farcasterConfig } from "../farcaster.config";
 import { Providers } from "./providers";
@@ -14,9 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
         version: farcasterConfig.miniapp.version,
         imageUrl: farcasterConfig.miniapp.heroImageUrl,
         button: {
-          title: `Join the ${farcasterConfig.miniapp.name} Waitlist`,
+          title: "Play Sea Battle",
           action: {
-            name: `Launch ${farcasterConfig.miniapp.name}`,
+            name: "Launch Sea Battle",
             type: "launch_frame",
           },
         },
@@ -30,11 +30,6 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const sourceCodePro = Source_Code_Pro({
-  variable: "--font-source-code-pro",
-  subsets: ["latin"],
-});
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -43,7 +38,7 @@ export default function RootLayout({
   return (
     <Providers>
       <html lang="en">
-        <body className={`${inter.variable} ${sourceCodePro.variable}`}>
+        <body className={inter.variable}>
           <SafeArea>{children}</SafeArea>
         </body>
       </html>

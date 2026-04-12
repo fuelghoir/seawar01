@@ -1,0 +1,121 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #00D4FF;
+  text-align: center;
+}
+
+.shipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 360px;
+}
+
+.shipButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(10, 22, 40, 0.8);
+  border: 1px solid #1a3a5c;
+  border-radius: 8px;
+  color: #8ab4d4;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shipButton:hover {
+  border-color: #00D4FF;
+}
+
+.shipButton.selected {
+  border-color: #00D4FF;
+  background: rgba(0, 212, 255, 0.1);
+  color: #00D4FF;
+}
+
+.shipBlocks {
+  display: flex;
+  gap: 2px;
+}
+
+.shipBlock {
+  width: 12px;
+  height: 12px;
+  background: #4a6a8a;
+  border-radius: 2px;
+}
+
+.selected .shipBlock {
+  background: #00D4FF;
+}
+
+.shipName {
+  font-weight: 600;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.controlButton {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(10, 22, 40, 0.8);
+  border: 1px solid #1a3a5c;
+  border-radius: 8px;
+  color: #8ab4d4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.controlButton:hover:not(:disabled) {
+  border-color: #00D4FF;
+  color: #00D4FF;
+}
+
+.controlButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.confirmButton {
+  width: 100%;
+  max-width: 360px;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #00D4FF, #0099cc);
+  color: #0A1628;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+}
+
+.confirmButton:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 212, 255, 0.4);
+}
+
+.confirmButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

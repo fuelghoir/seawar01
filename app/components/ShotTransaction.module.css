@@ -1,0 +1,41 @@
+.button {
+  width: 100%;
+  max-width: 360px;
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.fireButton {
+  background: linear-gradient(135deg, #00D4FF, #0099cc);
+  color: #0A1628;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+}
+
+.fireButton:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 212, 255, 0.4);
+}
+
+.reportButton {
+  background: linear-gradient(135deg, #ff9944, #cc7733);
+  color: #0A1628;
+  box-shadow: 0 4px 20px rgba(255, 153, 68, 0.3);
+}
+
+.reportButton:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 153, 68, 0.4);
+}
