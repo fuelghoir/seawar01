@@ -78,7 +78,7 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect when inside Farcaster
+  // Auto-connect wallet once providers are ready
   useEffect(() => {
     if (!isConnected && isReady && connectors.length > 0) {
       connect({ connector: connectors[0] });

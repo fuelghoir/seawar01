@@ -6,6 +6,7 @@ import sdk from '@farcaster/miniapp-sdk';
 interface MiniAppContextValue {
   context: Awaited<typeof sdk.context> | null;
   isReady: boolean;
+  isInMiniApp: boolean;
 }
 
 export const MiniAppContext = createContext<MiniAppContextValue | null>(null);
@@ -21,14 +22,21 @@ export function useMiniApp() {
 export function MiniAppProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [isInMiniApp, setIsInMiniApp] = useState(false);
 
   useEffect(() => {
     const init = async () => {
-      const isInApp = await sdk.isInMiniApp();
-      if (isInApp) {
-        const ctx = await sdk.context;
-        setContext(ctx);
-        await sdk.actions.ready();
+      try {
+        const inApp = await sdk.isInMiniApp();
+        setIsInMiniApp(inApp);
+        if (inApp) {
+          const ctx = await sdk.context;
+          setContext(ctx);
+          await sdk.actions.ready();
+        }
+      } catch {
+        // Not in a mini app environment
+      } finally {
         setIsReady(true);
       }
     };
@@ -36,7 +44,7 @@ export function MiniAppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <MiniAppContext.Provider value={{ context, isReady }}>
+    <MiniAppContext.Provider value={{ context, isReady, isInMiniApp }}>
       {children}
     </MiniAppContext.Provider>
   );

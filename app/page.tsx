@@ -19,7 +19,7 @@ import {
 import styles from "./page.module.css";
 
 export default function Home() {
-  const { context, isReady } = useMiniApp();
+  const { context, isReady, isInMiniApp } = useMiniApp();
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
@@ -28,41 +28,30 @@ export default function Home() {
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
 
-  // Auth
-  const [_isAuthLoading, setIsAuthLoading] = useState(true);
-
+  // Auth (only in mini app context)
   useEffect(() => {
     const authenticate = async () => {
       try {
         await sdk.quickAuth.fetch("/api/auth");
       } catch {
         // Auth optional for lobby
-      } finally {
-        setIsAuthLoading(false);
       }
     };
-    if (isReady) authenticate();
-  }, [isReady]);
+    if (isReady && isInMiniApp) authenticate();
+  }, [isReady, isInMiniApp]);
 
-  // Auto-connect wallet when inside Farcaster
+  // Auto-connect wallet once providers are ready
   useEffect(() => {
     if (!isConnected && isReady && connectors.length > 0) {
       connect({ connector: connectors[0] });
     }
   }, [isConnected, isReady, connectors, connect]);
 
-  const handleConnect = () => {
-    if (connectors.length > 0) {
-      connect({ connector: connectors[0] });
-    }
-  };
-
   // Contract write
   const {
     data: txHash,
     isPending,
     writeContract,
-    reset: _reset,
   } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } =
     useWaitForTransactionReceipt({ hash: txHash });
@@ -128,7 +117,13 @@ export default function Home() {
         embeds: [process.env.NEXT_PUBLIC_URL || ""],
       });
     } catch {
-      // user cancelled
+      // user cancelled or not in mini app
+    }
+  };
+
+  const handleConnect = () => {
+    if (connectors.length > 0) {
+      connect({ connector: connectors[0] });
     }
   };
 
@@ -146,15 +141,10 @@ export default function Home() {
 
         {!isConnected ? (
           <div className={styles.connectSection}>
-            <p className={styles.connectText}>
-              {isReady
-                ? "Connecting wallet..."
-                : "Open this app in Farcaster to connect"}
-            </p>
+            <p className={styles.connectText}>Connect your wallet to play</p>
             <button
               className={styles.primaryButton}
               onClick={handleConnect}
-              disabled={connectors.length === 0}
             >
               Connect Wallet
             </button>
