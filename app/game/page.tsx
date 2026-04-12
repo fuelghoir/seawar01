@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   useAccount,
@@ -69,6 +69,7 @@ function GameContent() {
   const { connectAsync, connectors } = useConnect();
   const { isReady } = useMiniApp();
   const queryClient = useQueryClient();
+  const connectAttempted = useRef(false);
 
   const [selectedCell, setSelectedCell] = useState<{
     x: number;
@@ -78,10 +79,11 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect: try each connector until one works
+  // Auto-connect once on load
   useEffect(() => {
-    if (isConnected || !isReady || connectors.length === 0) return;
-    const tryConnect = async () => {
+    if (isConnected || !isReady || connectAttempted.current) return;
+    connectAttempted.current = true;
+    (async () => {
       for (const connector of connectors) {
         try {
           await connectAsync({ connector });
@@ -90,9 +92,9 @@ function GameContent() {
           // try next
         }
       }
-    };
-    tryConnect();
-  }, [isConnected, isReady, connectors, connectAsync]);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady]);
 
   // --- contract reads ---
 

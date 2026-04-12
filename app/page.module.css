@@ -10,10 +10,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   flex: 1;
   padding: 2rem 1.5rem;
-  gap: 2rem;
+  gap: 1.5rem;
+  overflow-y: auto;
 }
 
 .header {
@@ -44,7 +44,7 @@
   align-items: center;
   gap: 1rem;
   width: 100%;
-  max-width: 320px;
+  max-width: 360px;
 }
 
 .primaryButton {
@@ -138,28 +138,11 @@
   cursor: not-allowed;
 }
 
-.shareButton {
-  padding: 10px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  background: none;
-  border: 1px solid #1a3a5c;
-  border-radius: 10px;
-  color: #8ab4d4;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 8px;
-}
-
-.shareButton:hover {
-  border-color: #8ab4d4;
-  color: #fff;
-}
-
 .error {
   color: #ff6b6b;
   font-size: 13px;
   text-align: center;
+  word-break: break-word;
 }
 
 .connectSection {
@@ -200,4 +183,84 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* Game list */
+.gameList {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gameListTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8ab4d4;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.gameItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(13, 33, 55, 0.6);
+  border: 1px solid #1a3a5c;
+  border-radius: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.gameItem:hover {
+  border-color: #2a5a7c;
+}
+
+.gameItemInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gameItemId {
+  font-size: 15px;
+  font-weight: 700;
+  color: #00D4FF;
+  font-variant-numeric: tabular-nums;
+}
+
+.gameItemPlayer {
+  font-size: 12px;
+  color: #4a6a8a;
+  font-family: monospace;
+}
+
+.gameItemJoin {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(0, 212, 255, 0.15);
+  border: 1px solid #00D4FF;
+  border-radius: 8px;
+  color: #00D4FF;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gameItemJoin:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.3);
+}
+
+.gameItemJoin:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.noGames {
+  color: #4a6a8a;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 8px;
 }
