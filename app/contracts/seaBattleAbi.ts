@@ -73,6 +73,14 @@ export const seaBattleAbi = [
       { type: "uint8", name: "state" },
       { type: "uint8", name: "turnPhase" },
       { type: "address", name: "winner" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getGameExtra",
+    inputs: [{ type: "uint256", name: "gameId" }],
+    outputs: [
       { type: "bool", name: "player1BoardCommitted" },
       { type: "bool", name: "player2BoardCommitted" },
       { type: "uint8", name: "lastShotX" },

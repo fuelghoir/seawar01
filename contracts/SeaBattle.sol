@@ -156,12 +156,7 @@ contract SeaBattle {
         uint8 player2Hits,
         uint8 state,
         uint8 turnPhase,
-        address winner,
-        bool player1BoardCommitted,
-        bool player2BoardCommitted,
-        uint8 lastShotX,
-        uint8 lastShotY,
-        address lastShooter
+        address winner
     ) {
         Game storage g = games[gameId];
         return (
@@ -172,7 +167,19 @@ contract SeaBattle {
             g.player2Hits,
             uint8(g.state),
             uint8(g.turnPhase),
-            g.winner,
+            g.winner
+        );
+    }
+
+    function getGameExtra(uint256 gameId) external view returns (
+        bool player1BoardCommitted,
+        bool player2BoardCommitted,
+        uint8 lastShotX,
+        uint8 lastShotY,
+        address lastShooter
+    ) {
+        Game storage g = games[gameId];
+        return (
             g.player1BoardHash != bytes32(0),
             g.player2BoardHash != bytes32(0),
             g.lastShotX,

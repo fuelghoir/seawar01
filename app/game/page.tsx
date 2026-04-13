@@ -94,6 +94,14 @@ function GameContent() {
     query: { refetchInterval: 5000 },
   });
 
+  const { data: gameExtra } = useReadContract({
+    address: SEABATTLE_CONTRACT_ADDRESS,
+    abi: seaBattleAbi,
+    functionName: "getGameExtra",
+    args: [gameId],
+    query: { refetchInterval: 5000 },
+  });
+
   const playerNum =
     address && gameData
       ? address.toLowerCase() === (gameData[0] as string).toLowerCase()
@@ -167,18 +175,18 @@ function GameContent() {
     : 0;
   const winner = gameData ? (gameData[7] as string) : ZERO_ADDR;
   const isMyTurn = currentTurn === playerNum;
-  const lastShotX = gameData ? Number(gameData[10]) : 0;
-  const lastShotY = gameData ? Number(gameData[11]) : 0;
-  const lastShooter = gameData ? (gameData[12] as string) : ZERO_ADDR;
-  const myBoardCommitted = gameData
+  const lastShotX = gameExtra ? Number(gameExtra[2]) : 0;
+  const lastShotY = gameExtra ? Number(gameExtra[3]) : 0;
+  const lastShooter = gameExtra ? (gameExtra[4] as string) : ZERO_ADDR;
+  const myBoardCommitted = gameExtra
     ? playerNum === 1
-      ? gameData[8]
-      : gameData[9]
+      ? gameExtra[0]
+      : gameExtra[1]
     : false;
-  const opponentBoardCommitted = gameData
+  const opponentBoardCommitted = gameExtra
     ? playerNum === 1
-      ? gameData[9]
-      : gameData[8]
+      ? gameExtra[1]
+      : gameExtra[0]
     : false;
 
   // Need to report: game active, waiting report, I'm the opponent of lastShooter
