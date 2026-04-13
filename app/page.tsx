@@ -10,6 +10,7 @@ import {
   useReadContracts,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useSwitchChain,
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { decodeEventLog } from "viem";
@@ -28,6 +29,8 @@ export default function Home() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  const { switchChain } = useSwitchChain();
+  const { chainId } = useAccount();
 
   const [joinGameId, setJoinGameId] = useState("");
   const [error, setError] = useState("");
@@ -40,6 +43,13 @@ export default function Home() {
     autoConnected.current = true;
     connect({ connector: connectors[0] });
   }, [isConnected, connectors, connect]);
+
+  // Auto-switch to Base if connected to wrong chain
+  useEffect(() => {
+    if (isConnected && chainId && chainId !== base.id) {
+      switchChain({ chainId: base.id });
+    }
+  }, [isConnected, chainId, switchChain]);
 
   // Contract write
   const {

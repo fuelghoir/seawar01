@@ -8,6 +8,7 @@ import {
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useSwitchChain,
 } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { base } from "wagmi/chains";
@@ -64,8 +65,9 @@ function GameContent() {
   const gameIdStr = searchParams.get("id") || "0";
   const gameId = BigInt(gameIdStr);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { connect, connectors } = useConnect();
+  const { switchChain } = useSwitchChain();
   const queryClient = useQueryClient();
   const autoConnected = useRef(false);
 
@@ -83,6 +85,13 @@ function GameContent() {
     autoConnected.current = true;
     connect({ connector: connectors[0] });
   }, [isConnected, connectors, connect]);
+
+  // Auto-switch to Base if connected to wrong chain
+  useEffect(() => {
+    if (isConnected && chainId && chainId !== base.id) {
+      switchChain({ chainId: base.id });
+    }
+  }, [isConnected, chainId, switchChain]);
 
   // --- contract reads ---
 
