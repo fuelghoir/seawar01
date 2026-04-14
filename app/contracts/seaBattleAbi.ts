@@ -51,17 +51,6 @@ export const seaBattleAbi = [
   },
   {
     type: "function",
-    name: "revealBoard",
-    inputs: [
-      { type: "uint256", name: "gameId" },
-      { type: "uint8[100]", name: "boardLayout" },
-      { type: "bytes32", name: "salt" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "getGame",
     inputs: [{ type: "uint256", name: "gameId" }],
     outputs: [

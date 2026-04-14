@@ -129,23 +129,11 @@ contract SeaBattle {
             emit GameFinished(gameId, g.player2);
         }
 
-        g.currentTurn = g.currentTurn == 1 ? uint8(2) : uint8(1);
-        g.turnPhase = TurnPhase.Shooting;
-    }
-
-    function revealBoard(uint256 gameId, uint8[100] calldata boardLayout, bytes32 salt) external {
-        Game storage g = games[gameId];
-        require(g.state == GameState.Finished, "Game not finished");
-
-        bytes32 computedHash = keccak256(abi.encodePacked(boardLayout, salt));
-
-        if (msg.sender == g.player1) {
-            require(computedHash == g.player1BoardHash, "Board hash mismatch");
-        } else if (msg.sender == g.player2) {
-            require(computedHash == g.player2BoardHash, "Board hash mismatch");
-        } else {
-            revert("Not a player");
+        // If hit, shooter keeps the turn; if miss, turn switches
+        if (!isHit) {
+            g.currentTurn = g.currentTurn == 1 ? uint8(2) : uint8(1);
         }
+        g.turnPhase = TurnPhase.Shooting;
     }
 
     function getGame(uint256 gameId) external view returns (

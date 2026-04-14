@@ -163,10 +163,10 @@ export async function reportHitOffchain(
     .eq("x", x)
     .eq("y", y);
 
-  // Update game state
+  // Update game state: if hit, shooter keeps the turn; if miss, turn switches
   const updates: Record<string, unknown> = {
     turn_phase: 0,
-    current_turn: game.current_turn === 1 ? 2 : 1,
+    current_turn: isHit ? game.current_turn : (game.current_turn === 1 ? 2 : 1),
   };
 
   if (isHit) {

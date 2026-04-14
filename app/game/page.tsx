@@ -243,19 +243,6 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     });
   }, [gameId, selectedCell, writeContract]);
 
-  const handleReveal = useCallback(() => {
-    if (!localData) return;
-    setCurrentAction("reveal");
-    const boardArr = localData.board.map((v: number) => v) as number[];
-    writeContract({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "revealBoard",
-      args: [gameId, boardArr as unknown as readonly number[], localData.salt as `0x${string}`],
-      chainId: base.id,
-    });
-  }, [gameId, localData, writeContract]);
-
   const handleShareResult = async () => {
     const didWin = winner.toLowerCase() === address?.toLowerCase();
     try {
@@ -395,12 +382,6 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
               <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
               <Board cells={enemyBoardCells} isInteractive={false} label="Enemy Board" />
             </div>
-            {localData && (
-              <button className={styles.revealButton} onClick={handleReveal} disabled={isPending || isConfirming}>
-                {isPending && currentAction === "reveal" ? "Confirm in wallet..." :
-                  isConfirming && currentAction === "reveal" ? "Revealing..." : "Reveal Board"}
-              </button>
-            )}
             <div className={styles.resultActions}>
               <button className={styles.shareBtn} onClick={handleShareResult}>Share Result</button>
               <button className={styles.backButton} onClick={() => router.push("/")}>New Game</button>
