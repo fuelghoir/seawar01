@@ -314,11 +314,12 @@ function GameContent() {
   }
 
   // Overlay opponent shots on my board
+  // Contract getBoardState: shots[x*10+y] = playerShots[gameId][playerNum][x][y]
   if (opponentBoardData) {
     const [oppShots, oppHits] = opponentBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
-      const x = i % 10;
-      const y = Math.floor(i / 10);
+      const x = Math.floor(i / 10);
+      const y = i % 10;
       if (oppShots[i]) {
         myBoardCells[y][x] = oppHits[i] ? "hit" : "miss";
       }
@@ -333,8 +334,8 @@ function GameContent() {
   if (myBoardData) {
     const [myShots, myHitsData] = myBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
-      const x = i % 10;
-      const y = Math.floor(i / 10);
+      const x = Math.floor(i / 10);
+      const y = i % 10;
       if (myShots[i]) {
         enemyBoardCells[y][x] = myHitsData[i] ? "hit" : "miss";
       }
