@@ -208,6 +208,51 @@
   letter-spacing: 0.5px;
 }
 
+/* Mode selector */
+.modeSelector {
+  display: flex;
+  background: rgba(13, 33, 55, 0.6);
+  border: 1px solid #1a3a5c;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.modeButton {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: #4a6a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.modeButton:hover {
+  color: #8ab4d4;
+}
+
+.modeActive {
+  background: linear-gradient(135deg, #00D4FF, #0088cc);
+  color: #0A1628;
+  box-shadow: 0 2px 12px rgba(0, 212, 255, 0.25);
+}
+
+.networkFree {
+  font-size: 11px;
+  color: #00D4FF;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Private toggle */
 .privateToggle {
   display: flex;

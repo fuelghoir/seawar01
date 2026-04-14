@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import { useRouter } from "next/navigation";
 import {
@@ -18,11 +18,18 @@ import {
   seaBattleAbi,
   SEABATTLE_CONTRACT_ADDRESS,
 } from "./contracts/seaBattleAbi";
+import {
+  createOffchainGame,
+  joinOffchainGame,
+  getAvailableGames,
+} from "./lib/offchainGame";
 import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const MAX_GAMES_TO_LOAD = 20;
 const CONTRACT_NOT_SET = SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR;
+
+type GameMode = "onchain" | "offchain";
 
 export default function Home() {
   const { context } = useMiniApp();
@@ -36,23 +43,26 @@ export default function Home() {
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [mode, setMode] = useState<GameMode>("offchain");
+  const [offchainLoading, setOffchainLoading] = useState(false);
+  const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string }[]>([]);
   const autoConnected = useRef(false);
 
-  // Auto-connect once: try injected first (Base app), then baseAccount
+  // Auto-connect
   useEffect(() => {
     if (isConnected || autoConnected.current || connectors.length === 0) return;
     autoConnected.current = true;
     connect({ connector: connectors[0] });
   }, [isConnected, connectors, connect]);
 
-  // Auto-switch to Base if connected to wrong chain
+  // Auto-switch chain (onchain mode)
   useEffect(() => {
-    if (isConnected && chainId && chainId !== base.id) {
+    if (isConnected && chainId && chainId !== base.id && mode === "onchain") {
       switchChain({ chainId: base.id });
     }
-  }, [isConnected, chainId, switchChain]);
+  }, [isConnected, chainId, switchChain, mode]);
 
-  // Contract write
+  // --- ONCHAIN logic ---
   const {
     data: txHash,
     isPending,
@@ -62,19 +72,16 @@ export default function Home() {
   const { isLoading: isConfirming, isSuccess, data: receipt } =
     useWaitForTransactionReceipt({ hash: txHash });
 
-  // Show write errors
   useEffect(() => {
     if (writeError) {
       const msg = writeError.message || "Transaction failed";
-      // Extract short reason from error
       const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/);
       setError(reasonMatch ? reasonMatch[1] : msg.slice(0, 150));
     }
   }, [writeError]);
 
-  // After create game tx, navigate
   useEffect(() => {
-    if (isSuccess && receipt && action === "create") {
+    if (isSuccess && receipt && action === "create" && mode === "onchain") {
       for (const log of receipt.logs) {
         try {
           const decoded = decodeEventLog({
@@ -84,28 +91,25 @@ export default function Home() {
           });
           if (decoded.eventName === "GameCreated") {
             const gameId = (decoded.args as { gameId: bigint }).gameId;
-            // Mark as private in localStorage if checkbox was checked
             if (isPrivate) {
-              const privateGames = JSON.parse(localStorage.getItem("seabattle_private_games") || "[]");
-              privateGames.push(gameId.toString());
-              localStorage.setItem("seabattle_private_games", JSON.stringify(privateGames));
+              const pGames = JSON.parse(localStorage.getItem("seabattle_private_games") || "[]");
+              pGames.push(gameId.toString());
+              localStorage.setItem("seabattle_private_games", JSON.stringify(pGames));
             }
-            router.push(`/game?id=${gameId.toString()}`);
+            router.push(`/game?id=${gameId.toString()}&mode=onchain`);
             return;
           }
-        } catch {
-          // not our event
-        }
+        } catch { /* not our event */ }
       }
     }
-    if (isSuccess && action === "join") {
-      router.push(`/game?id=${joinGameId}`);
+    if (isSuccess && action === "join" && mode === "onchain") {
+      router.push(`/game?id=${joinGameId}&mode=onchain`);
     }
-  }, [isSuccess, receipt, action, joinGameId, router, isPrivate]);
+  }, [isSuccess, receipt, action, joinGameId, router, isPrivate, mode]);
 
-  const handleCreateGame = () => {
+  const handleCreateOnchain = () => {
     if (CONTRACT_NOT_SET) {
-      setError("Contract not deployed. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env");
+      setError("Contract not deployed");
       return;
     }
     setError("");
@@ -118,17 +122,11 @@ export default function Home() {
     });
   };
 
-  const handleJoinGame = (id?: string) => {
+  const handleJoinOnchain = (id?: string) => {
     const gid = id || joinGameId;
-    if (CONTRACT_NOT_SET) {
-      setError("Contract not deployed. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env");
-      return;
-    }
+    if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
+    if (!gid || isNaN(Number(gid))) { setError("Enter a valid game ID"); return; }
     setError("");
-    if (!gid || isNaN(Number(gid))) {
-      setError("Enter a valid game ID");
-      return;
-    }
     setAction("join");
     setJoinGameId(gid);
     writeContract({
@@ -140,12 +138,12 @@ export default function Home() {
     });
   };
 
-  // --- Available games list ---
+  // Onchain games list
   const { data: nextGameId } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
     abi: seaBattleAbi,
     functionName: "nextGameId",
-    query: { refetchInterval: 8000, enabled: !CONTRACT_NOT_SET },
+    query: { refetchInterval: 8000, enabled: !CONTRACT_NOT_SET && mode === "onchain" },
   });
 
   const totalGames = nextGameId ? Number(nextGameId) : 0;
@@ -160,15 +158,14 @@ export default function Home() {
 
   const { data: gamesRaw } = useReadContracts({
     contracts: gameContracts,
-    query: { enabled: loadCount > 0, refetchInterval: 8000 },
+    query: { enabled: loadCount > 0 && mode === "onchain", refetchInterval: 8000 },
   });
 
-  // Load private game IDs from localStorage
   const privateGameIds = typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("seabattle_private_games") || "[]") as string[]
     : [];
 
-  const availableGames: { id: number; player1: string }[] = [];
+  const onchainGames: { id: number; player1: string }[] = [];
   if (gamesRaw) {
     for (let i = 0; i < gamesRaw.length; i++) {
       const result = gamesRaw[i];
@@ -178,15 +175,63 @@ export default function Home() {
       const player1 = data[0] as string;
       const gid = totalGames - 1 - i;
       if (
-        state === 0 &&
-        player1 !== ZERO_ADDR &&
+        state === 0 && player1 !== ZERO_ADDR &&
         player1.toLowerCase() !== address?.toLowerCase() &&
         !privateGameIds.includes(gid.toString())
       ) {
-        availableGames.push({ id: gid, player1 });
+        onchainGames.push({ id: gid, player1 });
       }
     }
   }
+
+  // --- OFFCHAIN logic ---
+  const loadOffchainGames = useCallback(async () => {
+    const games = await getAvailableGames(address);
+    setOffchainGames(games);
+  }, [address]);
+
+  useEffect(() => {
+    if (mode !== "offchain") return;
+    loadOffchainGames();
+    const interval = setInterval(loadOffchainGames, 5000);
+    return () => clearInterval(interval);
+  }, [mode, loadOffchainGames]);
+
+  const handleCreateOffchain = async () => {
+    if (!address) return;
+    setError("");
+    setOffchainLoading(true);
+    try {
+      const gameId = await createOffchainGame(address, isPrivate);
+      router.push(`/game?id=${gameId}&mode=offchain`);
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    } finally {
+      setOffchainLoading(false);
+    }
+  };
+
+  const handleJoinOffchain = async (id?: string) => {
+    const gid = id || joinGameId;
+    if (!address) return;
+    if (!gid || isNaN(Number(gid))) { setError("Enter a valid game ID"); return; }
+    setError("");
+    setOffchainLoading(true);
+    try {
+      await joinOffchainGame(Number(gid), address);
+      router.push(`/game?id=${gid}&mode=offchain`);
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    } finally {
+      setOffchainLoading(false);
+    }
+  };
+
+  // --- Unified handlers ---
+  const handleCreate = mode === "onchain" ? handleCreateOnchain : handleCreateOffchain;
+  const handleJoin = mode === "onchain" ? handleJoinOnchain : handleJoinOffchain;
+  const loading = mode === "onchain" ? (isPending || isConfirming) : offchainLoading;
+  const games = mode === "onchain" ? onchainGames : offchainGames;
 
   const displayName = context?.user?.displayName || "Captain";
 
@@ -196,9 +241,30 @@ export default function Home() {
         <div className={styles.header}>
           <h1 className={styles.title}>SEA BATTLE</h1>
           <p className={styles.subtitle}>
-            Ahoy, {displayName}! Every shot is an onchain transaction.
+            Ahoy, {displayName}!{" "}
+            {mode === "onchain"
+              ? "Every shot is an onchain transaction."
+              : "Free to play, no gas fees."}
           </p>
         </div>
+
+        {/* Mode selector */}
+        {isConnected && (
+          <div className={styles.modeSelector}>
+            <button
+              className={`${styles.modeButton} ${mode === "offchain" ? styles.modeActive : ""}`}
+              onClick={() => { setMode("offchain"); setError(""); }}
+            >
+              Free Play
+            </button>
+            <button
+              className={`${styles.modeButton} ${mode === "onchain" ? styles.modeActive : ""}`}
+              onClick={() => { setMode("onchain"); setError(""); }}
+            >
+              Onchain
+            </button>
+          </div>
+        )}
 
         {!isConnected ? (
           <div className={styles.connectSection}>
@@ -212,7 +278,7 @@ export default function Home() {
           </div>
         ) : (
           <div className={styles.actions}>
-            {CONTRACT_NOT_SET && (
+            {mode === "onchain" && CONTRACT_NOT_SET && (
               <div className={styles.contractWarning}>
                 Contract not deployed yet. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env
               </div>
@@ -220,14 +286,12 @@ export default function Home() {
 
             <button
               className={styles.primaryButton}
-              onClick={handleCreateGame}
-              disabled={isPending || isConfirming || CONTRACT_NOT_SET}
+              onClick={handleCreate}
+              disabled={loading || (mode === "onchain" && CONTRACT_NOT_SET)}
             >
-              {isPending && action === "create"
-                ? "Confirm in wallet..."
-                : isConfirming && action === "create"
-                  ? "Creating game..."
-                  : "Create Game"}
+              {loading && action === "create"
+                ? mode === "onchain" ? "Confirm in wallet..." : "Creating..."
+                : "Create Game"}
             </button>
 
             <label className={styles.privateToggle}>
@@ -254,21 +318,21 @@ export default function Home() {
               />
               <button
                 className={styles.secondaryButton}
-                onClick={() => handleJoinGame()}
-                disabled={isPending || isConfirming || !joinGameId || CONTRACT_NOT_SET}
+                onClick={() => handleJoin()}
+                disabled={loading || !joinGameId || (mode === "onchain" && CONTRACT_NOT_SET)}
               >
-                {isPending && action === "join" ? "Joining..." : "Join"}
+                {loading && action === "join" ? "Joining..." : "Join"}
               </button>
             </div>
 
             {error && <p className={styles.error}>{error}</p>}
 
-            {availableGames.length > 0 && (
+            {games.length > 0 && (
               <div className={styles.gameList}>
                 <h3 className={styles.gameListTitle}>
-                  Open Games ({availableGames.length})
+                  Open Games ({games.length})
                 </h3>
-                {availableGames.map((g) => (
+                {games.map((g) => (
                   <div key={g.id} className={styles.gameItem}>
                     <div className={styles.gameItemInfo}>
                       <span className={styles.gameItemId}>#{g.id}</span>
@@ -278,8 +342,8 @@ export default function Home() {
                     </div>
                     <button
                       className={styles.gameItemJoin}
-                      onClick={() => handleJoinGame(g.id.toString())}
-                      disabled={isPending || isConfirming}
+                      onClick={() => handleJoin(g.id.toString())}
+                      disabled={loading}
                     >
                       Join
                     </button>
@@ -288,7 +352,7 @@ export default function Home() {
               </div>
             )}
 
-            {isConnected && availableGames.length === 0 && totalGames > 0 && (
+            {games.length === 0 && (
               <p className={styles.noGames}>No open games. Create one!</p>
             )}
           </div>
@@ -300,7 +364,8 @@ export default function Home() {
               {address.slice(0, 6)}...{address.slice(-4)}
             </span>
           )}
-          <span className={styles.network}>Base</span>
+          {mode === "onchain" && <span className={styles.network}>Base</span>}
+          {mode === "offchain" && <span className={styles.networkFree}>Free Play</span>}
         </div>
       </div>
 

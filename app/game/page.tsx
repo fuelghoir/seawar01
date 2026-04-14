@@ -23,6 +23,7 @@ import { CellState } from "../components/Cell";
 import { ShipPlacement } from "../components/ShipPlacement";
 import { GameStatus } from "../components/GameStatus";
 import { ShotTransaction } from "../components/ShotTransaction";
+import { OffchainGameContent } from "./OffchainGame";
 import styles from "./page.module.css";
 
 // --- helpers ---
@@ -57,12 +58,10 @@ function saveLocalBoard(gameId: string, board: number[], salt: string) {
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
-// --- main component ---
+// --- Onchain game component ---
 
-function GameContent() {
-  const searchParams = useSearchParams();
+function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
   const router = useRouter();
-  const gameIdStr = searchParams.get("id") || "0";
   const gameId = BigInt(gameIdStr);
 
   const { address, isConnected, chainId } = useAccount();
@@ -79,21 +78,17 @@ function GameContent() {
     "commit" | "shoot" | "report" | "reveal" | null
   >(null);
 
-  // Auto-connect once
   useEffect(() => {
     if (isConnected || autoConnected.current || connectors.length === 0) return;
     autoConnected.current = true;
     connect({ connector: connectors[0] });
   }, [isConnected, connectors, connect]);
 
-  // Auto-switch to Base if connected to wrong chain
   useEffect(() => {
     if (isConnected && chainId && chainId !== base.id) {
       switchChain({ chainId: base.id });
     }
   }, [isConnected, chainId, switchChain]);
-
-  // --- contract reads ---
 
   const { data: gameData } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
@@ -122,7 +117,6 @@ function GameContent() {
 
   const opponentNum = playerNum === 1 ? 2 : 1;
 
-  // My shots (attacks I made on opponent's board)
   const { data: myBoardData } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
     abi: seaBattleAbi,
@@ -134,7 +128,6 @@ function GameContent() {
     },
   });
 
-  // Opponent's shots (attacks they made on my board)
   const { data: opponentBoardData } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
     abi: seaBattleAbi,
@@ -146,8 +139,6 @@ function GameContent() {
     },
   });
 
-  // --- contract write ---
-
   const {
     data: txHash,
     isPending,
@@ -157,7 +148,6 @@ function GameContent() {
   const { isLoading: isConfirming, isSuccess } =
     useWaitForTransactionReceipt({ hash: txHash });
 
-  // Invalidate queries on success
   useEffect(() => {
     if (isSuccess) {
       queryClient.invalidateQueries();
@@ -167,20 +157,14 @@ function GameContent() {
     }
   }, [isSuccess, queryClient, resetWrite]);
 
-  // --- derived state ---
-
-  const gameState = gameData ? Number(gameData[5]) : -1; // 0=Created 1=PlacingShips 2=Active 3=Finished
-  const turnPhase = gameData ? Number(gameData[6]) : 0; // 0=Shooting 1=WaitingReport
+  const gameState = gameData ? Number(gameData[5]) : -1;
+  const turnPhase = gameData ? Number(gameData[6]) : 0;
   const currentTurn = gameData ? Number(gameData[2]) : 0;
   const myHits = gameData
-    ? playerNum === 1
-      ? Number(gameData[3])
-      : Number(gameData[4])
+    ? playerNum === 1 ? Number(gameData[3]) : Number(gameData[4])
     : 0;
   const enemyHits = gameData
-    ? playerNum === 1
-      ? Number(gameData[4])
-      : Number(gameData[3])
+    ? playerNum === 1 ? Number(gameData[4]) : Number(gameData[3])
     : 0;
   const winner = gameData ? (gameData[7] as string) : ZERO_ADDR;
   const isMyTurn = currentTurn === playerNum;
@@ -188,28 +172,18 @@ function GameContent() {
   const lastShotY = gameExtra ? Number(gameExtra[3]) : 0;
   const lastShooter = gameExtra ? (gameExtra[4] as string) : ZERO_ADDR;
   const myBoardCommitted = gameExtra
-    ? playerNum === 1
-      ? gameExtra[0]
-      : gameExtra[1]
+    ? playerNum === 1 ? gameExtra[0] : gameExtra[1]
     : false;
   const opponentBoardCommitted = gameExtra
-    ? playerNum === 1
-      ? gameExtra[1]
-      : gameExtra[0]
+    ? playerNum === 1 ? gameExtra[1] : gameExtra[0]
     : false;
 
-  // Need to report: game active, waiting report, I'm the opponent of lastShooter
   const needsReport =
-    gameState === 2 &&
-    turnPhase === 1 &&
-    address !== undefined &&
-    lastShooter !== ZERO_ADDR &&
-    lastShooter.toLowerCase() !== address.toLowerCase();
+    gameState === 2 && turnPhase === 1 && address !== undefined &&
+    lastShooter !== ZERO_ADDR && lastShooter.toLowerCase() !== address.toLowerCase();
 
-  // --- local board ---
   const localData = loadLocalBoard(gameIdStr);
 
-  // Auto-report: automatically send reportHit when it's needed
   const autoReported = useRef(false);
   useEffect(() => {
     if (needsReport && localData && !isPending && !isConfirming && !autoReported.current) {
@@ -225,23 +199,16 @@ function GameContent() {
         chainId: base.id,
       });
     }
-    // Reset flag when report is no longer needed
-    if (!needsReport) {
-      autoReported.current = false;
-    }
+    if (!needsReport) autoReported.current = false;
   }, [needsReport, localData, isPending, isConfirming, lastShotX, lastShotY, gameId, writeContract]);
-
-  // --- actions ---
 
   const handleCommitBoard = useCallback(
     (boardLayout: number[]) => {
       const salt = crypto.getRandomValues(new Uint8Array(32));
       const saltHex = toHex(salt);
       const boardHash = buildBoardHash(boardLayout, salt);
-
       saveLocalBoard(gameIdStr, boardLayout, saltHex);
       setCurrentAction("commit");
-
       writeContract({
         address: SEABATTLE_CONTRACT_ADDRESS,
         abi: seaBattleAbi,
@@ -273,11 +240,7 @@ function GameContent() {
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
       functionName: "revealBoard",
-      args: [
-        gameId,
-        boardArr as unknown as readonly number[],
-        localData.salt as `0x${string}`,
-      ],
+      args: [gameId, boardArr as unknown as readonly number[], localData.salt as `0x${string}`],
       chainId: base.id,
     });
   }, [gameId, localData, writeContract]);
@@ -286,78 +249,51 @@ function GameContent() {
     const didWin = winner.toLowerCase() === address?.toLowerCase();
     try {
       await sdk.actions.composeCast({
-        text: didWin
-          ? "I won a Sea Battle on Base!"
-          : "Good game of Sea Battle on Base!",
+        text: didWin ? "I won a Sea Battle on Base!" : "Good game of Sea Battle on Base!",
         embeds: [process.env.NEXT_PUBLIC_URL || ""],
       });
-    } catch {
-      // cancelled
-    }
+    } catch { /* cancelled */ }
   };
 
-  // --- build board cells ---
-
-  // My board: show my ships + opponent's shots on my board
+  // Build board cells
   const myBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
-
   if (localData) {
-    for (let y = 0; y < 10; y++) {
-      for (let x = 0; x < 10; x++) {
-        if (localData.board[y * 10 + x] === 1) {
-          myBoardCells[y][x] = "ship";
-        }
-      }
-    }
+    for (let y = 0; y < 10; y++)
+      for (let x = 0; x < 10; x++)
+        if (localData.board[y * 10 + x] === 1) myBoardCells[y][x] = "ship";
   }
-
-  // Overlay opponent shots on my board
-  // Contract getBoardState: shots[x*10+y] = playerShots[gameId][playerNum][x][y]
   if (opponentBoardData) {
     const [oppShots, oppHits] = opponentBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
       const x = Math.floor(i / 10);
       const y = i % 10;
-      if (oppShots[i]) {
-        myBoardCells[y][x] = oppHits[i] ? "hit" : "miss";
-      }
+      if (oppShots[i]) myBoardCells[y][x] = oppHits[i] ? "hit" : "miss";
     }
   }
 
-  // Enemy board: show my shots/hits
   const enemyBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
-
   if (myBoardData) {
     const [myShots, myHitsData] = myBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
       const x = Math.floor(i / 10);
       const y = i % 10;
-      if (myShots[i]) {
-        enemyBoardCells[y][x] = myHitsData[i] ? "hit" : "miss";
-      }
+      if (myShots[i]) enemyBoardCells[y][x] = myHitsData[i] ? "hit" : "miss";
     }
   }
-
-  // Highlight selected cell
   if (selectedCell && enemyBoardCells[selectedCell.y][selectedCell.x] === "empty") {
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }
 
-  // --- enemy cell click ---
   const handleEnemyCellClick = (x: number, y: number) => {
     if (!isMyTurn || turnPhase !== 0) return;
-    if (enemyBoardCells[y][x] !== "empty" && enemyBoardCells[y][x] !== "pending")
-      return;
+    if (enemyBoardCells[y][x] !== "empty" && enemyBoardCells[y][x] !== "pending") return;
     setSelectedCell({ x, y });
   };
 
-  // --- render ---
-
-  // Loading
   if (!gameData) {
     return (
       <div className={styles.container}>
@@ -369,53 +305,39 @@ function GameContent() {
     );
   }
 
-  // Not a player
   if (playerNum === 0 && gameState >= 1) {
     return (
       <div className={styles.container}>
         <div className={styles.centered}>
           <p className={styles.errorText}>You are not a player in this game.</p>
-          <button className={styles.backButton} onClick={() => router.push("/")}>
-            Back to Lobby
-          </button>
+          <button className={styles.backButton} onClick={() => router.push("/")}>Back to Lobby</button>
         </div>
       </div>
     );
   }
 
-  // Waiting for player 2
   if (gameState === 0) {
     return (
       <div className={styles.container}>
         <div className={styles.centered}>
           <h2 className={styles.phaseTitle}>Game #{gameIdStr}</h2>
           <p className={styles.waitingText}>Waiting for opponent to join...</p>
-          <p className={styles.hint}>
-            Share this game ID with a friend:
-          </p>
+          <p className={styles.hint}>Share this game ID with a friend:</p>
           <div className={styles.gameIdDisplay}>{gameIdStr}</div>
-          <button
-            className={styles.shareBtn}
-            onClick={async () => {
-              try {
-                await sdk.actions.composeCast({
-                  text: `Play Sea Battle with me! Game #${gameIdStr}`,
-                  embeds: [process.env.NEXT_PUBLIC_URL || ""],
-                });
-              } catch { /* cancelled */ }
-            }}
-          >
-            Share Game
-          </button>
-          <button className={styles.backButton} onClick={() => router.push("/")}>
-            Back
-          </button>
+          <button className={styles.shareBtn} onClick={async () => {
+            try {
+              await sdk.actions.composeCast({
+                text: `Play Sea Battle with me! Game #${gameIdStr}`,
+                embeds: [process.env.NEXT_PUBLIC_URL || ""],
+              });
+            } catch { /* cancelled */ }
+          }}>Share Game</button>
+          <button className={styles.backButton} onClick={() => router.push("/")}>Back</button>
         </div>
       </div>
     );
   }
 
-  // Ship placement phase
   if (gameState === 1 && !myBoardCommitted) {
     return (
       <div className={styles.container}>
@@ -430,81 +352,47 @@ function GameContent() {
     );
   }
 
-  // Waiting for opponent to place ships
   if (gameState === 1 && myBoardCommitted && !opponentBoardCommitted) {
     return (
       <div className={styles.container}>
         <div className={styles.centered}>
           <h2 className={styles.phaseTitle}>Ships Placed!</h2>
-          <p className={styles.waitingText}>
-            Waiting for opponent to place their ships...
-          </p>
+          <p className={styles.waitingText}>Waiting for opponent to place their ships...</p>
           <div className={styles.spinner} />
         </div>
       </div>
     );
   }
 
-  // Game finished
   if (gameState === 3) {
     const didWin = winner.toLowerCase() === address?.toLowerCase();
     return (
       <div className={styles.container}>
         <div className={styles.scrollContent}>
           <div className={styles.resultSection}>
-            <h2
-              className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}
-            >
+            <h2 className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}>
               {didWin ? "VICTORY!" : "DEFEAT"}
             </h2>
             <p className={styles.resultSubtitle}>
-              {didWin
-                ? "You sank all enemy ships!"
-                : "Your fleet has been destroyed."}
+              {didWin ? "You sank all enemy ships!" : "Your fleet has been destroyed."}
             </p>
-
             <div className={styles.resultScores}>
               <span>You: {myHits}/20</span>
               <span>Enemy: {enemyHits}/20</span>
             </div>
-
             <div className={styles.resultBoards}>
-              <Board
-                cells={myBoardCells}
-                isInteractive={false}
-                label="Your Board"
-              />
-              <Board
-                cells={enemyBoardCells}
-                isInteractive={false}
-                label="Enemy Board"
-              />
+              <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
+              <Board cells={enemyBoardCells} isInteractive={false} label="Enemy Board" />
             </div>
-
             {localData && (
-              <button
-                className={styles.revealButton}
-                onClick={handleReveal}
-                disabled={isPending || isConfirming}
-              >
-                {isPending && currentAction === "reveal"
-                  ? "Confirm in wallet..."
-                  : isConfirming && currentAction === "reveal"
-                    ? "Revealing..."
-                    : "Reveal Board"}
+              <button className={styles.revealButton} onClick={handleReveal} disabled={isPending || isConfirming}>
+                {isPending && currentAction === "reveal" ? "Confirm in wallet..." :
+                  isConfirming && currentAction === "reveal" ? "Revealing..." : "Reveal Board"}
               </button>
             )}
-
             <div className={styles.resultActions}>
-              <button className={styles.shareBtn} onClick={handleShareResult}>
-                Share Result
-              </button>
-              <button
-                className={styles.backButton}
-                onClick={() => router.push("/")}
-              >
-                New Game
-              </button>
+              <button className={styles.shareBtn} onClick={handleShareResult}>Share Result</button>
+              <button className={styles.backButton} onClick={() => router.push("/")}>New Game</button>
             </div>
           </div>
         </div>
@@ -512,70 +400,53 @@ function GameContent() {
     );
   }
 
-  // Active game (state === 2)
   const canShoot = isMyTurn && turnPhase === 0 && !isPending && !isConfirming;
 
   return (
     <div className={styles.container}>
       <div className={styles.scrollContent}>
         <GameStatus
-          isMyTurn={isMyTurn}
-          myHits={myHits}
-          enemyHits={enemyHits}
-          isPending={isPending}
-          isConfirming={isConfirming}
-          turnPhase={turnPhase}
-          needsReport={needsReport}
+          isMyTurn={isMyTurn} myHits={myHits} enemyHits={enemyHits}
+          isPending={isPending} isConfirming={isConfirming}
+          turnPhase={turnPhase} needsReport={needsReport}
         />
-
         <div className={styles.boards}>
-          <Board
-            cells={enemyBoardCells}
-            onCellClick={handleEnemyCellClick}
-            isInteractive={canShoot}
-            label="Enemy Waters"
-          />
-          <Board
-            cells={myBoardCells}
-            isInteractive={false}
-            label="Your Fleet"
-          />
+          <Board cells={enemyBoardCells} onCellClick={handleEnemyCellClick} isInteractive={canShoot} label="Enemy Waters" />
+          <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
         </div>
-
         <ShotTransaction
-          selectedCell={selectedCell}
-          isPending={isPending}
-          isConfirming={isConfirming}
-          isSuccess={isSuccess}
-          onShoot={handleShoot}
-          needsReport={needsReport}
-          disabled={!canShoot}
+          selectedCell={selectedCell} isPending={isPending} isConfirming={isConfirming}
+          isSuccess={isSuccess} onShoot={handleShoot} needsReport={needsReport} disabled={!canShoot}
         />
-
         {needsReport && !localData && (
-          <p className={styles.warningText}>
-            Board data missing from local storage. Cannot auto-determine hit.
-          </p>
+          <p className={styles.warningText}>Board data missing from local storage. Cannot auto-determine hit.</p>
         )}
       </div>
     </div>
   );
 }
 
+// --- Router component ---
+
+function GameContent() {
+  const searchParams = useSearchParams();
+  const gameIdStr = searchParams.get("id") || "0";
+  const mode = searchParams.get("mode") || "offchain";
+
+  if (mode === "offchain") {
+    return <OffchainGameContent gameIdStr={gameIdStr} />;
+  }
+  return <OnchainGameContent gameIdStr={gameIdStr} />;
+}
+
 export default function GamePage() {
   return (
     <Suspense
       fallback={
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "100vh",
-            background: "#0A1628",
-            color: "#8ab4d4",
-          }}
-        >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          minHeight: "100vh", background: "#0A1628", color: "#8ab4d4",
+        }}>
           Loading...
         </div>
       }
