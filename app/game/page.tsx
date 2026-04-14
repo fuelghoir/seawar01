@@ -24,6 +24,7 @@ import { ShipPlacement } from "../components/ShipPlacement";
 import { GameStatus } from "../components/GameStatus";
 import { ShotTransaction } from "../components/ShotTransaction";
 import { OffchainGameContent } from "./OffchainGame";
+import { recordOnchainResult } from "../lib/offchainGame";
 import styles from "./page.module.css";
 
 // --- helpers ---
@@ -183,6 +184,16 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     lastShooter !== ZERO_ADDR && lastShooter.toLowerCase() !== address.toLowerCase();
 
   const localData = loadLocalBoard(gameIdStr);
+
+  // Record onchain result to leaderboard when game finishes
+  const resultRecorded = useRef(false);
+  useEffect(() => {
+    if (gameState === 3 && address && playerNum > 0 && !resultRecorded.current) {
+      resultRecorded.current = true;
+      const didWin = winner.toLowerCase() === address.toLowerCase();
+      recordOnchainResult(address, didWin, myHits + enemyHits, myHits).catch(() => {});
+    }
+  }, [gameState, address, playerNum, winner, myHits, enemyHits]);
 
   const autoReported = useRef(false);
   useEffect(() => {

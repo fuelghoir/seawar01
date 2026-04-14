@@ -57,17 +57,23 @@ function isValidPlacement(
   const endY = orientation === "v" ? y + ship.size - 1 : y;
   if (endX > 9 || endY > 9) return false;
 
-  const occupiedSet = new Set<string>();
+  // Build set of occupied cells AND their 1-cell buffer zones
+  const blockedSet = new Set<string>();
   for (const ps of placed) {
     for (const [cx, cy] of getShipCells(ps)) {
-      occupiedSet.add(`${cx},${cy}`);
+      // Mark the cell and all 8 neighbors as blocked
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          blockedSet.add(`${cx + dx},${cy + dy}`);
+        }
+      }
     }
   }
 
   for (let i = 0; i < ship.size; i++) {
     const cx = orientation === "h" ? x + i : x;
     const cy = orientation === "v" ? y + i : y;
-    if (occupiedSet.has(`${cx},${cy}`)) return false;
+    if (blockedSet.has(`${cx},${cy}`)) return false;
   }
 
   return true;

@@ -212,6 +212,71 @@ export async function getAvailableGames(
   return data || [];
 }
 
+// --- Onchain leaderboard ---
+
+export async function recordOnchainResult(
+  wallet: string,
+  won: boolean,
+  shots: number,
+  hits: number
+): Promise<void> {
+  const addr = wallet.toLowerCase();
+  const { data: existing } = await supabase
+    .from("onchain_stats")
+    .select("*")
+    .eq("wallet", addr)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from("onchain_stats")
+      .update({
+        games_played: existing.games_played + 1,
+        wins: existing.wins + (won ? 1 : 0),
+        total_shots: existing.total_shots + shots,
+        total_hits: existing.total_hits + hits,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("wallet", addr);
+  } else {
+    await supabase.from("onchain_stats").insert({
+      wallet: addr,
+      games_played: 1,
+      wins: won ? 1 : 0,
+      total_shots: shots,
+      total_hits: hits,
+    });
+  }
+}
+
+export interface LeaderboardEntry {
+  wallet: string;
+  games_played: number;
+  wins: number;
+  total_shots: number;
+  total_hits: number;
+  rating: number;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const { data } = await supabase
+    .from("onchain_stats")
+    .select("*")
+    .gte("games_played", 1)
+    .order("wins", { ascending: false })
+    .limit(50);
+
+  if (!data) return [];
+
+  return data.map((row) => {
+    const winRate = row.games_played > 0 ? row.wins / row.games_played : 0;
+    const accuracy = row.total_shots > 0 ? row.total_hits / row.total_shots : 0;
+    // Rating: 60% win rate + 40% accuracy, scaled 0-100
+    const rating = Math.round(winRate * 60 + accuracy * 40);
+    return { ...row, rating };
+  }).sort((a, b) => b.rating - a.rating);
+}
+
 // Get shots for a game by player
 export async function getPlayerShots(
   gameId: number,

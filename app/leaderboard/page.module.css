@@ -1,0 +1,255 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0A1628 0%, #0d2137 50%, #0A1628 100%);
+  color: white;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding: 1.5rem 1rem;
+  gap: 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #00D4FF, #0099cc);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  flex: 1;
+  text-align: center;
+}
+
+.backBtn {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  border: 1px solid #1a3a5c;
+  border-radius: 8px;
+  color: #8ab4d4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.backBtn:hover {
+  border-color: #8ab4d4;
+  color: #fff;
+}
+
+.helpBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #1a3a5c;
+  background: rgba(13, 33, 55, 0.6);
+  color: #8ab4d4;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.helpBtn:hover {
+  border-color: #00D4FF;
+  color: #00D4FF;
+}
+
+.helpBox {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 10px;
+  font-size: 12px;
+  color: #8ab4d4;
+  line-height: 1.6;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.helpTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #00D4FF;
+  margin-bottom: 6px;
+}
+
+.helpList {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.helpList li {
+  margin-bottom: 3px;
+}
+
+.helpNote {
+  margin-top: 6px;
+  color: #4a6a8a;
+  font-style: italic;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a6a8a;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #1a3a5c;
+  border-top-color: #00D4FF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.empty {
+  color: #4a6a8a;
+  font-size: 14px;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #3a5a7a;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(13, 33, 55, 0.4);
+  border: 1px solid #162d4a;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.row:hover {
+  background: rgba(13, 33, 55, 0.7);
+  border-color: #1a3a5c;
+}
+
+.rowMe {
+  border-color: rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.rowTop {
+  border-color: #1a3a5c;
+}
+
+.colRank {
+  width: 32px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #4a6a8a;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.gold { color: #FFD700; }
+.silver { color: #C0C0C0; }
+.bronze { color: #CD7F32; }
+
+.colWallet {
+  flex: 1;
+  font-size: 12px;
+  font-family: monospace;
+  color: #8ab4d4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.youBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #00D4FF;
+  background: rgba(0, 212, 255, 0.15);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: sans-serif;
+}
+
+.colStat {
+  width: 60px;
+  font-size: 12px;
+  color: #8ab4d4;
+  text-align: center;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.statHint {
+  font-size: 9px;
+  color: #3a5a7a;
+}
+
+.colRating {
+  width: 44px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #00D4FF;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

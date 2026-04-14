@@ -355,6 +355,13 @@ export default function Home() {
             {games.length === 0 && (
               <p className={styles.noGames}>No open games. Create one!</p>
             )}
+
+            <button
+              className={styles.leaderboardBtn}
+              onClick={() => router.push("/leaderboard")}
+            >
+              Leaderboard
+            </button>
           </div>
         )}
 
