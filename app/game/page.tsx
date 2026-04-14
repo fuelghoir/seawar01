@@ -209,6 +209,28 @@ function GameContent() {
   // --- local board ---
   const localData = loadLocalBoard(gameIdStr);
 
+  // Auto-report: automatically send reportHit when it's needed
+  const autoReported = useRef(false);
+  useEffect(() => {
+    if (needsReport && localData && !isPending && !isConfirming && !autoReported.current) {
+      autoReported.current = true;
+      const idx = lastShotY * 10 + lastShotX;
+      const isHit = localData.board[idx] === 1;
+      setCurrentAction("report");
+      writeContract({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "reportHit",
+        args: [gameId, lastShotX, lastShotY, isHit],
+        chainId: base.id,
+      });
+    }
+    // Reset flag when report is no longer needed
+    if (!needsReport) {
+      autoReported.current = false;
+    }
+  }, [needsReport, localData, isPending, isConfirming, lastShotX, lastShotY, gameId, writeContract]);
+
   // --- actions ---
 
   const handleCommitBoard = useCallback(
@@ -242,20 +264,6 @@ function GameContent() {
       chainId: base.id,
     });
   }, [gameId, selectedCell, writeContract]);
-
-  const handleReport = useCallback(() => {
-    if (!localData) return;
-    const idx = lastShotY * 10 + lastShotX;
-    const isHit = localData.board[idx] === 1;
-    setCurrentAction("report");
-    writeContract({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "reportHit",
-      args: [gameId, lastShotX, lastShotY, isHit],
-      chainId: base.id,
-    });
-  }, [gameId, lastShotX, lastShotY, localData, writeContract]);
 
   const handleReveal = useCallback(() => {
     if (!localData) return;
@@ -539,7 +547,6 @@ function GameContent() {
           isConfirming={isConfirming}
           isSuccess={isSuccess}
           onShoot={handleShoot}
-          onReport={handleReport}
           needsReport={needsReport}
           disabled={!canShoot}
         />

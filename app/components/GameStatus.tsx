@@ -35,7 +35,7 @@ export function GameStatus({
     message = "Shot in flight...";
     messageClass = styles.statusConfirming;
   } else if (needsReport) {
-    message = "Confirm opponent's shot";
+    message = "Auto-reporting shot result...";
     messageClass = styles.statusReport;
   } else if (turnPhase === 1 && isMyTurn) {
     message = "Waiting for opponent to confirm...";

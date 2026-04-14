@@ -35,6 +35,7 @@ export default function Home() {
   const [joinGameId, setJoinGameId] = useState("");
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
   const autoConnected = useRef(false);
 
   // Auto-connect once: try injected first (Base app), then baseAccount
@@ -83,6 +84,12 @@ export default function Home() {
           });
           if (decoded.eventName === "GameCreated") {
             const gameId = (decoded.args as { gameId: bigint }).gameId;
+            // Mark as private in localStorage if checkbox was checked
+            if (isPrivate) {
+              const privateGames = JSON.parse(localStorage.getItem("seabattle_private_games") || "[]");
+              privateGames.push(gameId.toString());
+              localStorage.setItem("seabattle_private_games", JSON.stringify(privateGames));
+            }
             router.push(`/game?id=${gameId.toString()}`);
             return;
           }
@@ -94,7 +101,7 @@ export default function Home() {
     if (isSuccess && action === "join") {
       router.push(`/game?id=${joinGameId}`);
     }
-  }, [isSuccess, receipt, action, joinGameId, router]);
+  }, [isSuccess, receipt, action, joinGameId, router, isPrivate]);
 
   const handleCreateGame = () => {
     if (CONTRACT_NOT_SET) {
@@ -156,6 +163,11 @@ export default function Home() {
     query: { enabled: loadCount > 0, refetchInterval: 8000 },
   });
 
+  // Load private game IDs from localStorage
+  const privateGameIds = typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("seabattle_private_games") || "[]") as string[]
+    : [];
+
   const availableGames: { id: number; player1: string }[] = [];
   if (gamesRaw) {
     for (let i = 0; i < gamesRaw.length; i++) {
@@ -164,12 +176,14 @@ export default function Home() {
       const data = result.result as readonly unknown[];
       const state = Number(data[5]);
       const player1 = data[0] as string;
+      const gid = totalGames - 1 - i;
       if (
         state === 0 &&
         player1 !== ZERO_ADDR &&
-        player1.toLowerCase() !== address?.toLowerCase()
+        player1.toLowerCase() !== address?.toLowerCase() &&
+        !privateGameIds.includes(gid.toString())
       ) {
-        availableGames.push({ id: totalGames - 1 - i, player1 });
+        availableGames.push({ id: gid, player1 });
       }
     }
   }
@@ -215,6 +229,15 @@ export default function Home() {
                   ? "Creating game..."
                   : "Create Game"}
             </button>
+
+            <label className={styles.privateToggle}>
+              <input
+                type="checkbox"
+                checked={isPrivate}
+                onChange={(e) => setIsPrivate(e.target.checked)}
+              />
+              <span>Private game (invite only)</span>
+            </label>
 
             <div className={styles.divider}>
               <span>or join by ID</span>
@@ -280,6 +303,30 @@ export default function Home() {
           <span className={styles.network}>Base</span>
         </div>
       </div>
+
+      <footer className={styles.footer}>
+        <div className={styles.socialLinks}>
+          <a
+            href="https://t.me/+xWV1zyGwNOM1ZTFi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.socialLink}
+          >
+            <span className={styles.socialIcon}>&#9993;</span>
+            Telegram
+          </a>
+          <a
+            href="https://www.youtube.com/@hermescrypt"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.socialLink}
+          >
+            <span className={styles.socialIcon}>&#9654;</span>
+            YouTube
+          </a>
+        </div>
+        <span className={styles.footerText}>Sea Battle on Base</span>
+      </footer>
     </div>
   );
 }

@@ -8,7 +8,6 @@ interface ShotTransactionProps {
   isConfirming: boolean;
   isSuccess: boolean;
   onShoot: () => void;
-  onReport: () => void;
   needsReport: boolean;
   disabled: boolean;
 }
@@ -19,7 +18,6 @@ export function ShotTransaction({
   isConfirming,
   isSuccess,
   onShoot,
-  onReport,
   needsReport,
   disabled,
 }: ShotTransactionProps) {
@@ -29,14 +27,13 @@ export function ShotTransaction({
     return (
       <button
         className={`${styles.button} ${styles.reportButton}`}
-        onClick={onReport}
-        disabled={isPending || isConfirming}
+        disabled
       >
         {isPending
-          ? "Confirm in wallet..."
+          ? "Confirming shot result..."
           : isConfirming
-            ? "Confirming..."
-            : "Confirm opponent's shot"}
+            ? "Processing..."
+            : "Auto-reporting shot result..."}
       </button>
     );
   }

@@ -3,24 +3,26 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .label {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: #8ab4d4;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
 }
 
 .board {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #0a1628;
+  background: linear-gradient(135deg, #081220, #0a1628);
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid #1a3a5c;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .row {
@@ -29,22 +31,43 @@
 }
 
 .cornerCell {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .headerCell {
-  width: 32px;
-  height: 20px;
+  width: 30px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: #4a6a8a;
+  font-size: 10px;
+  font-weight: 700;
+  color: #3a5a7a;
 }
 
 .row .headerCell {
-  width: 20px;
-  height: 32px;
+  width: 18px;
+  height: 30px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 400px) {
+  .headerCell {
+    width: 27px;
+    height: 16px;
+    font-size: 9px;
+  }
+  .row .headerCell {
+    width: 16px;
+    height: 27px;
+  }
+  .cornerCell {
+    width: 16px;
+    height: 16px;
+  }
 }

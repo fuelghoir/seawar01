@@ -7,9 +7,11 @@
   border: none;
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
 }
 
 .button:disabled {
@@ -19,23 +21,29 @@
 }
 
 .fireButton {
-  background: linear-gradient(135deg, #00D4FF, #0099cc);
+  background: linear-gradient(135deg, #00D4FF, #0088cc);
   color: #0A1628;
   box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
 }
 
 .fireButton:not(:disabled):hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(0, 212, 255, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 212, 255, 0.45);
+}
+
+.fireButton:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(0, 212, 255, 0.3);
 }
 
 .reportButton {
   background: linear-gradient(135deg, #ff9944, #cc7733);
   color: #0A1628;
   box-shadow: 0 4px 20px rgba(255, 153, 68, 0.3);
+  animation: reportPulse 1.5s ease-in-out infinite;
 }
 
-.reportButton:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(255, 153, 68, 0.4);
+@keyframes reportPulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(255, 153, 68, 0.3); }
+  50% { box-shadow: 0 4px 28px rgba(255, 153, 68, 0.5); }
 }

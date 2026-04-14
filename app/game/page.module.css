@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #0A1628;
+  background: linear-gradient(180deg, #0A1628 0%, #0d2137 40%, #0A1628 100%);
   color: white;
 }
 
@@ -13,6 +13,7 @@
   gap: 16px;
   padding: 16px 12px 24px;
   overflow-y: auto;
+  animation: pageIn 0.3s ease-out;
 }
 
 .centered {
@@ -24,6 +25,7 @@
   gap: 16px;
   padding: 2rem;
   text-align: center;
+  animation: pageIn 0.4s ease-out;
 }
 
 .boards {
@@ -50,13 +52,15 @@
 .loadingText {
   color: #8ab4d4;
   font-size: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Phase titles */
 .phaseTitle {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   color: #00D4FF;
+  letter-spacing: 0.5px;
 }
 
 .waitingText {
@@ -70,15 +74,21 @@
 }
 
 .gameIdDisplay {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 800;
   color: #00D4FF;
-  background: rgba(0, 212, 255, 0.08);
-  border: 2px solid rgba(0, 212, 255, 0.3);
-  border-radius: 12px;
-  padding: 12px 32px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 2px solid rgba(0, 212, 255, 0.25);
+  border-radius: 14px;
+  padding: 14px 36px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
+  animation: idGlow 2s ease-in-out infinite;
+}
+
+@keyframes idGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 212, 255, 0.1); }
+  50% { box-shadow: 0 0 24px rgba(0, 212, 255, 0.2); }
 }
 
 /* Buttons */
@@ -86,12 +96,12 @@
   padding: 12px 24px;
   font-size: 14px;
   font-weight: 700;
-  background: linear-gradient(135deg, #00D4FF, #0099cc);
+  background: linear-gradient(135deg, #00D4FF, #0088cc);
   border: none;
   border-radius: 10px;
   color: #0A1628;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .shareBtn:hover {
@@ -128,46 +138,56 @@
   max-width: 300px;
 }
 
-/* Result screen */
+/* ===== Result screen ===== */
 .resultSection {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   text-align: center;
+  animation: resultIn 0.6s ease-out;
 }
 
 .resultTitle {
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .winTitle {
-  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  background: linear-gradient(135deg, #4CAF50, #81C784);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: winPulse 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(76, 175, 80, 0.4));
 }
 
 .loseTitle {
-  background: linear-gradient(135deg, #ff4444, #cc2222);
+  background: linear-gradient(135deg, #ff4444, #ff7777);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(255, 68, 68, 0.3));
 }
 
 .resultSubtitle {
   color: #8ab4d4;
   font-size: 15px;
+  line-height: 1.5;
 }
 
 .resultScores {
   display: flex;
-  gap: 24px;
-  font-size: 16px;
-  font-weight: 700;
+  gap: 32px;
+  font-size: 18px;
+  font-weight: 800;
   color: #8ab4d4;
+  padding: 12px 24px;
+  background: rgba(10, 22, 40, 0.6);
+  border-radius: 12px;
+  border: 1px solid #1a3a5c;
 }
 
 .resultBoards {
@@ -178,11 +198,11 @@
 }
 
 .revealButton {
-  padding: 12px 24px;
+  padding: 12px 28px;
   font-size: 14px;
   font-weight: 700;
-  background: rgba(247, 217, 84, 0.15);
-  border: 1px solid #f7d954;
+  background: rgba(247, 217, 84, 0.12);
+  border: 1px solid rgba(247, 217, 84, 0.4);
   border-radius: 10px;
   color: #f7d954;
   cursor: pointer;
@@ -190,7 +210,8 @@
 }
 
 .revealButton:hover:not(:disabled) {
-  background: rgba(247, 217, 84, 0.25);
+  background: rgba(247, 217, 84, 0.22);
+  box-shadow: 0 0 16px rgba(247, 217, 84, 0.15);
 }
 
 .revealButton:disabled {
@@ -203,4 +224,26 @@
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* Animations */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes resultIn {
+  0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+  60% { transform: scale(1.02) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes winPulse {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(76, 175, 80, 0.3)); }
+  50% { filter: drop-shadow(0 0 24px rgba(76, 175, 80, 0.6)); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
