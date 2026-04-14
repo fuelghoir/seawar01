@@ -31,10 +31,12 @@
 }
 
 .cornerCell {
-  width: 18px;
+  width: 20px;
   height: 18px;
+  flex-shrink: 0;
 }
 
+/* Column header cells (letters at top) */
 .headerCell {
   width: 30px;
   height: 18px;
@@ -44,11 +46,20 @@
   font-size: 10px;
   font-weight: 700;
   color: #3a5a7a;
+  flex-shrink: 0;
 }
 
-.row .headerCell {
-  width: 18px;
+/* Row header cells (numbers on left) — first child of data rows */
+.rowHeader {
+  width: 20px;
   height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #3a5a7a;
+  flex-shrink: 0;
 }
 
 @keyframes fadeIn {
@@ -62,12 +73,13 @@
     height: 16px;
     font-size: 9px;
   }
-  .row .headerCell {
-    width: 16px;
+  .rowHeader {
+    width: 18px;
     height: 27px;
+    font-size: 9px;
   }
   .cornerCell {
-    width: 16px;
+    width: 18px;
     height: 16px;
   }
 }

@@ -21,7 +21,7 @@ export function ShotTransaction({
   needsReport,
   disabled,
 }: ShotTransactionProps) {
-  const colLabels = "ABCDEFGHIJ";
+  const colLabels = "АБВГДЕЁЖЗИ";
 
   if (needsReport) {
     return (
