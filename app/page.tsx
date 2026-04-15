@@ -231,9 +231,9 @@ export default function Home() {
     setCheckinLoading(true);
     setCheckinMsg("");
     checkinRecorded.current = false;
-    // Send 0-value tx to contract as proof-of-activity
+    // Send 0-value self-transfer as proof-of-activity
     sendTransaction({
-      to: SEABATTLE_CONTRACT_ADDRESS,
+      to: address,
       value: BigInt(0),
       chainId: base.id,
     });
