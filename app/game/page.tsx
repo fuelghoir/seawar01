@@ -24,7 +24,15 @@ import { ShipPlacement } from "../components/ShipPlacement";
 import { GameStatus } from "../components/GameStatus";
 import { ShotTransaction } from "../components/ShotTransaction";
 import { OffchainGameContent } from "./OffchainGame";
-import { recordOnchainResult } from "../lib/offchainGame";
+import {
+  recordGameResult,
+  addPoints,
+  getSunkReports,
+  reportSunkShip,
+  SunkReport,
+} from "../lib/offchainGame";
+import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
+import { gameSounds } from "../lib/sounds";
 import styles from "./page.module.css";
 
 // --- helpers ---
@@ -76,8 +84,16 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     y: number;
   } | null>(null);
   const [currentAction, setCurrentAction] = useState<
-    "commit" | "shoot" | "report" | "reveal" | null
+    "commit" | "shoot" | "report" | null
   >(null);
+  const [sunkReports, setSunkReports] = useState<SunkReport[]>([]);
+
+  // Sound tracking refs
+  const prevMyHits = useRef(0);
+  const prevNeedsReport = useRef(false);
+  const prevSunkCount = useRef(0);
+  const prevTurnPhase = useRef(-1);
+  const prevCurrentTurn = useRef(-1);
 
   useEffect(() => {
     if (isConnected || autoConnected.current || connectors.length === 0) return;
@@ -149,14 +165,57 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
   const { isLoading: isConfirming, isSuccess } =
     useWaitForTransactionReceipt({ hash: txHash });
 
+  // Load sunk reports
+  const loadSunkReports = useCallback(async () => {
+    const reports = await getSunkReports(`on_${gameIdStr}`);
+    setSunkReports(reports);
+  }, [gameIdStr]);
+
+  useEffect(() => {
+    loadSunkReports();
+    const interval = setInterval(loadSunkReports, 5000);
+    return () => clearInterval(interval);
+  }, [loadSunkReports]);
+
   useEffect(() => {
     if (isSuccess) {
       queryClient.invalidateQueries();
+
+      // After auto-report, check for sunk ship
+      const localData = loadLocalBoard(gameIdStr);
+      if (currentAction === "report" && localData && gameExtra) {
+        const lx = Number(gameExtra[2]);
+        const ly = Number(gameExtra[3]);
+        const idx = ly * 10 + lx;
+        if (localData.board[idx] === 1) {
+          const hitCells = new Set<number>();
+          if (opponentBoardData) {
+            const [, oppHits] = opponentBoardData as [boolean[], boolean[]];
+            for (let i = 0; i < 100; i++) {
+              if (oppHits[i]) {
+                const x = Math.floor(i / 10);
+                const y = i % 10;
+                hitCells.add(y * 10 + x);
+              }
+            }
+          }
+          hitCells.add(idx);
+
+          const ships = findShips(localData.board);
+          const ship = ships.find(sh => sh.includes(idx));
+          if (ship && isShipSunk(ship, hitCells)) {
+            const lastShooter = gameExtra[4] as string;
+            const shipCells = ship.map(i => [i % 10, Math.floor(i / 10)]);
+            reportSunkShip(`on_${gameIdStr}`, shipCells, lastShooter).catch(() => {});
+          }
+        }
+      }
+
       resetWrite();
       setCurrentAction(null);
       setSelectedCell(null);
     }
-  }, [isSuccess, queryClient, resetWrite]);
+  }, [isSuccess, queryClient, resetWrite, currentAction, gameIdStr, gameExtra, opponentBoardData]);
 
   const gameState = gameData ? Number(gameData[5]) : -1;
   const turnPhase = gameData ? Number(gameData[6]) : 0;
@@ -185,15 +244,47 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
 
   const localData = loadLocalBoard(gameIdStr);
 
-  // Record onchain result to leaderboard when game finishes
+  // ── Sound effects ──
+
+  if (myHits > prevMyHits.current && prevMyHits.current > 0) {
+    gameSounds.playHit();
+  }
+  prevMyHits.current = myHits;
+
+  if (needsReport && !prevNeedsReport.current) {
+    gameSounds.playAlert();
+  }
+  prevNeedsReport.current = needsReport;
+
+  const mySunks = address
+    ? sunkReports.filter(r => r.killed_by === address.toLowerCase()).length
+    : 0;
+  if (mySunks > prevSunkCount.current && prevSunkCount.current > 0) {
+    gameSounds.playSunk();
+  }
+  prevSunkCount.current = mySunks;
+
+  if (
+    prevTurnPhase.current === 1 &&
+    turnPhase === 0 &&
+    myHits === prevMyHits.current &&
+    prevCurrentTurn.current === playerNum
+  ) {
+    gameSounds.playMiss();
+  }
+  prevTurnPhase.current = turnPhase;
+  prevCurrentTurn.current = currentTurn;
+
+  // Record result to leaderboard when game finishes
   const resultRecorded = useRef(false);
   useEffect(() => {
     if (gameState === 3 && address && playerNum > 0 && !resultRecorded.current) {
       resultRecorded.current = true;
       const didWin = winner.toLowerCase() === address.toLowerCase();
-      recordOnchainResult(address, didWin, myHits + enemyHits, myHits).catch(() => {});
+      recordGameResult(address, didWin).catch(() => {});
+      if (myHits > 0) addPoints(address, myHits).catch(() => {});
     }
-  }, [gameState, address, playerNum, winner, myHits, enemyHits]);
+  }, [gameState, address, playerNum, winner, myHits]);
 
   const autoReported = useRef(false);
   useEffect(() => {
@@ -233,6 +324,7 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
 
   const handleShoot = useCallback(() => {
     if (!selectedCell) return;
+    gameSounds.playShot();
     setCurrentAction("shoot");
     writeContract({
       address: SEABATTLE_CONTRACT_ADDRESS,
@@ -253,16 +345,53 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     } catch { /* cancelled */ }
   };
 
-  // Build board cells
+  // ── Build board cells with sunk detection ──
+
   const myBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
+
   if (localData) {
     for (let y = 0; y < 10; y++)
       for (let x = 0; x < 10; x++)
         if (localData.board[y * 10 + x] === 1) myBoardCells[y][x] = "ship";
-  }
-  if (opponentBoardData) {
+
+    const ships = findShips(localData.board);
+    const oppHitCells = new Set<number>();
+    if (opponentBoardData) {
+      const [, oppHits] = opponentBoardData as [boolean[], boolean[]];
+      for (let i = 0; i < 100; i++) {
+        if (oppHits[i]) {
+          const x = Math.floor(i / 10);
+          const y = i % 10;
+          oppHitCells.add(y * 10 + x);
+        }
+      }
+    }
+
+    const sunkShipCells = new Set<number>();
+    for (const ship of ships) {
+      if (isShipSunk(ship, oppHitCells)) {
+        for (const c of ship) sunkShipCells.add(c);
+      }
+    }
+
+    if (opponentBoardData) {
+      const [oppShots, oppHits] = opponentBoardData as [boolean[], boolean[]];
+      for (let i = 0; i < 100; i++) {
+        const x = Math.floor(i / 10);
+        const y = i % 10;
+        if (oppShots[i]) {
+          const idx = y * 10 + x;
+          if (oppHits[i]) {
+            myBoardCells[y][x] = sunkShipCells.has(idx) ? "sunk" : "hit";
+          } else {
+            myBoardCells[y][x] = "miss";
+          }
+        }
+      }
+    }
+  } else if (opponentBoardData) {
     const [oppShots, oppHits] = opponentBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
       const x = Math.floor(i / 10);
@@ -274,14 +403,46 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
   const enemyBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
+
+  const sunkCellSet = new Set<string>();
+  const surroundSet = new Set<string>();
+  if (address) {
+    for (const report of sunkReports) {
+      if (report.killed_by === address.toLowerCase()) {
+        for (const [cx, cy] of report.ship_cells) {
+          sunkCellSet.add(`${cx},${cy}`);
+        }
+        const shipIndices = report.ship_cells.map(([cx, cy]) => cy * 10 + cx);
+        for (const idx of getSurroundingCells(shipIndices)) {
+          const sx = idx % 10, sy = Math.floor(idx / 10);
+          if (!sunkCellSet.has(`${sx},${sy}`)) surroundSet.add(`${sx},${sy}`);
+        }
+      }
+    }
+  }
+
   if (myBoardData) {
     const [myShots, myHitsData] = myBoardData as [boolean[], boolean[]];
     for (let i = 0; i < 100; i++) {
       const x = Math.floor(i / 10);
       const y = i % 10;
-      if (myShots[i]) enemyBoardCells[y][x] = myHitsData[i] ? "hit" : "miss";
+      if (myShots[i]) {
+        if (myHitsData[i]) {
+          enemyBoardCells[y][x] = sunkCellSet.has(`${x},${y}`) ? "sunk" : "hit";
+        } else {
+          enemyBoardCells[y][x] = "miss";
+        }
+      }
     }
   }
+
+  for (const key of surroundSet) {
+    const [sx, sy] = key.split(",").map(Number);
+    if (enemyBoardCells[sy][sx] === "empty") {
+      enemyBoardCells[sy][sx] = "miss";
+    }
+  }
+
   if (selectedCell && enemyBoardCells[selectedCell.y][selectedCell.x] === "empty") {
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }

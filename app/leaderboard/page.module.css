@@ -245,6 +245,15 @@
   flex-shrink: 0;
 }
 
+.colPoints {
+  width: 56px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #FFD700;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

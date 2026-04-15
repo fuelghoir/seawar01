@@ -10,7 +10,12 @@ import {
   shootOffchain,
   reportHitOffchain,
   getPlayerShots,
+  getSunkReports,
+  reportSunkShip,
+  SunkReport,
 } from "../lib/offchainGame";
+import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
+import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
 import { CellState } from "../components/Cell";
 import { ShipPlacement } from "../components/ShipPlacement";
@@ -46,7 +51,15 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
   const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
   const [myShots, setMyShots] = useState<{ x: number; y: number; is_hit: boolean | null }[]>([]);
   const [oppShots, setOppShots] = useState<{ x: number; y: number; is_hit: boolean | null }[]>([]);
+  const [sunkReports, setSunkReports] = useState<SunkReport[]>([]);
   const autoReported = useRef(false);
+
+  // Sound tracking refs
+  const prevMyHits = useRef(0);
+  const prevNeedsReport = useRef(false);
+  const prevSunkCount = useRef(0);
+  const prevTurnPhase = useRef(-1);
+  const prevCurrentTurn = useRef(-1);
 
   // Load game data
   const loadGame = useCallback(async () => {
@@ -71,36 +84,45 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     setOppShots(opp);
   }, [gameIdNum, address, game]);
 
+  // Load sunk reports
+  const loadSunkReports = useCallback(async () => {
+    const reports = await getSunkReports(`off_${gameIdNum}`);
+    setSunkReports(reports);
+  }, [gameIdNum]);
+
   // Initial load
   useEffect(() => { loadGame(); }, [loadGame]);
-  useEffect(() => { if (game && game.state >= 2) loadShots(); }, [game, loadShots]);
+  useEffect(() => {
+    if (game && game.state >= 2) {
+      loadShots();
+      loadSunkReports();
+    }
+  }, [game, loadShots, loadSunkReports]);
 
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`game-${gameIdNum}`)
       .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "games",
+        event: "*", schema: "public", table: "games",
         filter: `id=eq.${gameIdNum}`,
       }, () => { loadGame(); })
       .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "shots",
+        event: "INSERT", schema: "public", table: "shots",
         filter: `game_id=eq.${gameIdNum}`,
       }, () => { loadShots(); })
       .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "shots",
+        event: "UPDATE", schema: "public", table: "shots",
         filter: `game_id=eq.${gameIdNum}`,
       }, () => { loadShots(); })
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "sunk_reports",
+        filter: `game_key=eq.off_${gameIdNum}`,
+      }, () => { loadSunkReports(); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [gameIdNum, loadGame, loadShots]);
+  }, [gameIdNum, loadGame, loadShots, loadSunkReports]);
 
   if (!game || !address) {
     return (
@@ -128,18 +150,74 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     game.last_shooter !== null &&
     game.last_shooter !== addr;
 
-  // Auto-report for offchain
+  // ── Sound effects ──
+
+  // Hit confirmed sound
+  if (myHits > prevMyHits.current && prevMyHits.current > 0) {
+    gameSounds.playHit();
+  }
+  prevMyHits.current = myHits;
+
+  // Opponent shot alert
+  if (needsReport && !prevNeedsReport.current) {
+    gameSounds.playAlert();
+  }
+  prevNeedsReport.current = needsReport;
+
+  // Sunk sound
+  const mySunks = sunkReports.filter(r => r.killed_by === addr).length;
+  if (mySunks > prevSunkCount.current && prevSunkCount.current > 0) {
+    gameSounds.playSunk();
+  }
+  prevSunkCount.current = mySunks;
+
+  // Miss sound: turn_phase 1→0, myHits unchanged, I was the shooter
+  if (
+    prevTurnPhase.current === 1 &&
+    game.turn_phase === 0 &&
+    myHits === prevMyHits.current &&
+    prevCurrentTurn.current === playerNum
+  ) {
+    gameSounds.playMiss();
+  }
+  prevTurnPhase.current = game.turn_phase;
+  prevCurrentTurn.current = game.current_turn;
+
+  // ── Auto-report with sunk detection ──
+
   if (needsReport && localData && !loading && !autoReported.current) {
     autoReported.current = true;
-    const idx = (game.last_shot_y ?? 0) * 10 + (game.last_shot_x ?? 0);
+    const shotX = game.last_shot_x ?? 0;
+    const shotY = game.last_shot_y ?? 0;
+    const idx = shotY * 10 + shotX;
     const isHit = localData.board[idx] === 1;
-    reportHitOffchain(gameIdNum, address, game.last_shot_x ?? 0, game.last_shot_y ?? 0, isHit)
-      .then(() => { loadGame(); loadShots(); })
+
+    reportHitOffchain(gameIdNum, address, shotX, shotY, isHit)
+      .then(async () => {
+        if (isHit) {
+          const hitCells = new Set<number>();
+          for (const s of oppShots) {
+            if (s.is_hit) hitCells.add(s.y * 10 + s.x);
+          }
+          hitCells.add(idx);
+
+          const ships = findShips(localData.board);
+          const ship = ships.find(sh => sh.includes(idx));
+          if (ship && isShipSunk(ship, hitCells)) {
+            const shipCells = ship.map(i => [i % 10, Math.floor(i / 10)]);
+            await reportSunkShip(`off_${gameIdNum}`, shipCells, game.last_shooter!);
+          }
+        }
+        loadGame();
+        loadShots();
+        loadSunkReports();
+      })
       .finally(() => { autoReported.current = false; });
   }
   if (!needsReport) autoReported.current = false;
 
-  // Handlers
+  // ── Handlers ──
+
   const handleCommitBoard = async (boardLayout: number[]) => {
     const salt = crypto.getRandomValues(new Uint8Array(32));
     const saltHex = toHex(salt);
@@ -155,6 +233,7 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
 
   const handleShoot = async () => {
     if (!selectedCell) return;
+    gameSounds.playShot();
     setLoading(true);
     try {
       await shootOffchain(gameIdNum, address, selectedCell.x, selectedCell.y);
@@ -165,7 +244,9 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     setLoading(false);
   };
 
-  // Build board cells
+  // ── Build board cells with sunk detection ──
+
+  // My board: I know my ship layout → detect sunk locally
   const myBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
@@ -173,17 +254,72 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     for (let y = 0; y < 10; y++)
       for (let x = 0; x < 10; x++)
         if (localData.board[y * 10 + x] === 1) myBoardCells[y][x] = "ship";
-  }
-  for (const s of oppShots) {
-    if (s.is_hit !== null) myBoardCells[s.y][s.x] = s.is_hit ? "hit" : "miss";
+
+    // Detect sunk ships on my board
+    const ships = findShips(localData.board);
+    const oppHitCells = new Set<number>();
+    for (const s of oppShots) {
+      if (s.is_hit) oppHitCells.add(s.y * 10 + s.x);
+    }
+    const sunkShipCells = new Set<number>();
+    for (const ship of ships) {
+      if (isShipSunk(ship, oppHitCells)) {
+        for (const c of ship) sunkShipCells.add(c);
+      }
+    }
+
+    for (const s of oppShots) {
+      if (s.is_hit === null) continue;
+      if (s.is_hit) {
+        const idx = s.y * 10 + s.x;
+        myBoardCells[s.y][s.x] = sunkShipCells.has(idx) ? "sunk" : "hit";
+      } else {
+        myBoardCells[s.y][s.x] = "miss";
+      }
+    }
+  } else {
+    for (const s of oppShots) {
+      if (s.is_hit !== null) myBoardCells[s.y][s.x] = s.is_hit ? "hit" : "miss";
+    }
   }
 
+  // Enemy board: use sunk reports for sunk/surrounding detection
   const enemyBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
-  for (const s of myShots) {
-    if (s.is_hit !== null) enemyBoardCells[s.y][s.x] = s.is_hit ? "hit" : "miss";
+
+  const sunkCellSet = new Set<string>();
+  const surroundSet = new Set<string>();
+  for (const report of sunkReports) {
+    if (report.killed_by === addr) {
+      for (const [cx, cy] of report.ship_cells) {
+        sunkCellSet.add(`${cx},${cy}`);
+      }
+      const shipIndices = report.ship_cells.map(([cx, cy]) => cy * 10 + cx);
+      for (const idx of getSurroundingCells(shipIndices)) {
+        const sx = idx % 10, sy = Math.floor(idx / 10);
+        if (!sunkCellSet.has(`${sx},${sy}`)) surroundSet.add(`${sx},${sy}`);
+      }
+    }
   }
+
+  for (const s of myShots) {
+    if (s.is_hit === null) continue;
+    if (s.is_hit) {
+      enemyBoardCells[s.y][s.x] = sunkCellSet.has(`${s.x},${s.y}`) ? "sunk" : "hit";
+    } else {
+      enemyBoardCells[s.y][s.x] = "miss";
+    }
+  }
+
+  // Auto-fill dots around sunk ships
+  for (const key of surroundSet) {
+    const [sx, sy] = key.split(",").map(Number);
+    if (enemyBoardCells[sy][sx] === "empty") {
+      enemyBoardCells[sy][sx] = "miss";
+    }
+  }
+
   if (selectedCell && enemyBoardCells[selectedCell.y][selectedCell.x] === "empty") {
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }
@@ -194,7 +330,8 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     setSelectedCell({ x, y });
   };
 
-  // Not a player
+  // ── Render states ──
+
   if (playerNum === 0 && game.state >= 1) {
     return (
       <div className={styles.container}>
@@ -206,7 +343,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     );
   }
 
-  // Waiting for player 2
   if (game.state === 0) {
     return (
       <div className={styles.container}>
@@ -221,7 +357,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     );
   }
 
-  // Ship placement
   if (game.state === 1 && !myBoardCommitted) {
     return (
       <div className={styles.container}>
@@ -236,7 +371,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     );
   }
 
-  // Waiting for opponent ships
   if (game.state === 1 && myBoardCommitted && !oppBoardCommitted) {
     return (
       <div className={styles.container}>
@@ -249,7 +383,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     );
   }
 
-  // Game finished
   if (game.state === 3) {
     const didWin = game.winner === addr;
     return (
@@ -279,7 +412,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     );
   }
 
-  // Active game
   const canShoot = isMyTurn && game.turn_phase === 0 && !loading;
 
   return (

@@ -39,43 +39,37 @@ export default function LeaderboardPage() {
 
         {showHelp && (
           <div className={styles.helpBox}>
-            <p className={styles.helpTitle}>How rating works</p>
-            <p>Rating = Win Rate (60%) + Accuracy (40%)</p>
+            <p className={styles.helpTitle}>How points work</p>
             <ul className={styles.helpList}>
-              <li><strong>Win Rate</strong> — % of games won out of total played</li>
-              <li><strong>Accuracy</strong> — % of shots that hit an enemy ship</li>
-              <li><strong>Rating</strong> — combined score from 0 to 100</li>
+              <li><strong>+50 pts</strong> — for winning a game</li>
+              <li><strong>+1 pt</strong> — for each hit on enemy ship</li>
+              <li><strong>+5 pts</strong> — daily check-in (base reward)</li>
+              <li><strong>Streak bonus</strong> — every 5 consecutive days, reward increases by +5</li>
             </ul>
-            <p className={styles.helpNote}>Only onchain games count toward your rating.</p>
+            <p className={styles.helpNote}>Check-in resets daily at 00:00 UTC.</p>
           </div>
         )}
 
-        <div className={styles.subtitle}>Onchain players only</div>
+        <div className={styles.subtitle}>Top players by points</div>
 
         {loading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
           </div>
         ) : entries.length === 0 ? (
-          <p className={styles.empty}>No onchain games played yet. Be the first!</p>
+          <p className={styles.empty}>No players yet. Be the first!</p>
         ) : (
           <div className={styles.table}>
             <div className={styles.tableHeader}>
               <span className={styles.colRank}>#</span>
               <span className={styles.colWallet}>Player</span>
-              <span className={styles.colStat}>W/L</span>
-              <span className={styles.colStat}>Acc</span>
-              <span className={styles.colRating}>Rating</span>
+              <span className={styles.colStat}>Wins</span>
+              <span className={styles.colStat}>Streak</span>
+              <span className={styles.colPoints}>Points</span>
             </div>
 
             {entries.map((entry, i) => {
               const isMe = entry.wallet === myAddr;
-              const winRate = entry.games_played > 0
-                ? Math.round((entry.wins / entry.games_played) * 100)
-                : 0;
-              const accuracy = entry.total_shots > 0
-                ? Math.round((entry.total_hits / entry.total_shots) * 100)
-                : 0;
 
               return (
                 <div
@@ -90,13 +84,12 @@ export default function LeaderboardPage() {
                     {isMe && <span className={styles.youBadge}>you</span>}
                   </span>
                   <span className={styles.colStat}>
-                    {entry.wins}/{entry.games_played - entry.wins}
-                    <span className={styles.statHint}>{winRate}%</span>
+                    {entry.wins}
                   </span>
                   <span className={styles.colStat}>
-                    {accuracy}%
+                    {entry.checkin_streak}d
                   </span>
-                  <span className={styles.colRating}>{entry.rating}</span>
+                  <span className={styles.colPoints}>{entry.points}</span>
                 </div>
               );
             })}

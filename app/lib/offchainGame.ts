@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
-// Create a new offchain game
+// ─── Offchain game CRUD ───
+
 export async function createOffchainGame(
   playerAddress: string,
   isPrivate: boolean
@@ -14,7 +15,6 @@ export async function createOffchainGame(
   return data.id;
 }
 
-// Join an offchain game
 export async function joinOffchainGame(
   gameId: number,
   playerAddress: string
@@ -37,7 +37,6 @@ export async function joinOffchainGame(
   if (error) throw new Error(error.message);
 }
 
-// Commit board hash
 export async function commitOffchainBoard(
   gameId: number,
   playerAddress: string,
@@ -63,13 +62,10 @@ export async function commitOffchainBoard(
     updates.player2_board_hash = boardHash;
   }
 
-  // Check if both committed after this update
   const otherCommitted = isPlayer1
     ? game.player2_board_hash
     : game.player1_board_hash;
-  if (otherCommitted) {
-    updates.state = 2; // Active
-  }
+  if (otherCommitted) updates.state = 2;
 
   const { error } = await supabase
     .from("games")
@@ -78,7 +74,6 @@ export async function commitOffchainBoard(
   if (error) throw new Error(error.message);
 }
 
-// Fire a shot
 export async function shootOffchain(
   gameId: number,
   playerAddress: string,
@@ -99,7 +94,6 @@ export async function shootOffchain(
   if (playerNum === 0) throw new Error("Not a player");
   if (game.current_turn !== playerNum) throw new Error("Not your turn");
 
-  // Check duplicate shot
   const { data: existing } = await supabase
     .from("shots")
     .select("id")
@@ -110,7 +104,6 @@ export async function shootOffchain(
     .limit(1);
   if (existing && existing.length > 0) throw new Error("Already shot here");
 
-  // Insert shot
   await supabase.from("shots").insert({
     game_id: gameId,
     player_num: playerNum,
@@ -118,7 +111,6 @@ export async function shootOffchain(
     y,
   });
 
-  // Update game
   const { error } = await supabase
     .from("games")
     .update({
@@ -131,7 +123,6 @@ export async function shootOffchain(
   if (error) throw new Error(error.message);
 }
 
-// Report hit result
 export async function reportHitOffchain(
   gameId: number,
   playerAddress: string,
@@ -149,12 +140,10 @@ export async function reportHitOffchain(
   if (game.turn_phase !== 1) throw new Error("No shot to report");
 
   const addr = playerAddress.toLowerCase();
-  // Reporter must be the opponent of lastShooter
   if (game.last_shooter === addr) throw new Error("Not the opponent");
 
   const shooterNum = game.player1 === game.last_shooter ? 1 : 2;
 
-  // Update the shot record with hit result
   await supabase
     .from("shots")
     .update({ is_hit: isHit })
@@ -163,13 +152,17 @@ export async function reportHitOffchain(
     .eq("x", x)
     .eq("y", y);
 
-  // Update game state: if hit, shooter keeps the turn; if miss, turn switches
   const updates: Record<string, unknown> = {
     turn_phase: 0,
-    current_turn: isHit ? game.current_turn : (game.current_turn === 1 ? 2 : 1),
+    current_turn: isHit
+      ? game.current_turn
+      : game.current_turn === 1
+        ? 2
+        : 1,
   };
 
   if (isHit) {
+    const shooterAddr = game.last_shooter;
     if (shooterNum === 1) {
       updates.player1_hits = game.player1_hits + 1;
       if (game.player1_hits + 1 >= 20) {
@@ -183,6 +176,17 @@ export async function reportHitOffchain(
         updates.winner = game.player2;
       }
     }
+    // +1 point per hit for the shooter
+    addPoints(shooterAddr, 1).catch(() => {});
+  }
+
+  // Check if game just finished → award win points
+  if (updates.state === 3 && updates.winner) {
+    const winnerAddr = updates.winner as string;
+    const loserAddr =
+      winnerAddr === game.player1 ? game.player2 : game.player1;
+    recordGameResult(winnerAddr, true).catch(() => {});
+    recordGameResult(loserAddr, false).catch(() => {});
   }
 
   const { error } = await supabase
@@ -192,7 +196,6 @@ export async function reportHitOffchain(
   if (error) throw new Error(error.message);
 }
 
-// Get available (open, public) games
 export async function getAvailableGames(
   excludeAddress?: string
 ): Promise<{ id: number; player1: string }[]> {
@@ -212,72 +215,6 @@ export async function getAvailableGames(
   return data || [];
 }
 
-// --- Onchain leaderboard ---
-
-export async function recordOnchainResult(
-  wallet: string,
-  won: boolean,
-  shots: number,
-  hits: number
-): Promise<void> {
-  const addr = wallet.toLowerCase();
-  const { data: existing } = await supabase
-    .from("onchain_stats")
-    .select("*")
-    .eq("wallet", addr)
-    .single();
-
-  if (existing) {
-    await supabase
-      .from("onchain_stats")
-      .update({
-        games_played: existing.games_played + 1,
-        wins: existing.wins + (won ? 1 : 0),
-        total_shots: existing.total_shots + shots,
-        total_hits: existing.total_hits + hits,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("wallet", addr);
-  } else {
-    await supabase.from("onchain_stats").insert({
-      wallet: addr,
-      games_played: 1,
-      wins: won ? 1 : 0,
-      total_shots: shots,
-      total_hits: hits,
-    });
-  }
-}
-
-export interface LeaderboardEntry {
-  wallet: string;
-  games_played: number;
-  wins: number;
-  total_shots: number;
-  total_hits: number;
-  rating: number;
-}
-
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  const { data } = await supabase
-    .from("onchain_stats")
-    .select("*")
-    .gte("games_played", 1)
-    .order("wins", { ascending: false })
-    .limit(50);
-
-  if (!data) return [];
-
-  return data.map((row) => {
-    const winRate = row.games_played > 0 ? row.wins / row.games_played : 0;
-    const accuracy = row.total_shots > 0 ? row.total_hits / row.total_shots : 0;
-    // Rating: 60% win rate + 40% accuracy, scaled 0-100
-    const rating = Math.round(winRate * 60 + accuracy * 40);
-    return { ...row, rating };
-  }).sort((a, b) => b.rating - a.rating);
-}
-
-// Get shots for a game by player
 export async function getPlayerShots(
   gameId: number,
   playerNum: number
@@ -288,4 +225,224 @@ export async function getPlayerShots(
     .eq("game_id", gameId)
     .eq("player_num", playerNum);
   return data || [];
+}
+
+// ─── Sunk ship reports ───
+
+export interface SunkReport {
+  id: number;
+  game_key: string;
+  ship_cells: number[][]; // [[x,y],...]
+  killed_by: string;
+}
+
+export async function reportSunkShip(
+  gameKey: string,
+  shipCells: number[][],
+  killedBy: string
+): Promise<void> {
+  await supabase.from("sunk_reports").insert({
+    game_key: gameKey,
+    ship_cells: shipCells,
+    killed_by: killedBy.toLowerCase(),
+  });
+}
+
+export async function getSunkReports(
+  gameKey: string
+): Promise<SunkReport[]> {
+  const { data } = await supabase
+    .from("sunk_reports")
+    .select("id, game_key, ship_cells, killed_by")
+    .eq("game_key", gameKey);
+  return (data as SunkReport[]) || [];
+}
+
+// ─── Points-based leaderboard ───
+
+export async function addPoints(
+  wallet: string,
+  points: number
+): Promise<void> {
+  const addr = wallet.toLowerCase();
+  const { data: existing } = await supabase
+    .from("player_stats")
+    .select("points")
+    .eq("wallet", addr)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from("player_stats")
+      .update({
+        points: existing.points + points,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("wallet", addr);
+  } else {
+    await supabase.from("player_stats").insert({
+      wallet: addr,
+      points,
+    });
+  }
+}
+
+export async function recordGameResult(
+  wallet: string,
+  won: boolean
+): Promise<void> {
+  const addr = wallet.toLowerCase();
+  const { data: existing } = await supabase
+    .from("player_stats")
+    .select("*")
+    .eq("wallet", addr)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from("player_stats")
+      .update({
+        games_played: existing.games_played + 1,
+        wins: existing.wins + (won ? 1 : 0),
+        points: existing.points + (won ? 50 : 0),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("wallet", addr);
+  } else {
+    await supabase.from("player_stats").insert({
+      wallet: addr,
+      games_played: 1,
+      wins: won ? 1 : 0,
+      points: won ? 50 : 0,
+    });
+  }
+}
+
+// ─── Daily check-in ───
+
+export interface CheckinStatus {
+  canCheckin: boolean;
+  streak: number;
+  nextReward: number;
+}
+
+function getCheckinReward(streak: number): number {
+  return Math.ceil(streak / 5) * 5;
+}
+
+function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayUTC(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function getCheckinStatus(
+  wallet: string
+): Promise<CheckinStatus> {
+  const addr = wallet.toLowerCase();
+  const { data } = await supabase
+    .from("player_stats")
+    .select("checkin_streak, last_checkin")
+    .eq("wallet", addr)
+    .single();
+
+  if (!data) {
+    return { canCheckin: true, streak: 0, nextReward: 5 };
+  }
+
+  const today = todayUTC();
+  const yesterday = yesterdayUTC();
+
+  if (data.last_checkin === today) {
+    return {
+      canCheckin: false,
+      streak: data.checkin_streak,
+      nextReward: getCheckinReward(data.checkin_streak + 1),
+    };
+  }
+
+  const streak =
+    data.last_checkin === yesterday ? data.checkin_streak : 0;
+  return {
+    canCheckin: true,
+    streak,
+    nextReward: getCheckinReward(streak + 1),
+  };
+}
+
+export async function dailyCheckin(
+  wallet: string
+): Promise<{ points: number; streak: number }> {
+  const addr = wallet.toLowerCase();
+  const today = todayUTC();
+  const yesterday = yesterdayUTC();
+
+  const { data: existing } = await supabase
+    .from("player_stats")
+    .select("*")
+    .eq("wallet", addr)
+    .single();
+
+  let newStreak: number;
+
+  if (!existing) {
+    newStreak = 1;
+    const reward = getCheckinReward(newStreak);
+    await supabase.from("player_stats").insert({
+      wallet: addr,
+      points: reward,
+      checkin_streak: newStreak,
+      last_checkin: today,
+    });
+    return { points: reward, streak: newStreak };
+  }
+
+  if (existing.last_checkin === today) {
+    throw new Error("Already checked in today");
+  }
+
+  newStreak =
+    existing.last_checkin === yesterday
+      ? existing.checkin_streak + 1
+      : 1;
+
+  const reward = getCheckinReward(newStreak);
+
+  await supabase
+    .from("player_stats")
+    .update({
+      points: existing.points + reward,
+      checkin_streak: newStreak,
+      last_checkin: today,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("wallet", addr);
+
+  return { points: reward, streak: newStreak };
+}
+
+// ─── Leaderboard ───
+
+export interface LeaderboardEntry {
+  wallet: string;
+  points: number;
+  wins: number;
+  games_played: number;
+  total_hits: number;
+  checkin_streak: number;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const { data } = await supabase
+    .from("player_stats")
+    .select("wallet, points, wins, games_played, total_hits, checkin_streak")
+    .gt("points", 0)
+    .order("points", { ascending: false })
+    .limit(50);
+
+  return (data as LeaderboardEntry[]) || [];
 }

@@ -22,6 +22,9 @@ import {
   createOffchainGame,
   joinOffchainGame,
   getAvailableGames,
+  getCheckinStatus,
+  dailyCheckin,
+  CheckinStatus,
 } from "./lib/offchainGame";
 import styles from "./page.module.css";
 
@@ -46,6 +49,9 @@ export default function Home() {
   const [mode, setMode] = useState<GameMode>("offchain");
   const [offchainLoading, setOffchainLoading] = useState(false);
   const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string }[]>([]);
+  const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
+  const [checkinLoading, setCheckinLoading] = useState(false);
+  const [checkinMsg, setCheckinMsg] = useState("");
   const autoConnected = useRef(false);
 
   // Auto-connect
@@ -183,6 +189,27 @@ export default function Home() {
       }
     }
   }
+
+  // --- Check-in ---
+  useEffect(() => {
+    if (address) {
+      getCheckinStatus(address).then(setCheckin).catch(() => {});
+    }
+  }, [address]);
+
+  const handleCheckin = async () => {
+    if (!address) return;
+    setCheckinLoading(true);
+    setCheckinMsg("");
+    try {
+      const result = await dailyCheckin(address);
+      setCheckinMsg(`+${result.points} pts! Streak: ${result.streak} days`);
+      setCheckin({ canCheckin: false, streak: result.streak, nextReward: Math.ceil((result.streak + 1) / 5) * 5 });
+    } catch {
+      setCheckinMsg("Already checked in today");
+    }
+    setCheckinLoading(false);
+  };
 
   // --- OFFCHAIN logic ---
   const loadOffchainGames = useCallback(async () => {
@@ -354,6 +381,24 @@ export default function Home() {
 
             {games.length === 0 && (
               <p className={styles.noGames}>No open games. Create one!</p>
+            )}
+
+            {/* Daily check-in */}
+            {checkin && (
+              <div className={styles.checkinSection}>
+                <button
+                  className={`${styles.checkinBtn} ${!checkin.canCheckin ? styles.checkinDone : ""}`}
+                  onClick={handleCheckin}
+                  disabled={!checkin.canCheckin || checkinLoading}
+                >
+                  {checkinLoading
+                    ? "Checking in..."
+                    : checkin.canCheckin
+                      ? `Daily Check-in (+${checkin.nextReward} pts)`
+                      : `Checked in! Streak: ${checkin.streak}d`}
+                </button>
+                {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
+              </div>
             )}
 
             <button

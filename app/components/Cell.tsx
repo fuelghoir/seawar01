@@ -2,7 +2,7 @@
 
 import styles from "./Cell.module.css";
 
-export type CellState = "empty" | "ship" | "hit" | "miss" | "pending" | "preview" | "preview-invalid";
+export type CellState = "empty" | "ship" | "hit" | "miss" | "sunk" | "pending" | "preview" | "preview-invalid";
 
 interface CellProps {
   state: CellState;
@@ -17,6 +17,7 @@ export function Cell({ state, onClick, isInteractive }: CellProps) {
       onClick={isInteractive ? onClick : undefined}
     >
       {state === "hit" && <span className={styles.marker}>X</span>}
+      {state === "sunk" && <span className={styles.marker}>X</span>}
       {state === "miss" && <span className={styles.marker}>&bull;</span>}
     </div>
   );
