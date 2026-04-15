@@ -281,8 +281,11 @@ function OnchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     if (gameState === 3 && address && playerNum > 0 && !resultRecorded.current) {
       resultRecorded.current = true;
       const didWin = winner.toLowerCase() === address.toLowerCase();
-      recordGameResult(address, didWin).catch(() => {});
-      if (myHits > 0) addPoints(address, myHits).catch(() => {});
+      // Sequential to avoid race condition on same row
+      const hitPts = didWin ? myHits : 0;
+      addPoints(address, hitPts + (didWin ? 50 : 0))
+        .then(() => recordGameResult(address, didWin))
+        .catch(() => {});
     }
   }, [gameState, address, playerNum, winner, myHits]);
 

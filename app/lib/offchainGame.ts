@@ -162,7 +162,6 @@ export async function reportHitOffchain(
   };
 
   if (isHit) {
-    const shooterAddr = game.last_shooter;
     if (shooterNum === 1) {
       updates.player1_hits = game.player1_hits + 1;
       if (game.player1_hits + 1 >= 20) {
@@ -176,17 +175,20 @@ export async function reportHitOffchain(
         updates.winner = game.player2;
       }
     }
-    // +1 point per hit for the shooter
-    addPoints(shooterAddr, 1).catch(() => {});
-  }
 
-  // Check if game just finished → award win points
-  if (updates.state === 3 && updates.winner) {
-    const winnerAddr = updates.winner as string;
-    const loserAddr =
-      winnerAddr === game.player1 ? game.player2 : game.player1;
-    recordGameResult(winnerAddr, true).catch(() => {});
-    recordGameResult(loserAddr, false).catch(() => {});
+    const shooterAddr = game.last_shooter;
+    if (updates.state === 3 && updates.winner) {
+      // Game finished: +1 hit + 50 win for winner, 0 for loser (sequential to avoid race)
+      const winnerAddr = updates.winner as string;
+      const loserAddr = winnerAddr === game.player1 ? game.player2 : game.player1;
+      addPoints(shooterAddr, 51) // +1 hit + 50 win combined
+        .then(() => recordGameResult(shooterAddr, true))
+        .then(() => recordGameResult(loserAddr, false))
+        .catch(() => {});
+    } else {
+      // Regular hit: +1 point
+      addPoints(shooterAddr, 1).catch(() => {});
+    }
   }
 
   const { error } = await supabase
@@ -287,6 +289,7 @@ export async function addPoints(
   }
 }
 
+/** Record win/loss stats only (points are added separately via addPoints). */
 export async function recordGameResult(
   wallet: string,
   won: boolean
@@ -304,7 +307,6 @@ export async function recordGameResult(
       .update({
         games_played: existing.games_played + 1,
         wins: existing.wins + (won ? 1 : 0),
-        points: existing.points + (won ? 50 : 0),
         updated_at: new Date().toISOString(),
       })
       .eq("wallet", addr);
@@ -313,7 +315,6 @@ export async function recordGameResult(
       wallet: addr,
       games_played: 1,
       wins: won ? 1 : 0,
-      points: won ? 50 : 0,
     });
   }
 }
