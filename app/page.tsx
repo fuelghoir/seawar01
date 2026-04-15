@@ -11,6 +11,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useSwitchChain,
+  useSendTransaction,
 } from "wagmi";
 import { base } from "wagmi/chains";
 import { decodeEventLog } from "viem";
@@ -61,12 +62,12 @@ export default function Home() {
     connect({ connector: connectors[0] });
   }, [isConnected, connectors, connect]);
 
-  // Auto-switch chain (onchain mode)
+  // Auto-switch chain (onchain mode or check-in)
   useEffect(() => {
-    if (isConnected && chainId && chainId !== base.id && mode === "onchain") {
+    if (isConnected && chainId && chainId !== base.id) {
       switchChain({ chainId: base.id });
     }
-  }, [isConnected, chainId, switchChain, mode]);
+  }, [isConnected, chainId, switchChain]);
 
   // --- ONCHAIN logic ---
   const {
@@ -190,25 +191,52 @@ export default function Home() {
     }
   }
 
-  // --- Check-in ---
+  // --- Check-in (onchain transaction) ---
+  const {
+    sendTransaction,
+    data: checkinTxHash,
+    isPending: checkinTxPending,
+  } = useSendTransaction();
+  const { isSuccess: checkinTxSuccess } = useWaitForTransactionReceipt({
+    hash: checkinTxHash,
+  });
+
   useEffect(() => {
     if (address) {
       getCheckinStatus(address).then(setCheckin).catch(() => {});
     }
   }, [address]);
 
-  const handleCheckin = async () => {
-    if (!address) return;
+  // After check-in tx confirms, record points in Supabase
+  const checkinRecorded = useRef(false);
+  useEffect(() => {
+    if (checkinTxSuccess && address && !checkinRecorded.current) {
+      checkinRecorded.current = true;
+      dailyCheckin(address)
+        .then((result) => {
+          setCheckinMsg(`+${result.points} pts! Streak: ${result.streak} days`);
+          setCheckin({
+            canCheckin: false,
+            streak: result.streak,
+            nextReward: Math.ceil((result.streak + 1) / 5) * 5,
+          });
+        })
+        .catch(() => setCheckinMsg("Already checked in today"))
+        .finally(() => setCheckinLoading(false));
+    }
+  }, [checkinTxSuccess, address]);
+
+  const handleCheckin = () => {
+    if (!address || !checkin?.canCheckin) return;
     setCheckinLoading(true);
     setCheckinMsg("");
-    try {
-      const result = await dailyCheckin(address);
-      setCheckinMsg(`+${result.points} pts! Streak: ${result.streak} days`);
-      setCheckin({ canCheckin: false, streak: result.streak, nextReward: Math.ceil((result.streak + 1) / 5) * 5 });
-    } catch {
-      setCheckinMsg("Already checked in today");
-    }
-    setCheckinLoading(false);
+    checkinRecorded.current = false;
+    // Send 0-value tx to contract as proof-of-activity
+    sendTransaction({
+      to: SEABATTLE_CONTRACT_ADDRESS,
+      value: BigInt(0),
+      chainId: base.id,
+    });
   };
 
   // --- OFFCHAIN logic ---
@@ -391,11 +419,13 @@ export default function Home() {
                   onClick={handleCheckin}
                   disabled={!checkin.canCheckin || checkinLoading}
                 >
-                  {checkinLoading
-                    ? "Checking in..."
-                    : checkin.canCheckin
-                      ? `Daily Check-in (+${checkin.nextReward} pts)`
-                      : `Checked in! Streak: ${checkin.streak}d`}
+                  {checkinTxPending
+                    ? "Confirm in wallet..."
+                    : checkinLoading
+                      ? "Confirming tx..."
+                      : checkin.canCheckin
+                        ? `Daily Check-in (+${checkin.nextReward} pts)`
+                        : `Checked in! Streak: ${checkin.streak}d`}
                 </button>
                 {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
               </div>
