@@ -90,10 +90,10 @@ export function BotGameContent({
     }
   }, [winner, isOnchain, address, gameIdStr, writeContract]);
 
-  // Record points
+  // Record points (only for onchain bot games)
   const pointsRecorded = useRef(false);
   useEffect(() => {
-    if (winner && address && !pointsRecorded.current) {
+    if (winner && address && isOnchain && !pointsRecorded.current) {
       pointsRecorded.current = true;
       const didWin = winner === "me";
       const hitPts = didWin ? myHits : 0;

@@ -4,15 +4,33 @@ import { supabase } from "./supabase";
 
 export async function createOffchainGame(
   playerAddress: string,
-  isPrivate: boolean
+  isPrivate: boolean,
+  opts?: { game_mode?: string; onchain_game_id?: number; wager_amount?: number }
 ): Promise<number> {
+  const row: Record<string, unknown> = {
+    player1: playerAddress.toLowerCase(),
+    is_private: isPrivate,
+  };
+  if (opts?.game_mode) row.game_mode = opts.game_mode;
+  if (opts?.onchain_game_id !== undefined) row.onchain_game_id = opts.onchain_game_id;
+  if (opts?.wager_amount !== undefined) row.wager_amount = opts.wager_amount;
+
   const { data, error } = await supabase
     .from("games")
-    .insert({ player1: playerAddress.toLowerCase(), is_private: isPrivate })
+    .insert(row)
     .select("id")
     .single();
   if (error) throw new Error(error.message);
   return data.id;
+}
+
+export async function getGameOnchainId(gameId: number): Promise<number | null> {
+  const { data } = await supabase
+    .from("games")
+    .select("onchain_game_id")
+    .eq("id", gameId)
+    .single();
+  return data?.onchain_game_id ?? null;
 }
 
 export async function joinOffchainGame(

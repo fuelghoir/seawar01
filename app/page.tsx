@@ -25,6 +25,7 @@ import {
   getAvailableGames,
   getCheckinStatus,
   dailyCheckin,
+  getGameOnchainId,
   CheckinStatus,
 } from "./lib/offchainGame";
 import styles from "./page.module.css";
@@ -149,7 +150,10 @@ export default function Home() {
             });
             if (decoded.eventName === "GameCreated") {
               const onchainId = (decoded.args as { gameId: bigint }).gameId;
-              createOffchainGame(address!, isPrivate)
+              createOffchainGame(address!, isPrivate, {
+                game_mode: "hybrid",
+                onchain_game_id: Number(onchainId),
+              })
                 .then((offId) => {
                   router.push(`/game?id=${offId}&mode=hybrid&oid=${onchainId.toString()}`);
                 })
@@ -159,7 +163,10 @@ export default function Home() {
           } catch { /* not our event */ }
         }
       } else {
-        router.push(`/game?id=${pa.joinId}&mode=hybrid&oid=${pa.joinId}`);
+        // Join hybrid: fetch onchain_game_id from Supabase
+        getGameOnchainId(Number(pa.joinId)).then((oid) => {
+          router.push(`/game?id=${pa.joinId}&mode=hybrid&oid=${oid || pa.joinId}`);
+        });
       }
       return;
     }
@@ -175,7 +182,11 @@ export default function Home() {
             });
             if (decoded.eventName === "GameCreated") {
               const onchainId = (decoded.args as { gameId: bigint }).gameId;
-              createOffchainGame(address!, isPrivate)
+              createOffchainGame(address!, isPrivate, {
+                game_mode: "wager",
+                onchain_game_id: Number(onchainId),
+                wager_amount: pa.wager,
+              })
                 .then((offId) => {
                   router.push(`/game?id=${offId}&mode=wager&oid=${onchainId.toString()}`);
                 })
@@ -184,6 +195,11 @@ export default function Home() {
             }
           } catch { /* not our event */ }
         }
+      } else if (pa.action === "join") {
+        // Join wager: fetch onchain_game_id from Supabase
+        getGameOnchainId(Number(pa.joinId)).then((oid) => {
+          router.push(`/game?id=${pa.joinId}&mode=wager&oid=${oid || pa.joinId}`);
+        });
       }
       return;
     }
@@ -211,13 +227,17 @@ export default function Home() {
         chainId: base.id,
       });
     } else {
-      pendingAction.current = { action: "join", mode: "wager", joinId: wa.joinId };
-      writeContract({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "joinWagerGame",
-        args: [BigInt(wa.joinId!)],
-        chainId: base.id,
+      // Fetch onchain_game_id from Supabase, use it for the contract call
+      getGameOnchainId(Number(wa.joinId!)).then((oid) => {
+        if (!oid) { setError("Onchain game ID not found"); return; }
+        pendingAction.current = { action: "join", mode: "wager", joinId: wa.joinId };
+        writeContract({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "joinWagerGame",
+          args: [BigInt(oid)],
+          chainId: base.id,
+        });
       });
     }
   }, [approveSuccess, writeContract]);
@@ -369,13 +389,15 @@ export default function Home() {
       setOffchainLoading(true);
       try {
         await joinOffchainGame(Number(gid), address);
+        const oid = await getGameOnchainId(Number(gid));
         setOffchainLoading(false);
+        if (!oid) { setError("Onchain game ID not found"); return; }
         pendingAction.current = { action: "join", mode: "hybrid", joinId: gid };
         writeContract({
           address: SEABATTLE_CONTRACT_ADDRESS,
           abi: seaBattleAbi,
           functionName: "joinGame",
-          args: [BigInt(gid)],
+          args: [BigInt(oid)],
           chainId: base.id,
         });
       } catch (e: unknown) {
