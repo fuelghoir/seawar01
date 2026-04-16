@@ -2,9 +2,21 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useReadContract,
+} from "wagmi";
 import { keccak256, toHex, concatHex } from "viem";
+import { base } from "wagmi/chains";
 import { supabase, OffchainGame } from "../lib/supabase";
+import {
+  seaBattleAbi,
+  erc20Abi,
+  SEABATTLE_CONTRACT_ADDRESS,
+  USDC_ADDRESS,
+} from "../contracts/seaBattleAbi";
 import {
   commitOffchainBoard,
   shootOffchain,
@@ -41,7 +53,17 @@ function saveLocalBoard(gameId: string, board: number[], salt: string) {
   localStorage.setItem(`seabattle_off_${gameId}`, JSON.stringify({ board, salt }));
 }
 
-export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
+type GameMode = "offchain" | "hybrid" | "wager";
+
+export function OffchainGameContent({
+  gameIdStr,
+  mode = "offchain",
+  onchainGameId,
+}: {
+  gameIdStr: string;
+  mode?: GameMode;
+  onchainGameId?: string;
+}) {
   const router = useRouter();
   const { address } = useAccount();
   const gameIdNum = Number(gameIdStr);
@@ -60,6 +82,138 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
   const prevSunkCount = useRef(0);
   const prevTurnPhase = useRef(-1);
   const prevCurrentTurn = useRef(-1);
+
+  // ─── Onchain result recording (hybrid/wager) ───
+  const {
+    data: resultTxHash,
+    writeContract: writeResult,
+    isPending: resultPending,
+  } = useWriteContract();
+  const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({
+    hash: resultTxHash,
+  });
+
+  // ─── Claim prize (wager) ───
+  const {
+    data: claimTxHash,
+    writeContract: writeClaim,
+    isPending: claimPending,
+  } = useWriteContract();
+  const { isSuccess: claimConfirmed } = useWaitForTransactionReceipt({
+    hash: claimTxHash,
+  });
+
+  // ─── Buy bomb (wager) ───
+  const {
+    data: bombApproveTxHash,
+    writeContract: writeBombApprove,
+    isPending: bombApprovePending,
+  } = useWriteContract();
+  const { isSuccess: bombApproveConfirmed } = useWaitForTransactionReceipt({
+    hash: bombApproveTxHash,
+  });
+  const {
+    data: bombBuyTxHash,
+    writeContract: writeBombBuy,
+    isPending: bombBuyPending,
+  } = useWriteContract();
+  const { isSuccess: bombBuyConfirmed } = useWaitForTransactionReceipt({
+    hash: bombBuyTxHash,
+  });
+
+  const [bombOwned, setBombOwned] = useState(false);
+  const [bombUsed, setBombUsed] = useState(false);
+  const [bombActive, setBombActive] = useState(false); // toggle for firing bomb
+  const [bombBuying, setBombBuying] = useState(false);
+
+  // Check bomb ownership from contract
+  const { data: hasBombData } = useReadContract({
+    address: SEABATTLE_CONTRACT_ADDRESS,
+    abi: seaBattleAbi,
+    functionName: "playerHasBomb",
+    args: [BigInt(onchainGameId || "0"), address || "0x0000000000000000000000000000000000000000"],
+    query: {
+      enabled: mode === "wager" && !!onchainGameId && !!address,
+      refetchInterval: 5000,
+    },
+  });
+
+  useEffect(() => {
+    if (hasBombData === true) setBombOwned(true);
+  }, [hasBombData]);
+
+  // After bomb approve, buy bomb
+  useEffect(() => {
+    if (bombApproveConfirmed && bombBuying && onchainGameId) {
+      writeBombBuy({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "buyBomb",
+        args: [BigInt(onchainGameId)],
+        chainId: base.id,
+      });
+    }
+  }, [bombApproveConfirmed, bombBuying, onchainGameId, writeBombBuy]);
+
+  useEffect(() => {
+    if (bombBuyConfirmed) {
+      setBombOwned(true);
+      setBombBuying(false);
+    }
+  }, [bombBuyConfirmed]);
+
+  const handleBuyBomb = () => {
+    if (!address || bombOwned || bombBuying) return;
+    setBombBuying(true);
+    // Approve 2 USDC to contract
+    writeBombApprove({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(2_000_000)],
+      chainId: base.id,
+    });
+  };
+
+  // ─── Record result onchain (hybrid/wager) ───
+  const resultRecordedRef = useRef(false);
+  useEffect(() => {
+    if (
+      game?.state === 3 &&
+      game.winner &&
+      address &&
+      (mode === "hybrid" || mode === "wager") &&
+      onchainGameId &&
+      !resultRecordedRef.current
+    ) {
+      resultRecordedRef.current = true;
+      writeResult({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "recordResult",
+        args: [BigInt(onchainGameId), game.winner as `0x${string}`],
+        chainId: base.id,
+      });
+    }
+  }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult]);
+
+  // Auto-claim prize after result confirmed (wager, winner only)
+  useEffect(() => {
+    if (
+      resultConfirmed &&
+      mode === "wager" &&
+      onchainGameId &&
+      game?.winner === address?.toLowerCase()
+    ) {
+      writeClaim({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "claimPrize",
+        args: [BigInt(onchainGameId)],
+        chainId: base.id,
+      });
+    }
+  }, [resultConfirmed, mode, onchainGameId, game?.winner, address, writeClaim]);
 
   // Load game data
   const loadGame = useCallback(async () => {
@@ -152,26 +306,22 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
 
   // ── Sound effects ──
 
-  // Hit confirmed sound
   if (myHits > prevMyHits.current && prevMyHits.current > 0) {
     gameSounds.playHit();
   }
   prevMyHits.current = myHits;
 
-  // Opponent shot alert
   if (needsReport && !prevNeedsReport.current) {
     gameSounds.playAlert();
   }
   prevNeedsReport.current = needsReport;
 
-  // Sunk sound
   const mySunks = sunkReports.filter(r => r.killed_by === addr).length;
   if (mySunks > prevSunkCount.current && prevSunkCount.current > 0) {
     gameSounds.playSunk();
   }
   prevSunkCount.current = mySunks;
 
-  // Miss sound: turn_phase 1→0, myHits unchanged, I was the shooter
   if (
     prevTurnPhase.current === 1 &&
     game.turn_phase === 0 &&
@@ -235,6 +385,43 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     if (!selectedCell) return;
     gameSounds.playShot();
     setLoading(true);
+
+    if (bombActive && bombOwned && !bombUsed) {
+      // Bomb shot: fire 3x3 area
+      setBombUsed(true);
+      setBombActive(false);
+      const { x: cx, y: cy } = selectedCell;
+      const cells: { x: number; y: number }[] = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+            // Skip already-shot cells
+            const alreadyShot = myShots.some(s => s.x === nx && s.y === ny);
+            if (!alreadyShot) cells.push({ x: nx, y: ny });
+          }
+        }
+      }
+      // Fire each cell sequentially
+      for (const cell of cells) {
+        try {
+          await shootOffchain(gameIdNum, address, cell.x, cell.y);
+        } catch { /* cell may already be shot */ }
+        // Small delay between shots for the auto-report to process
+        await new Promise(r => setTimeout(r, 300));
+        await loadGame();
+        await loadShots();
+        // Wait for auto-report to complete
+        await new Promise(r => setTimeout(r, 500));
+        await loadGame();
+        await loadShots();
+      }
+      setSelectedCell(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       await shootOffchain(gameIdNum, address, selectedCell.x, selectedCell.y);
       setSelectedCell(null);
@@ -246,7 +433,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
 
   // ── Build board cells with sunk detection ──
 
-  // My board: I know my ship layout → detect sunk locally
   const myBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
@@ -255,7 +441,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
       for (let x = 0; x < 10; x++)
         if (localData.board[y * 10 + x] === 1) myBoardCells[y][x] = "ship";
 
-    // Detect sunk ships on my board
     const ships = findShips(localData.board);
     const oppHitCells = new Set<number>();
     for (const s of oppShots) {
@@ -283,7 +468,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     }
   }
 
-  // Enemy board: use sunk reports for sunk/surrounding detection
   const enemyBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
@@ -312,7 +496,6 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
     }
   }
 
-  // Auto-fill dots around sunk ships
   for (const key of surroundSet) {
     const [sx, sy] = key.split(",").map(Number);
     if (enemyBoardCells[sy][sx] === "empty") {
@@ -399,6 +582,25 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
               <span>You: {myHits}/20</span>
               <span>Enemy: {enemyHits}/20</span>
             </div>
+
+            {(mode === "hybrid" || mode === "wager") && (
+              <div className={styles.onchainStatus}>
+                {resultPending && <p className={styles.hint}>Recording result onchain...</p>}
+                {resultConfirmed && !claimPending && mode !== "wager" && (
+                  <p className={styles.hint}>Result recorded onchain!</p>
+                )}
+                {mode === "wager" && didWin && claimPending && (
+                  <p className={styles.hint}>Claiming prize...</p>
+                )}
+                {mode === "wager" && didWin && claimConfirmed && (
+                  <p className={styles.hint}>Prize claimed! 90% sent to your wallet.</p>
+                )}
+                {mode === "wager" && !didWin && resultConfirmed && (
+                  <p className={styles.hint}>Result recorded. Better luck next time!</p>
+                )}
+              </div>
+            )}
+
             <div className={styles.resultBoards}>
               <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
               <Board cells={enemyBoardCells} isInteractive={false} label="Enemy Board" />
@@ -446,6 +648,37 @@ export function OffchainGameContent({ gameIdStr }: { gameIdStr: string }) {
           needsReport={needsReport}
           disabled={!canShoot}
         />
+
+        {/* Bomb controls (wager only) */}
+        {mode === "wager" && game.state === 2 && (
+          <div className={styles.bombSection}>
+            {!bombOwned && !bombBuying && (
+              <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
+                Buy Bomb 3x3 (2 USDC)
+              </button>
+            )}
+            {bombBuying && (
+              <p className={styles.hint}>
+                {bombApprovePending
+                  ? "Approve USDC..."
+                  : bombBuyPending
+                    ? "Buying bomb..."
+                    : "Processing..."}
+              </p>
+            )}
+            {bombOwned && !bombUsed && (
+              <button
+                className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
+                onClick={() => setBombActive(!bombActive)}
+              >
+                {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
+              </button>
+            )}
+            {bombUsed && (
+              <p className={styles.hint}>Bomb used</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

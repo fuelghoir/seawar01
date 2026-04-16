@@ -217,7 +217,7 @@
   padding: 3px;
   gap: 3px;
   width: 100%;
-  max-width: 280px;
+  max-width: 360px;
 }
 
 .modeButton {
@@ -485,4 +485,36 @@
   font-size: 11px;
   color: #2a4a6a;
   letter-spacing: 0.5px;
+}
+
+/* Wager selector */
+.wagerSelector {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.wagerOption {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  border-radius: 8px;
+  background: rgba(76, 175, 80, 0.06);
+  color: #4CAF50;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.wagerOption:hover {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+}
+
+.wagerActive {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
+  border-color: #4CAF50;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.2);
 }

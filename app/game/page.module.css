@@ -247,3 +247,99 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Bot game status */
+.botStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.turnIndicator {
+  font-size: 16px;
+  font-weight: 700;
+  color: #00D4FF;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  min-height: 24px;
+}
+
+.hitCounters {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8ab4d4;
+}
+
+/* Onchain status in result */
+.onchainStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Bomb controls */
+.bombSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.bombBuyBtn {
+  width: 100%;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  border-radius: 10px;
+  color: #FF9800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bombBuyBtn:hover {
+  background: rgba(255, 152, 0, 0.2);
+  border-color: rgba(255, 152, 0, 0.5);
+  box-shadow: 0 0 16px rgba(255, 152, 0, 0.15);
+}
+
+.bombToggleBtn {
+  width: 100%;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(255, 152, 0, 0.08);
+  border: 1px solid rgba(255, 152, 0, 0.25);
+  border-radius: 10px;
+  color: #FF9800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bombToggleBtn:hover {
+  background: rgba(255, 152, 0, 0.18);
+}
+
+.bombActiveBtn {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.25), rgba(255, 87, 34, 0.2));
+  border-color: #FF9800;
+  box-shadow: 0 0 20px rgba(255, 152, 0, 0.3);
+  animation: bombPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bombPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 152, 0, 0.2); }
+  50% { box-shadow: 0 0 24px rgba(255, 152, 0, 0.4); }
+}
