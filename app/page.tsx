@@ -409,14 +409,23 @@ export default function Home() {
 
     if (mode === "wager") {
       if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
-      wagerActionRef.current = { action: "join", amount: wagerAmount, joinId: gid };
-      writeApprove({
-        address: USDC_ADDRESS,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
-        chainId: base.id,
-      });
+      // Join offchain first so Supabase state updates
+      setOffchainLoading(true);
+      try {
+        await joinOffchainGame(Number(gid), address);
+        setOffchainLoading(false);
+        wagerActionRef.current = { action: "join", amount: wagerAmount, joinId: gid };
+        writeApprove({
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
+          chainId: base.id,
+        });
+      } catch (e: unknown) {
+        setError((e as Error).message);
+        setOffchainLoading(false);
+      }
       return;
     }
   };
