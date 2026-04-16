@@ -55,7 +55,7 @@ export default function Home() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [mode, setMode] = useState<GameMode>("offchain");
   const [offchainLoading, setOffchainLoading] = useState(false);
-  const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string }[]>([]);
+  const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string; game_mode: string; wager_amount: number }[]>([]);
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinMsg, setCheckinMsg] = useState("");
@@ -588,6 +588,14 @@ export default function Home() {
                       <span className={styles.gameItemPlayer}>
                         {g.player1.slice(0, 6)}...{g.player1.slice(-4)}
                       </span>
+                      {g.wager_amount > 0 && (
+                        <span className={styles.gameItemWager}>
+                          {g.wager_amount / 1_000_000} USDC
+                        </span>
+                      )}
+                      {g.game_mode !== "free" && g.wager_amount === 0 && (
+                        <span className={styles.gameItemMode}>{g.game_mode}</span>
+                      )}
                     </div>
                     <button
                       className={styles.gameItemJoin}

@@ -329,6 +329,24 @@
   font-family: monospace;
 }
 
+.gameItemWager {
+  font-size: 11px;
+  color: #00c853;
+  font-weight: 700;
+  background: rgba(0, 200, 83, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gameItemMode {
+  font-size: 11px;
+  color: #8ab4d4;
+  font-weight: 600;
+  background: rgba(138, 180, 212, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .gameItemJoin {
   padding: 6px 16px;
   font-size: 13px;

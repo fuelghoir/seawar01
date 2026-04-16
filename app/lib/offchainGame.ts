@@ -170,14 +170,28 @@ export async function reportHitOffchain(
     .eq("x", x)
     .eq("y", y);
 
+  const bombRemaining = game.bomb_shots_remaining ?? 0;
+  const isBombShot = bombRemaining > 0;
+
+  let nextTurn = game.current_turn;
+  if (isBombShot) {
+    // During bomb: always keep current player's turn
+    // On last bomb shot: switch turn
+    if (bombRemaining <= 1) {
+      nextTurn = game.current_turn === 1 ? 2 : 1;
+    }
+  } else {
+    // Normal: hit = keep turn, miss = switch
+    nextTurn = isHit ? game.current_turn : (game.current_turn === 1 ? 2 : 1);
+  }
+
   const updates: Record<string, unknown> = {
     turn_phase: 0,
-    current_turn: isHit
-      ? game.current_turn
-      : game.current_turn === 1
-        ? 2
-        : 1,
+    current_turn: nextTurn,
   };
+  if (isBombShot) {
+    updates.bomb_shots_remaining = bombRemaining - 1;
+  }
 
   if (isHit) {
     if (shooterNum === 1) {
@@ -216,12 +230,79 @@ export async function reportHitOffchain(
   if (error) throw new Error(error.message);
 }
 
+export async function shootBombOffchain(
+  gameId: number,
+  playerAddress: string,
+  centerX: number,
+  centerY: number
+): Promise<number> {
+  const { data: game } = await supabase
+    .from("games")
+    .select("*")
+    .eq("id", gameId)
+    .single();
+  if (!game) throw new Error("Game not found");
+  if (game.state !== 2) throw new Error("Game not active");
+  if (game.turn_phase !== 0) throw new Error("Waiting for hit report");
+
+  const addr = playerAddress.toLowerCase();
+  const playerNum = game.player1 === addr ? 1 : game.player2 === addr ? 2 : 0;
+  if (playerNum === 0) throw new Error("Not a player");
+  if (game.current_turn !== playerNum) throw new Error("Not your turn");
+
+  // Collect valid 3x3 cells
+  const cells: { x: number; y: number }[] = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = centerX + dx;
+      const ny = centerY + dy;
+      if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+        cells.push({ x: nx, y: ny });
+      }
+    }
+  }
+
+  // Filter already-shot cells
+  const { data: existingShots } = await supabase
+    .from("shots")
+    .select("x, y")
+    .eq("game_id", gameId)
+    .eq("player_num", playerNum);
+  const shotSet = new Set((existingShots || []).map(s => `${s.x},${s.y}`));
+  const newCells = cells.filter(c => !shotSet.has(`${c.x},${c.y}`));
+
+  if (newCells.length === 0) throw new Error("All cells already shot");
+
+  // Insert first shot
+  const first = newCells[0];
+  await supabase.from("shots").insert({
+    game_id: gameId,
+    player_num: playerNum,
+    x: first.x,
+    y: first.y,
+  });
+
+  // Set bomb_shots_remaining = remaining cells after first shot
+  await supabase
+    .from("games")
+    .update({
+      last_shot_x: first.x,
+      last_shot_y: first.y,
+      last_shooter: addr,
+      turn_phase: 1,
+      bomb_shots_remaining: newCells.length - 1,
+    })
+    .eq("id", gameId);
+
+  return newCells.length;
+}
+
 export async function getAvailableGames(
   excludeAddress?: string
-): Promise<{ id: number; player1: string }[]> {
+): Promise<{ id: number; player1: string; game_mode: string; wager_amount: number }[]> {
   let query = supabase
     .from("games")
-    .select("id, player1")
+    .select("id, player1, game_mode, wager_amount")
     .eq("state", 0)
     .eq("is_private", false)
     .order("id", { ascending: false })
@@ -232,7 +313,11 @@ export async function getAvailableGames(
   }
 
   const { data } = await query;
-  return data || [];
+  return (data || []).map(g => ({
+    ...g,
+    game_mode: g.game_mode || "free",
+    wager_amount: g.wager_amount || 0,
+  }));
 }
 
 export async function getPlayerShots(

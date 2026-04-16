@@ -20,6 +20,7 @@ import {
 import {
   commitOffchainBoard,
   shootOffchain,
+  shootBombOffchain,
   reportHitOffchain,
   getPlayerShots,
   getSunkReports,
@@ -125,6 +126,8 @@ export function OffchainGameContent({
   const [bombUsed, setBombUsed] = useState(false);
   const [bombActive, setBombActive] = useState(false); // toggle for firing bomb
   const [bombBuying, setBombBuying] = useState(false);
+  const bombQueueRef = useRef<{ x: number; y: number }[]>([]);
+  const bombFiringRef = useRef(false);
 
   // Check bomb ownership from contract
   const { data: hasBombData } = useReadContract({
@@ -278,6 +281,41 @@ export function OffchainGameContent({
     return () => { supabase.removeChannel(channel); };
   }, [gameIdNum, loadGame, loadShots, loadSunkReports]);
 
+  // Auto-fire remaining bomb shots when turn_phase returns to 0
+  useEffect(() => {
+    if (
+      !game ||
+      !address ||
+      !bombFiringRef.current ||
+      bombQueueRef.current.length === 0 ||
+      game.turn_phase !== 0 ||
+      game.state !== 2
+    ) return;
+
+    const addr2 = address.toLowerCase();
+    const pNum = game.player1 === addr2 ? 1 : game.player2 === addr2 ? 2 : 0;
+    if (game.current_turn !== pNum) {
+      // Turn switched = bomb sequence ended
+      bombFiringRef.current = false;
+      bombQueueRef.current = [];
+      return;
+    }
+
+    const nextCell = bombQueueRef.current.shift()!;
+    shootOffchain(gameIdNum, address, nextCell.x, nextCell.y)
+      .then(() => { loadGame(); loadShots(); })
+      .catch(() => {
+        // Cell might already be shot, try next
+        if (bombQueueRef.current.length === 0) {
+          bombFiringRef.current = false;
+        }
+      });
+
+    if (bombQueueRef.current.length === 0) {
+      bombFiringRef.current = false;
+    }
+  }, [game?.turn_phase, game?.state, game?.current_turn, address, gameIdNum, loadGame, loadShots]);
+
   if (!game || !address) {
     return (
       <div className={styles.container}>
@@ -387,35 +425,35 @@ export function OffchainGameContent({
     setLoading(true);
 
     if (bombActive && bombOwned && !bombUsed) {
-      // Bomb shot: fire 3x3 area
+      // Bomb shot: fire 3x3 area via shootBombOffchain
       setBombUsed(true);
       setBombActive(false);
+      bombFiringRef.current = true;
       const { x: cx, y: cy } = selectedCell;
+
+      // Build remaining cells queue (excluding first cell which shootBombOffchain fires)
       const cells: { x: number; y: number }[] = [];
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const nx = cx + dx;
           const ny = cy + dy;
           if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
-            // Skip already-shot cells
             const alreadyShot = myShots.some(s => s.x === nx && s.y === ny);
             if (!alreadyShot) cells.push({ x: nx, y: ny });
           }
         }
       }
-      // Fire each cell sequentially
-      for (const cell of cells) {
-        try {
-          await shootOffchain(gameIdNum, address, cell.x, cell.y);
-        } catch { /* cell may already be shot */ }
-        // Small delay between shots for the auto-report to process
-        await new Promise(r => setTimeout(r, 300));
+
+      // Store remaining cells (after first) in queue
+      bombQueueRef.current = cells.slice(1);
+
+      try {
+        await shootBombOffchain(gameIdNum, address, cx, cy);
         await loadGame();
         await loadShots();
-        // Wait for auto-report to complete
-        await new Promise(r => setTimeout(r, 500));
-        await loadGame();
-        await loadShots();
+      } catch {
+        bombFiringRef.current = false;
+        bombQueueRef.current = [];
       }
       setSelectedCell(null);
       setLoading(false);
