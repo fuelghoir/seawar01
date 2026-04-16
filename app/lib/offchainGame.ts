@@ -282,7 +282,7 @@ export async function shootBombOffchain(
     y: first.y,
   });
 
-  // Set bomb_shots_remaining = remaining cells after first shot
+  // Set bomb_shots_remaining = total cells (including first shot's pending report)
   await supabase
     .from("games")
     .update({
@@ -290,7 +290,7 @@ export async function shootBombOffchain(
       last_shot_y: first.y,
       last_shooter: addr,
       turn_phase: 1,
-      bomb_shots_remaining: newCells.length - 1,
+      bomb_shots_remaining: newCells.length,
     })
     .eq("id", gameId);
 
