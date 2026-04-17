@@ -4,7 +4,12 @@ import { base } from "wagmi/chains";
 import { createConfig, createStorage, cookieStorage, http, WagmiProvider } from "wagmi";
 import { baseAccount, injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Attribution } from "ox/erc8021";
 import { MiniAppProvider } from "./providers/MiniAppProvider";
+
+export const BUILDER_CODE_SUFFIX = Attribution.toDataSuffix({
+  codes: ["bc_2pbrby2j"],
+});
 
 const config = createConfig({
   chains: [base],

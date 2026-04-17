@@ -17,6 +17,7 @@ import {
   SEABATTLE_CONTRACT_ADDRESS,
   USDC_ADDRESS,
 } from "../contracts/seaBattleAbi";
+import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   commitOffchainBoard,
   shootOffchain,
@@ -154,6 +155,7 @@ export function OffchainGameContent({
         functionName: "buyBomb",
         args: [BigInt(onchainGameId)],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
     }
   }, [bombApproveConfirmed, bombBuying, onchainGameId, writeBombBuy]);
@@ -175,6 +177,7 @@ export function OffchainGameContent({
       functionName: "approve",
       args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(2_000_000)],
       chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
     });
   };
 
@@ -196,6 +199,7 @@ export function OffchainGameContent({
         functionName: "recordResult",
         args: [BigInt(onchainGameId), game.winner as `0x${string}`],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
     }
   }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult]);
@@ -214,6 +218,7 @@ export function OffchainGameContent({
         functionName: "claimPrize",
         args: [BigInt(onchainGameId)],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
     }
   }, [resultConfirmed, mode, onchainGameId, game?.winner, address, writeClaim]);

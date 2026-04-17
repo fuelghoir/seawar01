@@ -19,6 +19,7 @@ import {
   SEABATTLE_CONTRACT_ADDRESS,
   USDC_ADDRESS,
 } from "./contracts/seaBattleAbi";
+import { BUILDER_CODE_SUFFIX } from "./providers";
 import {
   createOffchainGame,
   joinOffchainGame,
@@ -225,6 +226,7 @@ export default function Home() {
         functionName: "createWagerGame",
         args: [BigInt(wa.amount)],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
     } else {
       // Fetch onchain_game_id from Supabase, use it for the contract call
@@ -237,6 +239,7 @@ export default function Home() {
           functionName: "joinWagerGame",
           args: [BigInt(oid)],
           chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
         });
       });
     }
@@ -285,6 +288,7 @@ export default function Home() {
       to: address,
       value: BigInt(0),
       chainId: base.id,
+      data: BUILDER_CODE_SUFFIX,
     });
   };
 
@@ -330,6 +334,7 @@ export default function Home() {
           abi: seaBattleAbi,
           functionName: "createBotGame",
           chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
         });
       } else {
         router.push(`/game?id=0&mode=bot`);
@@ -345,6 +350,7 @@ export default function Home() {
         abi: seaBattleAbi,
         functionName: "createGame",
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       return;
     }
@@ -358,6 +364,7 @@ export default function Home() {
         functionName: "approve",
         args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       return;
     }
@@ -399,6 +406,7 @@ export default function Home() {
           functionName: "joinGame",
           args: [BigInt(oid)],
           chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
         });
       } catch (e: unknown) {
         setError((e as Error).message);
@@ -421,6 +429,7 @@ export default function Home() {
           functionName: "approve",
           args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
           chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
         });
       } catch (e: unknown) {
         setError((e as Error).message);

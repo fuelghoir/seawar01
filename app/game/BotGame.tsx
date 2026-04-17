@@ -8,6 +8,7 @@ import {
   seaBattleAbi,
   SEABATTLE_CONTRACT_ADDRESS,
 } from "../contracts/seaBattleAbi";
+import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   generateRandomBoard,
   createBotState,
@@ -87,6 +88,7 @@ export function BotGameContent({
         functionName: "recordResult",
         args: [BigInt(gameIdStr), winnerAddr as `0x${string}`],
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
     }
   }, [winner, isOnchain, address, gameIdStr, writeContract]);
