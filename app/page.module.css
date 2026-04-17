@@ -351,6 +351,46 @@
   cursor: not-allowed;
 }
 
+.unclaimedActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unclaimedDismissBtn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+  background: rgba(138, 180, 212, 0.08);
+  border: 1px solid rgba(138, 180, 212, 0.25);
+  border-radius: 8px;
+  color: #8ab4d4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.unclaimedDismissBtn:hover:not(:disabled) {
+  border-color: #ff6b6b;
+  color: #ff8a8a;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.unclaimedDismissBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.unclaimedError {
+  font-size: 12px;
+  color: #ff8a8a;
+  text-align: center;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
 /* Game list */
 .gameList {
   width: 100%;

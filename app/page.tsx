@@ -10,7 +10,9 @@ import {
   useWaitForTransactionReceipt,
   useSwitchChain,
   useSendTransaction,
+  useConfig,
 } from "wagmi";
+import { readContract } from "@wagmi/core";
 import { base } from "wagmi/chains";
 import { decodeEventLog } from "viem";
 import {
@@ -67,6 +69,9 @@ export default function Home() {
   const [botOnchain, setBotOnchain] = useState(false);
   const [unclaimedWins, setUnclaimedWins] = useState<UnclaimedWin[]>([]);
   const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
+  const [claimErr, setClaimErr] = useState("");
+  const wagmiConfig = useConfig();
   const autoConnected = useRef(false);
 
   // ─── Onchain write (hybrid/bot/wager) ───
@@ -95,9 +100,23 @@ export default function Home() {
     data: claimTxHash,
     writeContract: writeClaim,
     isPending: claimPending,
+    error: claimWriteError,
+    reset: resetClaim,
   } = useWriteContract();
   const { isSuccess: claimConfirmed } = useWaitForTransactionReceipt({
     hash: claimTxHash,
+  });
+
+  // ─── Record result for unclaimed wins that never finalized ───
+  const {
+    data: recordTxHash,
+    writeContract: writeRecord,
+    isPending: recordPending,
+    error: recordWriteError,
+    reset: resetRecord,
+  } = useWriteContract();
+  const { isSuccess: recordConfirmed } = useWaitForTransactionReceipt({
+    hash: recordTxHash,
   });
 
   // Auto-connect
@@ -318,25 +337,128 @@ export default function Home() {
     if (address) loadUnclaimedWins();
   }, [address, loadUnclaimedWins]);
 
+  const claimingOidRef = useRef<number | null>(null);
+
+  // After recordResult confirms, trigger claimPrize
+  useEffect(() => {
+    if (recordConfirmed && claimStep === "recording" && claimingOidRef.current !== null) {
+      setClaimStep("claiming");
+      writeClaim({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "claimPrize",
+        args: [BigInt(claimingOidRef.current)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+    }
+  }, [recordConfirmed, claimStep, writeClaim]);
+
+  // After claim confirms, mark in DB and refresh
   useEffect(() => {
     if (claimConfirmed && claimingId !== null) {
       markPrizeClaimed(claimingId).catch(() => {});
       setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
       loadUnclaimedWins();
     }
   }, [claimConfirmed, claimingId, loadUnclaimedWins]);
 
-  const handleClaimWin = (win: UnclaimedWin) => {
-    if (!win.onchain_game_id || claimPending) return;
+  // If claim reverts (already claimed / not winner onchain), hide it from the list
+  useEffect(() => {
+    if (claimWriteError && claimingId !== null) {
+      const msg = claimWriteError.message || "Claim failed";
+      const short = msg.slice(0, 140);
+      setClaimErr(short);
+      // If contract rejected the claim, the prize is unrecoverable via this row.
+      // Mark it claimed in DB so it disappears from the list.
+      markPrizeClaimed(claimingId).catch(() => {});
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+      loadUnclaimedWins();
+    }
+  }, [claimWriteError, claimingId, loadUnclaimedWins]);
+
+  useEffect(() => {
+    if (recordWriteError && claimingId !== null) {
+      const msg = recordWriteError.message || "Record failed";
+      setClaimErr(msg.slice(0, 140));
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+    }
+  }, [recordWriteError, claimingId]);
+
+  const handleClaimWin = async (win: UnclaimedWin) => {
+    if (!win.onchain_game_id || !address || claimPending || recordPending) return;
+    setClaimErr("");
+    resetClaim();
+    resetRecord();
     setClaimingId(win.id);
-    writeClaim({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "claimPrize",
-      args: [BigInt(win.onchain_game_id)],
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
+    claimingOidRef.current = win.onchain_game_id;
+
+    try {
+      const info = await readContract(wagmiConfig, {
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "getGame",
+        args: [BigInt(win.onchain_game_id)],
+        chainId: base.id,
+      });
+      const [, , , , finished, onchainWinner] = info as [
+        `0x${string}`,
+        `0x${string}`,
+        number,
+        bigint,
+        boolean,
+        `0x${string}`
+      ];
+
+      if (!finished) {
+        setClaimStep("recording");
+        writeRecord({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "recordResult",
+          args: [BigInt(win.onchain_game_id), address as `0x${string}`],
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+        return;
+      }
+
+      if (onchainWinner.toLowerCase() !== address.toLowerCase()) {
+        setClaimErr("Onchain winner is different. Hiding this prize.");
+        markPrizeClaimed(win.id).catch(() => {});
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
+        loadUnclaimedWins();
+        return;
+      }
+
+      setClaimStep("claiming");
+      writeClaim({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "claimPrize",
+        args: [BigInt(win.onchain_game_id)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+    } catch (e: unknown) {
+      setClaimErr((e as Error).message?.slice(0, 140) || "Failed to read game state");
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+    }
+  };
+
+  const handleDismissWin = async (winId: number) => {
+    await markPrizeClaimed(winId).catch(() => {});
+    loadUnclaimedWins();
   };
 
   // ─── Load offchain games list ───
@@ -676,8 +798,19 @@ export default function Home() {
                   Unclaimed Prizes ({unclaimedWins.length})
                 </h3>
                 {unclaimedWins.map((w) => {
-                  const isClaimingThis = claimingId === w.id && claimPending;
+                  const isActive = claimingId === w.id;
                   const amount = (w.wager_amount * 2 * 0.9) / 1_000_000;
+                  const btnLabel = !isActive
+                    ? "Claim"
+                    : claimStep === "recording"
+                      ? recordPending
+                        ? "Confirm 1/2..."
+                        : "Finalizing..."
+                      : claimStep === "claiming"
+                        ? claimPending
+                          ? "Confirm 2/2..."
+                          : "Claiming..."
+                        : "Checking...";
                   return (
                     <div key={w.id} className={styles.unclaimedItem}>
                       <div className={styles.unclaimedInfo}>
@@ -686,16 +819,32 @@ export default function Home() {
                           {amount.toFixed(2)} USDC
                         </span>
                       </div>
-                      <button
-                        className={styles.unclaimedClaimBtn}
-                        onClick={() => handleClaimWin(w)}
-                        disabled={claimPending || !w.onchain_game_id}
-                      >
-                        {isClaimingThis ? "Claiming..." : "Claim"}
-                      </button>
+                      <div className={styles.unclaimedActions}>
+                        <button
+                          className={styles.unclaimedClaimBtn}
+                          onClick={() => handleClaimWin(w)}
+                          disabled={
+                            !w.onchain_game_id ||
+                            claimPending ||
+                            recordPending ||
+                            (claimingId !== null && claimingId !== w.id)
+                          }
+                        >
+                          {btnLabel}
+                        </button>
+                        <button
+                          className={styles.unclaimedDismissBtn}
+                          onClick={() => handleDismissWin(w.id)}
+                          disabled={isActive}
+                          title="Hide this record (if already claimed)"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
+                {claimErr && <p className={styles.unclaimedError}>{claimErr}</p>}
               </div>
             )}
 
