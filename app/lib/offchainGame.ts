@@ -55,22 +55,31 @@ export async function joinOffchainGame(
   gameId: number,
   playerAddress: string
 ): Promise<void> {
+  const addr = playerAddress.toLowerCase();
   const { data: game } = await supabase
     .from("games")
     .select("*")
     .eq("id", gameId)
     .single();
   if (!game) throw new Error("Game not found");
-  if (game.state !== 0) throw new Error("Game not available");
-  if (game.player1 === playerAddress.toLowerCase())
-    throw new Error("Cannot join own game");
+  if (game.player1 === addr) throw new Error("Cannot join own game");
 
-  const { error } = await supabase
-    .from("games")
-    .update({ player2: playerAddress.toLowerCase(), state: 1 })
-    .eq("id", gameId)
-    .eq("state", 0);
-  if (error) throw new Error(error.message);
+  // Idempotent: if we're already seated as player2, nothing to do.
+  if (game.player2 === addr) return;
+
+  // Seat is free (state=0, player2=null)
+  if (game.state === 0 && !game.player2) {
+    const { error } = await supabase
+      .from("games")
+      .update({ player2: addr, state: 1 })
+      .eq("id", gameId)
+      .eq("state", 0);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  // Someone else is already in
+  throw new Error("Game not available");
 }
 
 export async function commitOffchainBoard(

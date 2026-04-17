@@ -673,15 +673,47 @@ export default function Home() {
         if (info.game_mode !== "wager" || !info.wager_amount || !info.onchain_game_id) {
           setError("This is not a wager game"); setOffchainLoading(false); return;
         }
-        if (info.state !== 0) { setError("Game is not joinable"); setOffchainLoading(false); return; }
         if (info.player1.toLowerCase() === address.toLowerCase()) {
           setError("Cannot join your own game"); setOffchainLoading(false); return;
         }
+        // Allow retry: DB may say state=1 / player2 set from a prior failed attempt,
+        // but onchain may still be open. Block only if a different player2 owns the seat.
+        if (info.player2 && info.player2.toLowerCase() !== address.toLowerCase()) {
+          setError("Game already has another player"); setOffchainLoading(false); return;
+        }
+
+        // Double-check onchain: must not be finished, and if player2 onchain is
+        // already someone else, we can't join.
+        const onchainGame = await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getGame",
+          args: [BigInt(info.onchain_game_id)],
+          chainId: base.id,
+        }) as [
+          `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`
+        ];
+        const onchainP2 = onchainGame[1];
+        const onchainFinished = onchainGame[4];
+        if (onchainFinished) {
+          setError("Game already finished onchain"); setOffchainLoading(false); return;
+        }
+        const alreadyJoinedOnchain =
+          onchainP2 !== ZERO_ADDR &&
+          onchainP2.toLowerCase() === address.toLowerCase();
 
         const actualAmount = info.wager_amount;
         setOffchainLoading(false);
-        // Approve ACTUAL wager amount. joinOffchainGame will be called in approveSuccess effect
-        // only after the onchain join succeeds (see approveSuccess handler / isSuccess handler).
+
+        // If onchain join already done (prior retry), just mirror offchain and route.
+        if (alreadyJoinedOnchain) {
+          try { await joinOffchainGame(Number(gid), address); } catch { /* already seated */ }
+          router.push(`/game?id=${gid}&mode=wager&oid=${info.onchain_game_id}`);
+          return;
+        }
+
+        // Otherwise start approve → onchain join flow. Mirror offchain happens
+        // only after onchain join is confirmed (see isSuccess effect).
         wagerActionRef.current = { action: "join", amount: actualAmount, joinId: gid };
         writeApprove({
           address: USDC_ADDRESS,
