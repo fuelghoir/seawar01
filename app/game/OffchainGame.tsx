@@ -26,6 +26,7 @@ import {
   getPlayerShots,
   getSunkReports,
   reportSunkShip,
+  markPrizeClaimed,
   SunkReport,
 } from "../lib/offchainGame";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
@@ -204,24 +205,24 @@ export function OffchainGameContent({
     }
   }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult]);
 
-  // Auto-claim prize after result confirmed (wager, winner only)
+  // Mark prize as claimed in DB after onchain tx confirms
   useEffect(() => {
-    if (
-      resultConfirmed &&
-      mode === "wager" &&
-      onchainGameId &&
-      game?.winner === address?.toLowerCase()
-    ) {
-      writeClaim({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "claimPrize",
-        args: [BigInt(onchainGameId)],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
+    if (claimConfirmed && gameIdNum) {
+      markPrizeClaimed(gameIdNum).catch(() => {});
     }
-  }, [resultConfirmed, mode, onchainGameId, game?.winner, address, writeClaim]);
+  }, [claimConfirmed, gameIdNum]);
+
+  const handleClaim = useCallback(() => {
+    if (!onchainGameId) return;
+    writeClaim({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "claimPrize",
+      args: [BigInt(onchainGameId)],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [onchainGameId, writeClaim]);
 
   // Load game data
   const loadGame = useCallback(async () => {
@@ -418,7 +419,7 @@ export function OffchainGameContent({
     saveLocalBoard(gameIdStr, boardLayout, saltHex);
     setLoading(true);
     try {
-      await commitOffchainBoard(gameIdNum, address, boardHash);
+      await commitOffchainBoard(gameIdNum, address, boardHash, boardLayout);
       await loadGame();
     } catch { /* ignore */ }
     setLoading(false);
@@ -611,6 +612,51 @@ export function OffchainGameContent({
 
   if (game.state === 3) {
     const didWin = game.winner === addr;
+
+    // Build full enemy board revealing undestroyed ships
+    const fullEnemyBoard: CellState[][] = Array.from({ length: 10 }, () =>
+      Array(10).fill("empty" as CellState)
+    );
+    const opponentBoardStr = playerNum === 1 ? game.player2_board : game.player1_board;
+    if (opponentBoardStr) {
+      try {
+        const opponentBoard = JSON.parse(opponentBoardStr) as number[];
+        for (let y = 0; y < 10; y++) {
+          for (let x = 0; x < 10; x++) {
+            if (opponentBoard[y * 10 + x] === 1) fullEnemyBoard[y][x] = "ship";
+          }
+        }
+        // Overlay my shots (hits/misses) on top
+        for (const s of myShots) {
+          if (s.is_hit === null) continue;
+          fullEnemyBoard[s.y][s.x] = s.is_hit ? "hit" : "miss";
+        }
+      } catch { /* fall through to shot-only view */ }
+    }
+
+    // Build full my board showing opponent's hits/misses
+    const fullMyBoard: CellState[][] = Array.from({ length: 10 }, () =>
+      Array(10).fill("empty" as CellState)
+    );
+    if (localData) {
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          if (localData.board[y * 10 + x] === 1) fullMyBoard[y][x] = "ship";
+        }
+      }
+      for (const s of oppShots) {
+        if (s.is_hit === null) continue;
+        fullMyBoard[s.y][s.x] = s.is_hit ? "hit" : "miss";
+      }
+    }
+
+    const showClaimButton =
+      mode === "wager" &&
+      didWin &&
+      resultConfirmed &&
+      !game.prize_claimed &&
+      !claimConfirmed;
+
     return (
       <div className={styles.container}>
         <div className={styles.scrollContent}>
@@ -629,14 +675,14 @@ export function OffchainGameContent({
             {(mode === "hybrid" || mode === "wager") && (
               <div className={styles.onchainStatus}>
                 {resultPending && <p className={styles.hint}>Recording result onchain...</p>}
-                {resultConfirmed && !claimPending && mode !== "wager" && (
+                {resultConfirmed && mode === "hybrid" && (
                   <p className={styles.hint}>Result recorded onchain!</p>
                 )}
                 {mode === "wager" && didWin && claimPending && (
                   <p className={styles.hint}>Claiming prize...</p>
                 )}
                 {mode === "wager" && didWin && claimConfirmed && (
-                  <p className={styles.hint}>Prize claimed! 90% sent to your wallet.</p>
+                  <p className={styles.claimedBadge}>Prize claimed! 90% sent to your wallet.</p>
                 )}
                 {mode === "wager" && !didWin && resultConfirmed && (
                   <p className={styles.hint}>Result recorded. Better luck next time!</p>
@@ -644,9 +690,19 @@ export function OffchainGameContent({
               </div>
             )}
 
+            {showClaimButton && (
+              <button className={styles.claimButton} onClick={handleClaim}>
+                Claim Prize (90%)
+              </button>
+            )}
+
+            {mode === "wager" && didWin && !resultConfirmed && (
+              <p className={styles.hint}>Wait for result to be recorded before claiming...</p>
+            )}
+
             <div className={styles.resultBoards}>
-              <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
-              <Board cells={enemyBoardCells} isInteractive={false} label="Enemy Board" />
+              <Board cells={fullMyBoard} isInteractive={false} label="Your Fleet" />
+              <Board cells={fullEnemyBoard} isInteractive={false} label="Enemy Fleet (revealed)" />
             </div>
             <div className={styles.resultActions}>
               <button className={styles.backButton} onClick={() => router.push("/")}>New Game</button>
@@ -682,46 +738,48 @@ export function OffchainGameContent({
           <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
         </div>
 
-        <ShotTransaction
-          selectedCell={selectedCell}
-          isPending={loading}
-          isConfirming={false}
-          isSuccess={false}
-          onShoot={handleShoot}
-          needsReport={needsReport}
-          disabled={!canShoot}
-        />
+        <div className={styles.stickyFire}>
+          <ShotTransaction
+            selectedCell={selectedCell}
+            isPending={loading}
+            isConfirming={false}
+            isSuccess={false}
+            onShoot={handleShoot}
+            needsReport={needsReport}
+            disabled={!canShoot}
+          />
 
-        {/* Bomb controls (wager only) */}
-        {mode === "wager" && game.state === 2 && (
-          <div className={styles.bombSection}>
-            {!bombOwned && !bombBuying && (
-              <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
-                Buy Bomb 3x3 (2 USDC)
-              </button>
-            )}
-            {bombBuying && (
-              <p className={styles.hint}>
-                {bombApprovePending
-                  ? "Approve USDC..."
-                  : bombBuyPending
-                    ? "Buying bomb..."
-                    : "Processing..."}
-              </p>
-            )}
-            {bombOwned && !bombUsed && (
-              <button
-                className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
-                onClick={() => setBombActive(!bombActive)}
-              >
-                {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
-              </button>
-            )}
-            {bombUsed && (
-              <p className={styles.hint}>Bomb used</p>
-            )}
-          </div>
-        )}
+          {/* Bomb controls (wager only) */}
+          {mode === "wager" && game.state === 2 && (
+            <div className={styles.bombSection}>
+              {!bombOwned && !bombBuying && (
+                <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
+                  Buy Bomb 3x3 (2 USDC)
+                </button>
+              )}
+              {bombBuying && (
+                <p className={styles.hint}>
+                  {bombApprovePending
+                    ? "Approve USDC..."
+                    : bombBuyPending
+                      ? "Buying bomb..."
+                      : "Processing..."}
+                </p>
+              )}
+              {bombOwned && !bombUsed && (
+                <button
+                  className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
+                  onClick={() => setBombActive(!bombActive)}
+                >
+                  {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
+                </button>
+              )}
+              {bombUsed && (
+                <p className={styles.hint}>Bomb used</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

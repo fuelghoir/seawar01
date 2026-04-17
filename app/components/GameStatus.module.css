@@ -2,22 +2,76 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  background: linear-gradient(135deg, rgba(10, 22, 40, 0.9), rgba(13, 33, 55, 0.9));
-  border-radius: 14px;
-  border: 1px solid #1a3a5c;
+  gap: 12px;
   width: 100%;
-  max-width: 360px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 420px;
   animation: slideDown 0.3s ease-out;
+}
+
+.banner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 2px solid;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.bannerText {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.bannerSub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
+}
+
+.bannerYou {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(0, 136, 204, 0.18));
+  border-color: #00D4FF;
+  color: #00D4FF;
+  box-shadow: 0 6px 28px rgba(0, 212, 255, 0.35);
+  animation: youTurnPulse 1.6s ease-in-out infinite;
+}
+
+.bannerEnemy {
+  background: linear-gradient(135deg, rgba(255, 99, 99, 0.22), rgba(178, 34, 52, 0.16));
+  border-color: #ff6b6b;
+  color: #ff8a8a;
+  box-shadow: 0 4px 20px rgba(255, 99, 99, 0.2);
+}
+
+.bannerPending {
+  background: linear-gradient(135deg, rgba(247, 217, 84, 0.22), rgba(204, 163, 40, 0.16));
+  border-color: #f7d954;
+  color: #f7d954;
+  animation: pendingPulse 1s ease-in-out infinite;
+}
+
+.bannerNeutral {
+  background: rgba(138, 180, 212, 0.1);
+  border-color: rgba(138, 180, 212, 0.3);
+  color: #8ab4d4;
 }
 
 .scores {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  padding: 10px 20px;
+  background: rgba(10, 22, 40, 0.6);
+  border: 1px solid #1a3a5c;
+  border-radius: 12px;
 }
 
 .scoreBlock {
@@ -36,7 +90,7 @@
 }
 
 .scoreValue {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: #fff;
   font-variant-numeric: tabular-nums;
@@ -44,70 +98,27 @@
 
 .divider {
   width: 1px;
-  height: 36px;
+  height: 30px;
   background: linear-gradient(180deg, transparent, #1a3a5c, transparent);
 }
 
-.status {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 16px;
-  border-radius: 20px;
-  text-align: center;
-  letter-spacing: 0.3px;
+@keyframes youTurnPulse {
+  0%, 100% { box-shadow: 0 6px 28px rgba(0, 212, 255, 0.35); transform: scale(1); }
+  50% { box-shadow: 0 8px 36px rgba(0, 212, 255, 0.55); transform: scale(1.01); }
 }
 
-.statusActive {
-  color: #00D4FF;
-  background: rgba(0, 212, 255, 0.1);
-  border: 1px solid rgba(0, 212, 255, 0.3);
-  animation: activeGlow 2s ease-in-out infinite;
-}
-
-.statusWaiting {
-  color: #8ab4d4;
-  background: rgba(138, 180, 212, 0.08);
-  border: 1px solid rgba(138, 180, 212, 0.2);
-}
-
-.statusPending {
-  color: #f7d954;
-  background: rgba(247, 217, 84, 0.1);
-  border: 1px solid rgba(247, 217, 84, 0.3);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.statusConfirming {
-  color: #f7d954;
-  background: rgba(247, 217, 84, 0.1);
-  border: 1px solid rgba(247, 217, 84, 0.3);
-  animation: pulse 0.8s ease-in-out infinite;
-}
-
-.statusReport {
-  color: #ff9944;
-  background: rgba(255, 153, 68, 0.1);
-  border: 1px solid rgba(255, 153, 68, 0.3);
-  animation: pulse 1s ease-in-out infinite;
-}
-
-.statusNeutral {
-  color: #8ab4d4;
-  background: rgba(138, 180, 212, 0.08);
-  border: 1px solid rgba(138, 180, 212, 0.2);
-}
-
-@keyframes pulse {
+@keyframes pendingPulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-@keyframes activeGlow {
-  0%, 100% { box-shadow: 0 0 8px rgba(0, 212, 255, 0.1); }
-  50% { box-shadow: 0 0 16px rgba(0, 212, 255, 0.25); }
+  50% { opacity: 0.75; }
 }
 
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 420px) {
+  .bannerText { font-size: 22px; letter-spacing: 1.5px; }
+  .bannerSub { font-size: 11px; }
+  .banner { padding: 14px 16px; }
 }

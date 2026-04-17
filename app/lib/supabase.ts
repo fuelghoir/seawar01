@@ -16,11 +16,18 @@ export interface OffchainGame {
   player2_hits: number;
   player1_board_hash: string | null;
   player2_board_hash: string | null;
+  player1_board: string | null;
+  player2_board: string | null;
   last_shot_x: number | null;
   last_shot_y: number | null;
   last_shooter: string | null;
   winner: string | null;
   is_private: boolean;
+  game_mode: string | null;
+  onchain_game_id: number | null;
+  wager_amount: number | null;
+  prize_claimed: boolean;
+  bomb_shots_remaining: number | null;
   created_at: string;
 }
 

@@ -58,7 +58,8 @@ export async function joinOffchainGame(
 export async function commitOffchainBoard(
   gameId: number,
   playerAddress: string,
-  boardHash: string
+  boardHash: string,
+  boardLayout?: number[]
 ): Promise<void> {
   const { data: game } = await supabase
     .from("games")
@@ -75,9 +76,11 @@ export async function commitOffchainBoard(
   if (isPlayer1) {
     if (game.player1_board_hash) throw new Error("Already committed");
     updates.player1_board_hash = boardHash;
+    if (boardLayout) updates.player1_board = JSON.stringify(boardLayout);
   } else {
     if (game.player2_board_hash) throw new Error("Already committed");
     updates.player2_board_hash = boardHash;
+    if (boardLayout) updates.player2_board = JSON.stringify(boardLayout);
   }
 
   const otherCommitted = isPlayer1
@@ -90,6 +93,32 @@ export async function commitOffchainBoard(
     .update(updates)
     .eq("id", gameId);
   if (error) throw new Error(error.message);
+}
+
+export async function markPrizeClaimed(gameId: number): Promise<void> {
+  await supabase
+    .from("games")
+    .update({ prize_claimed: true })
+    .eq("id", gameId);
+}
+
+export interface UnclaimedWin {
+  id: number;
+  onchain_game_id: number | null;
+  wager_amount: number;
+}
+
+export async function getUnclaimedWins(wallet: string): Promise<UnclaimedWin[]> {
+  const addr = wallet.toLowerCase();
+  const { data } = await supabase
+    .from("games")
+    .select("id, onchain_game_id, wager_amount")
+    .eq("winner", addr)
+    .eq("game_mode", "wager")
+    .eq("prize_claimed", false)
+    .eq("state", 3)
+    .order("id", { ascending: false });
+  return (data || []) as UnclaimedWin[];
 }
 
 export async function shootOffchain(

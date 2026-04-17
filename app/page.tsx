@@ -27,7 +27,10 @@ import {
   getCheckinStatus,
   dailyCheckin,
   getGameOnchainId,
+  getUnclaimedWins,
+  markPrizeClaimed,
   CheckinStatus,
+  UnclaimedWin,
 } from "./lib/offchainGame";
 import styles from "./page.module.css";
 
@@ -62,6 +65,8 @@ export default function Home() {
   const [checkinMsg, setCheckinMsg] = useState("");
   const [wagerAmount, setWagerAmount] = useState(WAGER_OPTIONS[0].value);
   const [botOnchain, setBotOnchain] = useState(false);
+  const [unclaimedWins, setUnclaimedWins] = useState<UnclaimedWin[]>([]);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
   const autoConnected = useRef(false);
 
   // ─── Onchain write (hybrid/bot/wager) ───
@@ -83,6 +88,16 @@ export default function Home() {
   } = useWriteContract();
   const { isSuccess: approveSuccess } = useWaitForTransactionReceipt({
     hash: approveTxHash,
+  });
+
+  // ─── Claim prize for old unclaimed wins ───
+  const {
+    data: claimTxHash,
+    writeContract: writeClaim,
+    isPending: claimPending,
+  } = useWriteContract();
+  const { isSuccess: claimConfirmed } = useWaitForTransactionReceipt({
+    hash: claimTxHash,
   });
 
   // Auto-connect
@@ -289,6 +304,38 @@ export default function Home() {
       value: BigInt(0),
       chainId: base.id,
       data: BUILDER_CODE_SUFFIX,
+    });
+  };
+
+  // ─── Load unclaimed wins list ───
+  const loadUnclaimedWins = useCallback(async () => {
+    if (!address) return;
+    const wins = await getUnclaimedWins(address);
+    setUnclaimedWins(wins);
+  }, [address]);
+
+  useEffect(() => {
+    if (address) loadUnclaimedWins();
+  }, [address, loadUnclaimedWins]);
+
+  useEffect(() => {
+    if (claimConfirmed && claimingId !== null) {
+      markPrizeClaimed(claimingId).catch(() => {});
+      setClaimingId(null);
+      loadUnclaimedWins();
+    }
+  }, [claimConfirmed, claimingId, loadUnclaimedWins]);
+
+  const handleClaimWin = (win: UnclaimedWin) => {
+    if (!win.onchain_game_id || claimPending) return;
+    setClaimingId(win.id);
+    writeClaim({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "claimPrize",
+      args: [BigInt(win.onchain_game_id)],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
     });
   };
 
@@ -620,6 +667,36 @@ export default function Home() {
 
             {mode !== "bot" && offchainGames.length === 0 && (
               <p className={styles.noGames}>No open games. Create one!</p>
+            )}
+
+            {/* Unclaimed wager prizes */}
+            {unclaimedWins.length > 0 && (
+              <div className={styles.unclaimedSection}>
+                <h3 className={styles.unclaimedTitle}>
+                  Unclaimed Prizes ({unclaimedWins.length})
+                </h3>
+                {unclaimedWins.map((w) => {
+                  const isClaimingThis = claimingId === w.id && claimPending;
+                  const amount = (w.wager_amount * 2 * 0.9) / 1_000_000;
+                  return (
+                    <div key={w.id} className={styles.unclaimedItem}>
+                      <div className={styles.unclaimedInfo}>
+                        <span className={styles.unclaimedGameId}>Game #{w.id}</span>
+                        <span className={styles.unclaimedAmount}>
+                          {amount.toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <button
+                        className={styles.unclaimedClaimBtn}
+                        onClick={() => handleClaimWin(w)}
+                        disabled={claimPending || !w.onchain_game_id}
+                      >
+                        {isClaimingThis ? "Claiming..." : "Claim"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             {/* Daily check-in */}

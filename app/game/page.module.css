@@ -11,9 +11,26 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 16px 12px 24px;
+  padding: 16px 12px 120px;
   overflow-y: auto;
   animation: pageIn 0.3s ease-out;
+}
+
+.stickyFire {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(10, 22, 40, 0) 0%, rgba(10, 22, 40, 0.92) 35%, rgba(10, 22, 40, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  z-index: 40;
+  margin-top: auto;
 }
 
 .centered {
@@ -224,6 +241,48 @@
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.claimButton {
+  padding: 16px 36px;
+  font-size: 16px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4CAF50, #2E7D32);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 6px 24px rgba(76, 175, 80, 0.35);
+  transition: all 0.2s ease;
+  animation: claimPulse 1.8s ease-in-out infinite;
+}
+
+.claimButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(76, 175, 80, 0.5);
+}
+
+.claimButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  animation: none;
+}
+
+.claimedBadge {
+  color: #4CAF50;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 18px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  border-radius: 10px;
+}
+
+@keyframes claimPulse {
+  0%, 100% { box-shadow: 0 6px 24px rgba(76, 175, 80, 0.35); }
+  50% { box-shadow: 0 8px 32px rgba(76, 175, 80, 0.55); }
 }
 
 /* Animations */

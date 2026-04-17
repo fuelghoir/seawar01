@@ -23,33 +23,43 @@ export function GameStatus({
   needsReport,
   statusText,
 }: GameStatusProps) {
-  let message = "";
-  let messageClass = styles.statusNeutral;
+  let bannerText = "";
+  let bannerClass = styles.bannerEnemy;
+  let subText = "";
 
   if (statusText) {
-    message = statusText;
+    bannerText = statusText;
+    bannerClass = styles.bannerNeutral;
   } else if (isPending) {
-    message = "Confirm in wallet...";
-    messageClass = styles.statusPending;
+    bannerText = "CONFIRM IN WALLET";
+    bannerClass = styles.bannerPending;
   } else if (isConfirming) {
-    message = "Shot in flight...";
-    messageClass = styles.statusConfirming;
+    bannerText = "SHOT IN FLIGHT";
+    bannerClass = styles.bannerPending;
   } else if (needsReport) {
-    message = "Auto-reporting shot result...";
-    messageClass = styles.statusReport;
+    bannerText = "REPORTING RESULT";
+    bannerClass = styles.bannerPending;
+    subText = "Auto-reporting enemy shot...";
   } else if (turnPhase === 1 && isMyTurn) {
-    message = "Waiting for opponent to confirm...";
-    messageClass = styles.statusWaiting;
+    bannerText = "WAITING OPPONENT";
+    bannerClass = styles.bannerEnemy;
+    subText = "Enemy is confirming your shot...";
   } else if (isMyTurn) {
-    message = "Your turn — fire!";
-    messageClass = styles.statusActive;
+    bannerText = "YOUR TURN";
+    bannerClass = styles.bannerYou;
+    subText = "Pick a cell and fire!";
   } else {
-    message = "Opponent's turn";
-    messageClass = styles.statusWaiting;
+    bannerText = "ENEMY TURN";
+    bannerClass = styles.bannerEnemy;
+    subText = "Waiting for opponent's shot...";
   }
 
   return (
     <div className={styles.container}>
+      <div className={`${styles.banner} ${bannerClass}`}>
+        <span className={styles.bannerText}>{bannerText}</span>
+        {subText && <span className={styles.bannerSub}>{subText}</span>}
+      </div>
       <div className={styles.scores}>
         <div className={styles.scoreBlock}>
           <span className={styles.scoreLabel}>You</span>
@@ -61,7 +71,6 @@ export function GameStatus({
           <span className={styles.scoreValue}>{enemyHits}/20</span>
         </div>
       </div>
-      <div className={`${styles.status} ${messageClass}`}>{message}</div>
     </div>
   );
 }
