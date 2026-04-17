@@ -12,7 +12,7 @@ import {
   useSendTransaction,
   useConfig,
 } from "wagmi";
-import { readContract } from "@wagmi/core";
+import { readContract, simulateContract } from "@wagmi/core";
 import { base } from "wagmi/chains";
 import { decodeEventLog } from "viem";
 import {
@@ -39,6 +39,17 @@ import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const CONTRACT_NOT_SET = SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR;
+
+function formatRevert(msg: string): string {
+  const lower = msg.toLowerCase();
+  if (lower.includes("user rejected") || lower.includes("user denied"))
+    return "Transaction rejected. Try again.";
+  const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/i);
+  if (reasonMatch) return reasonMatch[1].trim();
+  const revertMatch = msg.match(/revert(?:ed)?(?: with reason string)?\s*['"]?([^'"\n]+?)['"]?(?:\n|$)/i);
+  if (revertMatch) return revertMatch[1].trim();
+  return msg.slice(0, 140);
+}
 
 type GameMode = "offchain" | "bot" | "hybrid" | "wager";
 
@@ -371,26 +382,22 @@ export default function Home() {
     }
   }, [claimConfirmed, claimingId, loadUnclaimedWins]);
 
-  // If claim reverts (already claimed / not winner onchain), hide it from the list
+  // On claim write error — show reason, DO NOT auto-mark as claimed.
+  // (User could have rejected, gas failed, etc. Only Dismiss should mark.)
   useEffect(() => {
     if (claimWriteError && claimingId !== null) {
       const msg = claimWriteError.message || "Claim failed";
-      const short = msg.slice(0, 140);
-      setClaimErr(short);
-      // If contract rejected the claim, the prize is unrecoverable via this row.
-      // Mark it claimed in DB so it disappears from the list.
-      markPrizeClaimed(claimingId).catch(() => {});
+      setClaimErr(formatRevert(msg));
       setClaimingId(null);
       claimingOidRef.current = null;
       setClaimStep("idle");
-      loadUnclaimedWins();
     }
-  }, [claimWriteError, claimingId, loadUnclaimedWins]);
+  }, [claimWriteError, claimingId]);
 
   useEffect(() => {
     if (recordWriteError && claimingId !== null) {
       const msg = recordWriteError.message || "Record failed";
-      setClaimErr(msg.slice(0, 140));
+      setClaimErr(formatRevert(msg));
       setClaimingId(null);
       claimingOidRef.current = null;
       setClaimStep("idle");
@@ -406,6 +413,7 @@ export default function Home() {
     claimingOidRef.current = win.onchain_game_id;
 
     try {
+      // 1) Read current onchain state
       const info = await readContract(wagmiConfig, {
         address: SEABATTLE_CONTRACT_ADDRESS,
         abi: seaBattleAbi,
@@ -422,7 +430,24 @@ export default function Home() {
         `0x${string}`
       ];
 
+      // 2) If not finalized — simulate recordResult first. Only submit if simulation passes.
       if (!finished) {
+        try {
+          await simulateContract(wagmiConfig, {
+            address: SEABATTLE_CONTRACT_ADDRESS,
+            abi: seaBattleAbi,
+            functionName: "recordResult",
+            args: [BigInt(win.onchain_game_id), address as `0x${string}`],
+            chainId: base.id,
+            account: address as `0x${string}`,
+          });
+        } catch (simErr: unknown) {
+          setClaimErr("Cannot finalize: " + formatRevert((simErr as Error).message || ""));
+          setClaimingId(null);
+          claimingOidRef.current = null;
+          setClaimStep("idle");
+          return;
+        }
         setClaimStep("recording");
         writeRecord({
           address: SEABATTLE_CONTRACT_ADDRESS,
@@ -435,13 +460,37 @@ export default function Home() {
         return;
       }
 
+      // 3) Finalized but winner is someone else — do not submit; user must Dismiss manually
       if (onchainWinner.toLowerCase() !== address.toLowerCase()) {
-        setClaimErr("Onchain winner is different. Hiding this prize.");
-        markPrizeClaimed(win.id).catch(() => {});
+        setClaimErr(
+          `Onchain winner is ${onchainWinner.slice(0, 6)}...${onchainWinner.slice(-4)}, not you. Use × to hide.`
+        );
         setClaimingId(null);
         claimingOidRef.current = null;
         setClaimStep("idle");
-        loadUnclaimedWins();
+        return;
+      }
+
+      // 4) Simulate claimPrize — catches "already claimed" or any other contract revert
+      try {
+        await simulateContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "claimPrize",
+          args: [BigInt(win.onchain_game_id)],
+          chainId: base.id,
+          account: address as `0x${string}`,
+        });
+      } catch (simErr: unknown) {
+        const reason = formatRevert((simErr as Error).message || "");
+        if (/already|claimed/i.test(reason)) {
+          setClaimErr(`Already claimed onchain. Use × to hide this record.`);
+        } else {
+          setClaimErr("Cannot claim: " + reason);
+        }
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
         return;
       }
 
