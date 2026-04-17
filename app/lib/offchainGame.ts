@@ -33,6 +33,24 @@ export async function getGameOnchainId(gameId: number): Promise<number | null> {
   return data?.onchain_game_id ?? null;
 }
 
+export interface GameJoinInfo {
+  wager_amount: number | null;
+  onchain_game_id: number | null;
+  game_mode: string | null;
+  state: number;
+  player1: string;
+  player2: string | null;
+}
+
+export async function getGameJoinInfo(gameId: number): Promise<GameJoinInfo | null> {
+  const { data } = await supabase
+    .from("games")
+    .select("wager_amount, onchain_game_id, game_mode, state, player1, player2")
+    .eq("id", gameId)
+    .single();
+  return (data as GameJoinInfo) ?? null;
+}
+
 export async function joinOffchainGame(
   gameId: number,
   playerAddress: string

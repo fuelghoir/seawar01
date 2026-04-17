@@ -29,6 +29,7 @@ import {
   getCheckinStatus,
   dailyCheckin,
   getGameOnchainId,
+  getGameJoinInfo,
   getUnclaimedWins,
   markPrizeClaimed,
   CheckinStatus,
@@ -231,10 +232,15 @@ export default function Home() {
           } catch { /* not our event */ }
         }
       } else if (pa.action === "join") {
-        // Join wager: fetch onchain_game_id from Supabase
-        getGameOnchainId(Number(pa.joinId)).then((oid) => {
-          router.push(`/game?id=${pa.joinId}&mode=wager&oid=${oid || pa.joinId}`);
-        });
+        // Onchain join succeeded — now mirror the join into Supabase, then route
+        const gid = Number(pa.joinId);
+        joinOffchainGame(gid, address!)
+          .catch(() => { /* already joined / race — harmless */ })
+          .finally(() => {
+            getGameOnchainId(gid).then((oid) => {
+              router.push(`/game?id=${pa.joinId}&mode=wager&oid=${oid || pa.joinId}`);
+            });
+          });
       }
       return;
     }
@@ -586,17 +592,29 @@ export default function Home() {
 
     if (mode === "wager") {
       if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
-      // Join offchain first so Supabase state updates
       setOffchainLoading(true);
       try {
-        await joinOffchainGame(Number(gid), address);
+        // Read actual wager amount & onchain id from DB (not from local selector)
+        const info = await getGameJoinInfo(Number(gid));
+        if (!info) { setError("Game not found"); setOffchainLoading(false); return; }
+        if (info.game_mode !== "wager" || !info.wager_amount || !info.onchain_game_id) {
+          setError("This is not a wager game"); setOffchainLoading(false); return;
+        }
+        if (info.state !== 0) { setError("Game is not joinable"); setOffchainLoading(false); return; }
+        if (info.player1.toLowerCase() === address.toLowerCase()) {
+          setError("Cannot join your own game"); setOffchainLoading(false); return;
+        }
+
+        const actualAmount = info.wager_amount;
         setOffchainLoading(false);
-        wagerActionRef.current = { action: "join", amount: wagerAmount, joinId: gid };
+        // Approve ACTUAL wager amount. joinOffchainGame will be called in approveSuccess effect
+        // only after the onchain join succeeds (see approveSuccess handler / isSuccess handler).
+        wagerActionRef.current = { action: "join", amount: actualAmount, joinId: gid };
         writeApprove({
           address: USDC_ADDRESS,
           abi: erc20Abi,
           functionName: "approve",
-          args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
+          args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(actualAmount)],
           chainId: base.id,
           dataSuffix: BUILDER_CODE_SUFFIX,
         });
