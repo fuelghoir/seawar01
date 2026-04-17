@@ -1,5 +1,5 @@
 // ─── Bot AI for Sea Battle ───
-// Hunt/Target algorithm: random shots until hit, then target adjacent cells
+// Smart Hunt/Target algorithm with sunk detection, line following, and probability
 
 const SHIP_SIZES = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]; // 10 ships, 20 cells total
 
@@ -59,23 +59,31 @@ export function generateRandomBoard(): number[] {
     }
     if (ok) return board;
   }
-  // fallback — should never happen
   return new Array(100).fill(0);
 }
 
-// ─── Hunt/Target AI ───
+// ─── Smart Hunt/Target AI ───
 
 export interface BotState {
-  shotsMade: Set<number>; // indices already shot
-  hitQueue: number[]; // cells to target next (adjacent to hits)
-  hits: Set<number>; // confirmed hits
+  shotsMade: Set<number>;
+  hits: Set<number>;
+  misses: Set<number>;
+  excluded: Set<number>; // cells around sunk ships — never shoot here
+  sunkShips: number[][]; // list of sunk ship cell arrays
+  remainingShipSizes: number[]; // sizes not yet sunk
+  // Target mode state
+  targetHits: number[]; // current unsunk hit chain
 }
 
 export function createBotState(): BotState {
   return {
     shotsMade: new Set(),
-    hitQueue: [],
     hits: new Set(),
+    misses: new Set(),
+    excluded: new Set(),
+    sunkShips: [],
+    remainingShipSizes: [...SHIP_SIZES],
+    targetHits: [],
   };
 }
 
@@ -90,35 +98,173 @@ function getAdjacentCells(idx: number): number[] {
   return adj;
 }
 
+function getSurrounding(cells: number[]): number[] {
+  const cellSet = new Set(cells);
+  const surround = new Set<number>();
+  for (const c of cells) {
+    const cx = c % 10, cy = Math.floor(c / 10);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+          const idx = ny * 10 + nx;
+          if (!cellSet.has(idx)) surround.add(idx);
+        }
+      }
+    }
+  }
+  return Array.from(surround);
+}
+
+/** Get smart targets along the line of hits */
+function getLineTargets(targetHits: number[], state: BotState): number[] {
+  if (targetHits.length < 2) {
+    // Single hit: try all 4 adjacent
+    return getAdjacentCells(targetHits[0]).filter(
+      (c) => !state.shotsMade.has(c) && !state.excluded.has(c)
+    );
+  }
+
+  // Multiple hits: determine direction and extend
+  const sorted = [...targetHits].sort((a, b) => a - b);
+  const first = sorted[0];
+  const second = sorted[1];
+  const diff = second - first;
+
+  const targets: number[] = [];
+
+  if (diff === 1) {
+    // Horizontal line
+    const y = Math.floor(first / 10);
+    const minX = Math.min(...sorted.map((c) => c % 10));
+    const maxX = Math.max(...sorted.map((c) => c % 10));
+    // Extend left
+    const left = y * 10 + (minX - 1);
+    if (minX > 0 && !state.shotsMade.has(left) && !state.excluded.has(left)) {
+      targets.push(left);
+    }
+    // Extend right
+    const right = y * 10 + (maxX + 1);
+    if (maxX < 9 && !state.shotsMade.has(right) && !state.excluded.has(right)) {
+      targets.push(right);
+    }
+  } else if (diff === 10) {
+    // Vertical line
+    const x = first % 10;
+    const minY = Math.min(...sorted.map((c) => Math.floor(c / 10)));
+    const maxY = Math.max(...sorted.map((c) => Math.floor(c / 10)));
+    // Extend up
+    const up = (minY - 1) * 10 + x;
+    if (minY > 0 && !state.shotsMade.has(up) && !state.excluded.has(up)) {
+      targets.push(up);
+    }
+    // Extend down
+    const down = (maxY + 1) * 10 + x;
+    if (maxY < 9 && !state.shotsMade.has(down) && !state.excluded.has(down)) {
+      targets.push(down);
+    }
+  }
+
+  // If line extension not possible (edge/blocked), fall back to adjacent of all hits
+  if (targets.length === 0) {
+    for (const h of targetHits) {
+      for (const adj of getAdjacentCells(h)) {
+        if (!state.shotsMade.has(adj) && !state.excluded.has(adj)) {
+          targets.push(adj);
+        }
+      }
+    }
+  }
+
+  return targets;
+}
+
+/** Probability-based hunt: score each cell by how many ships could pass through it */
+function getProbabilityScores(state: BotState): number[] {
+  const scores = new Array(100).fill(0);
+
+  for (const size of state.remainingShipSizes) {
+    // Try placing horizontally
+    for (let y = 0; y < 10; y++) {
+      for (let x = 0; x <= 10 - size; x++) {
+        let canPlace = true;
+        const cells: number[] = [];
+        for (let i = 0; i < size; i++) {
+          const idx = y * 10 + x + i;
+          if (state.shotsMade.has(idx) || state.excluded.has(idx)) {
+            canPlace = false;
+            break;
+          }
+          cells.push(idx);
+        }
+        if (canPlace) {
+          for (const c of cells) scores[c]++;
+        }
+      }
+    }
+    // Try placing vertically
+    for (let x = 0; x < 10; x++) {
+      for (let y = 0; y <= 10 - size; y++) {
+        let canPlace = true;
+        const cells: number[] = [];
+        for (let i = 0; i < size; i++) {
+          const idx = (y + i) * 10 + x;
+          if (state.shotsMade.has(idx) || state.excluded.has(idx)) {
+            canPlace = false;
+            break;
+          }
+          cells.push(idx);
+        }
+        if (canPlace) {
+          for (const c of cells) scores[c]++;
+        }
+      }
+    }
+  }
+
+  return scores;
+}
+
 export function botChooseTarget(state: BotState): { x: number; y: number } {
-  // Target mode: shoot adjacent to known hits
-  while (state.hitQueue.length > 0) {
-    const target = state.hitQueue.pop()!;
-    if (!state.shotsMade.has(target)) {
+  // Target mode: follow the line of current hits
+  if (state.targetHits.length > 0) {
+    const targets = getLineTargets(state.targetHits, state);
+    if (targets.length > 0) {
+      const target = targets[Math.floor(Math.random() * targets.length)];
       state.shotsMade.add(target);
       return { x: target % 10, y: Math.floor(target / 10) };
     }
+    // No valid targets — clear targetHits (probably sunk but not detected)
+    state.targetHits = [];
   }
 
-  // Hunt mode: random shot on checkerboard pattern for efficiency
-  const available: number[] = [];
+  // Hunt mode: probability-based targeting
+  const scores = getProbabilityScores(state);
+
+  // Find max score among unshot cells
+  let maxScore = 0;
   for (let i = 0; i < 100; i++) {
-    if (!state.shotsMade.has(i)) {
-      // Checkerboard: (x + y) % 2 === 0 first for better coverage
-      const x = i % 10;
-      const y = Math.floor(i / 10);
-      if ((x + y) % 2 === 0) available.push(i);
+    if (!state.shotsMade.has(i) && !state.excluded.has(i)) {
+      if (scores[i] > maxScore) maxScore = scores[i];
     }
   }
 
-  // If checkerboard exhausted, use remaining cells
-  if (available.length === 0) {
+  // Collect all cells with max score
+  const bestCells: number[] = [];
+  for (let i = 0; i < 100; i++) {
+    if (!state.shotsMade.has(i) && !state.excluded.has(i) && scores[i] === maxScore) {
+      bestCells.push(i);
+    }
+  }
+
+  if (bestCells.length === 0) {
+    // Fallback: any unshot cell
     for (let i = 0; i < 100; i++) {
-      if (!state.shotsMade.has(i)) available.push(i);
+      if (!state.shotsMade.has(i)) bestCells.push(i);
     }
   }
 
-  const target = available[Math.floor(Math.random() * available.length)];
+  const target = bestCells[Math.floor(Math.random() * bestCells.length)];
   state.shotsMade.add(target);
   return { x: target % 10, y: Math.floor(target / 10) };
 }
@@ -129,14 +275,85 @@ export function botProcessResult(
   y: number,
   isHit: boolean
 ): void {
+  const idx = y * 10 + x;
+
   if (isHit) {
-    const idx = y * 10 + x;
     state.hits.add(idx);
-    // Add adjacent cells to target queue
-    for (const adj of getAdjacentCells(idx)) {
-      if (!state.shotsMade.has(adj) && !state.hitQueue.includes(adj)) {
-        state.hitQueue.push(adj);
+    state.targetHits.push(idx);
+
+    // Check if we sunk a ship: all orthogonal neighbors of the hit group
+    // are either misses, excluded, or out of bounds
+    checkAndMarkSunk(state);
+  } else {
+    state.misses.add(idx);
+  }
+}
+
+function checkAndMarkSunk(state: BotState): void {
+  const alreadySunkSet = new Set<number>();
+  for (const ship of state.sunkShips) {
+    for (const c of ship) alreadySunkSet.add(c);
+  }
+
+  // Find connected groups of unsunk hits
+  const unsunkHits = new Set<number>();
+  for (const h of state.hits) {
+    if (!alreadySunkSet.has(h)) unsunkHits.add(h);
+  }
+
+  // BFS to find connected groups
+  const visited = new Set<number>();
+  const groups: number[][] = [];
+  for (const start of unsunkHits) {
+    if (visited.has(start)) continue;
+    const group: number[] = [];
+    const q = [start];
+    while (q.length) {
+      const c = q.shift()!;
+      if (visited.has(c)) continue;
+      if (!state.hits.has(c) || alreadySunkSet.has(c)) continue;
+      visited.add(c);
+      group.push(c);
+      for (const adj of getAdjacentCells(c)) {
+        if (!visited.has(adj)) q.push(adj);
       }
+    }
+    if (group.length > 0) groups.push(group);
+  }
+
+  for (const group of groups) {
+    // Check if all orthogonal neighbors of the group are shot or out of bounds
+    let isSunk = true;
+    for (const c of group) {
+      for (const adj of getAdjacentCells(c)) {
+        if (!state.hits.has(adj) && !state.misses.has(adj) && !state.excluded.has(adj)) {
+          // Unshot neighbor exists — ship might extend there
+          isSunk = false;
+          break;
+        }
+      }
+      if (!isSunk) break;
+    }
+
+    if (isSunk && group.length > 0) {
+      // Mark as sunk
+      state.sunkShips.push(group);
+
+      // Exclude surrounding cells
+      for (const c of getSurrounding(group)) {
+        state.excluded.add(c);
+      }
+
+      // Remove this ship size from remaining
+      const sizeIdx = state.remainingShipSizes.indexOf(group.length);
+      if (sizeIdx !== -1) {
+        state.remainingShipSizes.splice(sizeIdx, 1);
+      }
+
+      // Clear targetHits for this group
+      state.targetHits = state.targetHits.filter(
+        (h) => !group.includes(h)
+      );
     }
   }
 }
