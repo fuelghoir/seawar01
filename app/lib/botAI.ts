@@ -281,8 +281,18 @@ export function botProcessResult(
     state.hits.add(idx);
     state.targetHits.push(idx);
 
-    // Check if we sunk a ship: all orthogonal neighbors of the hit group
-    // are either misses, excluded, or out of bounds
+    // Exclude diagonal cells — ships are only horizontal/vertical
+    const dx = [-1, 1, -1, 1];
+    const dy = [-1, -1, 1, 1];
+    for (let i = 0; i < 4; i++) {
+      const nx = x + dx[i];
+      const ny = y + dy[i];
+      if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10) {
+        state.excluded.add(ny * 10 + nx);
+      }
+    }
+
+    // Check if we sunk a ship
     checkAndMarkSunk(state);
   } else {
     state.misses.add(idx);
