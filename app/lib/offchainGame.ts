@@ -354,7 +354,8 @@ export async function shootBombOffchain(
 }
 
 export async function getAvailableGames(
-  excludeAddress?: string
+  excludeAddress?: string,
+  mode?: "offchain" | "hybrid" | "wager"
 ): Promise<{ id: number; player1: string; game_mode: string; wager_amount: number }[]> {
   let query = supabase
     .from("games")
@@ -369,11 +370,18 @@ export async function getAvailableGames(
   }
 
   const { data } = await query;
-  return (data || []).map(g => ({
+  const rows = (data || []).map(g => ({
     ...g,
-    game_mode: g.game_mode || "free",
+    game_mode: g.game_mode || "offchain",
     wager_amount: g.wager_amount || 0,
   }));
+
+  if (!mode) return rows;
+  // Legacy rows used "free" instead of "offchain" — treat them as offchain.
+  if (mode === "offchain") {
+    return rows.filter(r => r.game_mode === "offchain" || r.game_mode === "free");
+  }
+  return rows.filter(r => r.game_mode === mode);
 }
 
 export async function getPlayerShots(

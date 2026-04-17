@@ -542,9 +542,10 @@ export default function Home() {
 
   // ─── Load offchain games list ───
   const loadOffchainGames = useCallback(async () => {
-    const games = await getAvailableGames(address);
+    if (mode === "bot") { setOffchainGames([]); return; }
+    const games = await getAvailableGames(address, mode);
     setOffchainGames(games);
-  }, [address]);
+  }, [address, mode]);
 
   useEffect(() => {
     if (mode === "bot") return;
