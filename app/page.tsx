@@ -44,6 +44,10 @@ function formatRevert(msg: string): string {
   const lower = msg.toLowerCase();
   if (lower.includes("user rejected") || lower.includes("user denied"))
     return "Transaction rejected. Try again.";
+  if (lower.includes("transfer amount exceeds balance"))
+    return "Prize pool is empty — opponent likely didn't stake. Contact admin or hide with ×.";
+  if (lower.includes("429") || lower.includes("rate limit"))
+    return "RPC rate-limited. Retry in a few seconds.";
   const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/i);
   if (reasonMatch) return reasonMatch[1].trim();
   const revertMatch = msg.match(/revert(?:ed)?(?: with reason string)?\s*['"]?([^'"\n]+?)['"]?(?:\n|$)/i);
@@ -421,7 +425,7 @@ export default function Home() {
         args: [BigInt(win.onchain_game_id)],
         chainId: base.id,
       });
-      const [, , , , finished, onchainWinner] = info as [
+      const [, , , wagerAmountOnchain, finished, onchainWinner] = info as [
         `0x${string}`,
         `0x${string}`,
         number,
@@ -429,6 +433,26 @@ export default function Home() {
         boolean,
         `0x${string}`
       ];
+
+      // 1b) Check USDC balance on contract can cover the payout (wager * 2 * 0.9)
+      const required = (wagerAmountOnchain * BigInt(18)) / BigInt(10);
+      const balance = await readContract(wagmiConfig, {
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [SEABATTLE_CONTRACT_ADDRESS],
+        chainId: base.id,
+      }) as bigint;
+      if (balance < required) {
+        setClaimErr(
+          `Prize pool short: contract has ${(Number(balance) / 1_000_000).toFixed(2)} USDC, ` +
+          `needs ${(Number(required) / 1_000_000).toFixed(2)}. Opponent didn't stake. Hide with ×.`
+        );
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
+        return;
+      }
 
       // 2) If not finalized — simulate recordResult first. Only submit if simulation passes.
       if (!finished) {
