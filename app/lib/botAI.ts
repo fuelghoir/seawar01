@@ -291,79 +291,29 @@ export function botProcessResult(
         state.excluded.add(ny * 10 + nx);
       }
     }
-
-    // Check if we sunk a ship
-    checkAndMarkSunk(state);
   } else {
     state.misses.add(idx);
   }
 }
 
-function checkAndMarkSunk(state: BotState): void {
-  const alreadySunkSet = new Set<number>();
-  for (const ship of state.sunkShips) {
-    for (const c of ship) alreadySunkSet.add(c);
+/** Called by the game when a ship is confirmed sunk (using actual board data) */
+export function botNotifySunk(state: BotState, shipCells: number[]): void {
+  state.sunkShips.push(shipCells);
+
+  // Exclude all surrounding cells
+  for (const c of getSurrounding(shipCells)) {
+    state.excluded.add(c);
   }
 
-  // Find connected groups of unsunk hits
-  const unsunkHits = new Set<number>();
-  for (const h of state.hits) {
-    if (!alreadySunkSet.has(h)) unsunkHits.add(h);
+  // Remove this ship size from remaining
+  const sizeIdx = state.remainingShipSizes.indexOf(shipCells.length);
+  if (sizeIdx !== -1) {
+    state.remainingShipSizes.splice(sizeIdx, 1);
   }
 
-  // BFS to find connected groups
-  const visited = new Set<number>();
-  const groups: number[][] = [];
-  for (const start of unsunkHits) {
-    if (visited.has(start)) continue;
-    const group: number[] = [];
-    const q = [start];
-    while (q.length) {
-      const c = q.shift()!;
-      if (visited.has(c)) continue;
-      if (!state.hits.has(c) || alreadySunkSet.has(c)) continue;
-      visited.add(c);
-      group.push(c);
-      for (const adj of getAdjacentCells(c)) {
-        if (!visited.has(adj)) q.push(adj);
-      }
-    }
-    if (group.length > 0) groups.push(group);
-  }
-
-  for (const group of groups) {
-    // Check if all orthogonal neighbors of the group are shot or out of bounds
-    let isSunk = true;
-    for (const c of group) {
-      for (const adj of getAdjacentCells(c)) {
-        if (!state.hits.has(adj) && !state.misses.has(adj) && !state.excluded.has(adj)) {
-          // Unshot neighbor exists — ship might extend there
-          isSunk = false;
-          break;
-        }
-      }
-      if (!isSunk) break;
-    }
-
-    if (isSunk && group.length > 0) {
-      // Mark as sunk
-      state.sunkShips.push(group);
-
-      // Exclude surrounding cells
-      for (const c of getSurrounding(group)) {
-        state.excluded.add(c);
-      }
-
-      // Remove this ship size from remaining
-      const sizeIdx = state.remainingShipSizes.indexOf(group.length);
-      if (sizeIdx !== -1) {
-        state.remainingShipSizes.splice(sizeIdx, 1);
-      }
-
-      // Clear targetHits for this group
-      state.targetHits = state.targetHits.filter(
-        (h) => !group.includes(h)
-      );
-    }
-  }
+  // Clear targetHits for this ship's cells
+  state.targetHits = state.targetHits.filter(
+    (h) => !shipCells.includes(h)
+  );
 }
+

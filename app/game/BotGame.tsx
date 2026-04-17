@@ -13,6 +13,7 @@ import {
   createBotState,
   botChooseTarget,
   botProcessResult,
+  botNotifySunk,
   BotState,
 } from "../lib/botAI";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
@@ -169,6 +170,22 @@ export function BotGameContent({
     const isHit = myBoardRef.current[idx] === 1;
 
     botProcessResult(botState.current, x, y, isHit);
+
+    // Check if bot sunk a ship (we know the player's board)
+    if (isHit) {
+      const ships = findShips(myBoardRef.current);
+      const allBotHits = new Set(botState.current.hits);
+      const alreadySunk = new Set<number>();
+      for (const s of botState.current.sunkShips) {
+        for (const c of s) alreadySunk.add(c);
+      }
+      for (const ship of ships) {
+        if (ship.every((c) => alreadySunk.has(c))) continue; // already reported
+        if (isShipSunk(ship, allBotHits)) {
+          botNotifySunk(botState.current, ship);
+        }
+      }
+    }
 
     setBotShotsMap((prev) => {
       const next = new Map(prev);
