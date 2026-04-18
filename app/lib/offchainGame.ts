@@ -129,6 +129,58 @@ export async function markPrizeClaimed(gameId: number): Promise<void> {
     .eq("id", gameId);
 }
 
+// ─── Auto-close / refund helpers ───
+
+const STALE_MINUTES = 3;
+
+/**
+ * Mark unjoined free/onchain games older than STALE_MINUTES as cancelled (state=4).
+ * Wager games are skipped — they require an onchain refund call first.
+ * Safe to call on every home load; state=4 rows are hidden everywhere.
+ */
+export async function autoCloseStaleGames(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
+  await supabase
+    .from("games")
+    .update({ state: 4 })
+    .eq("state", 0)
+    .is("player2", null)
+    .lt("created_at", cutoff)
+    .in("game_mode", ["offchain", "free", "hybrid"]);
+}
+
+export interface RefundableGame {
+  id: number;
+  onchain_game_id: number | null;
+  wager_amount: number;
+  created_at: string;
+}
+
+/**
+ * Wager games created by `wallet`, still unjoined, older than STALE_MINUTES,
+ * and not yet cancelled. These are eligible for onchain refund.
+ */
+export async function getRefundableGames(wallet: string): Promise<RefundableGame[]> {
+  const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("games")
+    .select("id, onchain_game_id, wager_amount, created_at")
+    .eq("player1", wallet.toLowerCase())
+    .eq("game_mode", "wager")
+    .eq("state", 0)
+    .is("player2", null)
+    .lt("created_at", cutoff)
+    .order("id", { ascending: false });
+  return (data || []) as RefundableGame[];
+}
+
+export async function markGameCancelled(gameId: number): Promise<void> {
+  await supabase
+    .from("games")
+    .update({ state: 4 })
+    .eq("id", gameId);
+}
+
 export interface UnclaimedWin {
   id: number;
   onchain_game_id: number | null;

@@ -32,8 +32,12 @@ import {
   getGameJoinInfo,
   getUnclaimedWins,
   markPrizeClaimed,
+  autoCloseStaleGames,
+  getRefundableGames,
+  markGameCancelled,
   CheckinStatus,
   UnclaimedWin,
+  RefundableGame,
 } from "./lib/offchainGame";
 import styles from "./page.module.css";
 
@@ -87,6 +91,9 @@ export default function Home() {
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
   const [claimErr, setClaimErr] = useState("");
+  const [refundableGames, setRefundableGames] = useState<RefundableGame[]>([]);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelErr, setCancelErr] = useState("");
   const wagmiConfig = useConfig();
   const autoConnected = useRef(false);
 
@@ -133,6 +140,18 @@ export default function Home() {
   } = useWriteContract();
   const { isSuccess: recordConfirmed } = useWaitForTransactionReceipt({
     hash: recordTxHash,
+  });
+
+  // ─── Cancel wager (refund) ───
+  const {
+    data: cancelTxHash,
+    writeContract: writeCancel,
+    isPending: cancelPending,
+    error: cancelWriteError,
+    reset: resetCancel,
+  } = useWriteContract();
+  const { isSuccess: cancelConfirmed } = useWaitForTransactionReceipt({
+    hash: cancelTxHash,
   });
 
   // Auto-connect
@@ -357,6 +376,60 @@ export default function Home() {
     if (address) loadUnclaimedWins();
   }, [address, loadUnclaimedWins]);
 
+  // ─── Auto-close stale free/onchain games + load refundable wager games ───
+  const loadRefundable = useCallback(async () => {
+    if (!address) return;
+    const games = await getRefundableGames(address);
+    setRefundableGames(games);
+  }, [address]);
+
+  useEffect(() => {
+    // Fire on every mount: sweeps stale free/hybrid, then loads wager refunds for this user.
+    autoCloseStaleGames().catch(() => {});
+    if (address) loadRefundable();
+  }, [address, loadRefundable]);
+
+  // After onchain cancel confirms — mark DB state=4 and refresh lists.
+  // Lobby list self-refreshes on its 5s interval, no explicit call needed.
+  useEffect(() => {
+    if (cancelConfirmed && cancellingId !== null) {
+      markGameCancelled(cancellingId).catch(() => {});
+      setCancellingId(null);
+      setCancelErr("");
+      resetCancel();
+      loadRefundable();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelConfirmed, cancellingId]);
+
+  useEffect(() => {
+    if (cancelWriteError && cancellingId !== null) {
+      const msg = cancelWriteError.message || "Refund failed";
+      setCancelErr(formatRevert(msg));
+      setCancellingId(null);
+    }
+  }, [cancelWriteError, cancellingId]);
+
+  const handleRefund = useCallback((g: RefundableGame) => {
+    if (g.onchain_game_id === null) return;
+    setCancelErr("");
+    resetCancel();
+    setCancellingId(g.id);
+    writeCancel({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "cancelWagerGame",
+      args: [BigInt(g.onchain_game_id)],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [writeCancel, resetCancel]);
+
+  const handleDismissRefund = useCallback(async (gameId: number) => {
+    await markGameCancelled(gameId).catch(() => {});
+    loadRefundable();
+  }, [loadRefundable]);
+
   const claimingOidRef = useRef<number | null>(null);
 
   // After recordResult confirms, trigger claimPrize
@@ -424,13 +497,14 @@ export default function Home() {
         args: [BigInt(win.onchain_game_id)],
         chainId: base.id,
       });
-      const [, , , wagerAmountOnchain, finished, onchainWinner] = info as [
+      const [, , , wagerAmountOnchain, finished, onchainWinner] = info as readonly [
         `0x${string}`,
         `0x${string}`,
         number,
         bigint,
         boolean,
-        `0x${string}`
+        `0x${string}`,
+        boolean
       ];
 
       // 1b) Check USDC balance on contract can cover the payout (wager * 2 * 0.9)
@@ -690,8 +764,8 @@ export default function Home() {
           functionName: "getGame",
           args: [BigInt(info.onchain_game_id)],
           chainId: base.id,
-        }) as [
-          `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`
+        }) as readonly [
+          `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`, boolean
         ];
         const onchainP2 = onchainGame[1];
         const onchainFinished = onchainGame[4];
@@ -970,6 +1044,56 @@ export default function Home() {
                   );
                 })}
                 {claimErr && <p className={styles.unclaimedError}>{claimErr}</p>}
+              </div>
+            )}
+
+            {/* Refundable wager games (unjoined, older than 3 min) */}
+            {refundableGames.length > 0 && (
+              <div className={`${styles.unclaimedSection} ${styles.refundSection}`}>
+                <h3 className={`${styles.unclaimedTitle} ${styles.refundTitle}`}>
+                  Refundable Games ({refundableGames.length})
+                </h3>
+                {refundableGames.map((g) => {
+                  const isActive = cancellingId === g.id;
+                  const amount = g.wager_amount / 1_000_000;
+                  const btnLabel = !isActive
+                    ? "Refund"
+                    : cancelPending
+                      ? "Confirm in wallet..."
+                      : "Refunding...";
+                  return (
+                    <div key={g.id} className={styles.unclaimedItem}>
+                      <div className={styles.unclaimedInfo}>
+                        <span className={styles.unclaimedGameId}>Game #{g.id}</span>
+                        <span className={styles.unclaimedAmount}>
+                          {amount.toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <div className={styles.unclaimedActions}>
+                        <button
+                          className={`${styles.unclaimedClaimBtn} ${styles.refundBtn}`}
+                          onClick={() => handleRefund(g)}
+                          disabled={
+                            g.onchain_game_id === null ||
+                            cancelPending ||
+                            (cancellingId !== null && cancellingId !== g.id)
+                          }
+                        >
+                          {btnLabel}
+                        </button>
+                        <button
+                          className={styles.unclaimedDismissBtn}
+                          onClick={() => handleDismissRefund(g.id)}
+                          disabled={isActive}
+                          title="Hide this record"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {cancelErr && <p className={styles.unclaimedError}>{cancelErr}</p>}
               </div>
             )}
 

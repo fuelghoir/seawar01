@@ -397,6 +397,25 @@
   cursor: not-allowed;
 }
 
+/* Refundable variant — orange palette */
+.refundSection {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(245, 124, 0, 0.04));
+  border-color: rgba(255, 152, 0, 0.4);
+}
+
+.refundTitle {
+  color: #FFB74D;
+}
+
+.refundBtn {
+  background: linear-gradient(135deg, #FF9800, #F57C00);
+  box-shadow: 0 3px 12px rgba(255, 152, 0, 0.3);
+}
+
+.refundBtn:hover:not(:disabled) {
+  box-shadow: 0 5px 18px rgba(255, 152, 0, 0.5);
+}
+
 .unclaimedActions {
   display: flex;
   align-items: center;

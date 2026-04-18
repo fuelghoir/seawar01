@@ -1,5 +1,5 @@
 /**
- * Deploy SeaBattle.sol to Base Mainnet
+ * Deploy SeaBattleV3.sol to Base Mainnet
  *
  * Usage:
  *   node scripts/deploy.mjs
@@ -7,7 +7,7 @@
  * Requires DEPLOYER_PRIVATE_KEY in .env (with ETH on Base for gas)
  */
 
-import { createWalletClient, createPublicClient, http, defineChain } from "viem";
+import { createWalletClient, createPublicClient, http, encodeDeployData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import solc from "solc";
@@ -16,6 +16,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const CONTRACT_NAME = "SeaBattleV3";
+const CONTRACT_FILE = `${CONTRACT_NAME}.sol`;
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base mainnet USDC
 
 // Load .env manually
 const envPath = path.join(__dirname, "..", ".env");
@@ -35,18 +39,17 @@ if (fs.existsSync(envPath)) {
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
 if (!PRIVATE_KEY) {
   console.error("Error: Set DEPLOYER_PRIVATE_KEY in .env");
-  console.error("Example: DEPLOYER_PRIVATE_KEY=0xabc123...");
   process.exit(1);
 }
 
 // Compile contract
-console.log("Compiling SeaBattle.sol...");
-const contractPath = path.join(__dirname, "..", "contracts", "SeaBattle.sol");
+console.log(`Compiling ${CONTRACT_FILE}...`);
+const contractPath = path.join(__dirname, "..", "contracts", CONTRACT_FILE);
 const source = fs.readFileSync(contractPath, "utf-8");
 
 const input = {
   language: "Solidity",
-  sources: { "SeaBattle.sol": { content: source } },
+  sources: { [CONTRACT_FILE]: { content: source } },
   settings: {
     outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
     optimizer: { enabled: true, runs: 200 },
@@ -62,29 +65,29 @@ if (output.errors) {
     errors.forEach((e) => console.error(e.formattedMessage));
     process.exit(1);
   }
+  // Non-fatal warnings
+  output.errors.forEach((e) => console.warn(e.formattedMessage));
 }
 
-const compiled = output.contracts["SeaBattle.sol"]["SeaBattle"];
+const compiled = output.contracts[CONTRACT_FILE][CONTRACT_NAME];
 const abi = compiled.abi;
 const bytecode = `0x${compiled.evm.bytecode.object}`;
 
 console.log("Compiled successfully.");
 
+// Write ABI JSON for reference
+const abiOut = path.join(__dirname, "..", "contracts", `${CONTRACT_NAME}.abi.json`);
+fs.writeFileSync(abiOut, JSON.stringify(abi, null, 2));
+console.log(`ABI written to ${abiOut}`);
+
 // Deploy
 const account = privateKeyToAccount(PRIVATE_KEY.startsWith("0x") ? PRIVATE_KEY : `0x${PRIVATE_KEY}`);
 
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http(),
-});
-
-const walletClient = createWalletClient({
-  account,
-  chain: base,
-  transport: http(),
-});
+const publicClient = createPublicClient({ chain: base, transport: http() });
+const walletClient = createWalletClient({ account, chain: base, transport: http() });
 
 console.log(`Deploying from: ${account.address}`);
+console.log(`USDC constructor arg: ${USDC_ADDRESS}`);
 
 const balance = await publicClient.getBalance({ address: account.address });
 console.log(`Balance: ${Number(balance) / 1e18} ETH`);
@@ -98,6 +101,7 @@ console.log("Sending deploy transaction...");
 const hash = await walletClient.deployContract({
   abi,
   bytecode,
+  args: [USDC_ADDRESS],
 });
 
 console.log(`Transaction: https://basescan.org/tx/${hash}`);
@@ -115,8 +119,6 @@ console.log("=".repeat(60));
 console.log(`CONTRACT DEPLOYED: ${receipt.contractAddress}`);
 console.log("=".repeat(60));
 console.log("");
-console.log("Add this to your .env:");
-console.log(`NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS=${receipt.contractAddress}`);
 
 // Auto-write to .env
 let envContent = "";
@@ -134,4 +136,4 @@ if (envContent.includes("NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS")) {
 }
 
 fs.writeFileSync(envPath, envContent);
-console.log("\n.env updated automatically. Restart dev server to apply.");
+console.log(".env updated. Remember to update Vercel env var + seaBattleAbi.ts ABI + redeploy.");

@@ -75,6 +75,13 @@ export const seaBattleAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "function",
+    name: "cancelWagerGame",
+    inputs: [{ type: "uint256", name: "gameId" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
   // ─── Result ───
   {
     type: "function",
@@ -114,6 +121,7 @@ export const seaBattleAbi = [
       { type: "uint256", name: "wagerAmount" },
       { type: "bool", name: "finished" },
       { type: "address", name: "winner" },
+      { type: "bool", name: "cancelled" },
     ],
     stateMutability: "view",
   },
@@ -182,6 +190,15 @@ export const seaBattleAbi = [
       { type: "uint256", name: "gameId", indexed: true },
       { type: "address", name: "winner", indexed: false },
       { type: "uint256", name: "prize", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "GameCancelled",
+    inputs: [
+      { type: "uint256", name: "gameId", indexed: true },
+      { type: "address", name: "player1", indexed: false },
+      { type: "uint256", name: "refund", indexed: false },
     ],
   },
 ] as const;
