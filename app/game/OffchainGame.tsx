@@ -7,7 +7,9 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
+  useConfig,
 } from "wagmi";
+import { readContract } from "@wagmi/core";
 import { keccak256, toHex, concatHex } from "viem";
 import { base } from "wagmi/chains";
 import { supabase, OffchainGame } from "../lib/supabase";
@@ -69,6 +71,7 @@ export function OffchainGameContent({
 }) {
   const router = useRouter();
   const { address } = useAccount();
+  const wagmiConfig = useConfig();
   const gameIdNum = Number(gameIdStr);
 
   const [game, setGame] = useState<OffchainGame | null>(null);
@@ -186,14 +189,39 @@ export function OffchainGameContent({
   const resultRecordedRef = useRef(false);
   useEffect(() => {
     if (
-      game?.state === 3 &&
-      game.winner &&
-      address &&
-      (mode === "hybrid" || mode === "wager") &&
-      onchainGameId &&
-      !resultRecordedRef.current
+      game?.state !== 3 ||
+      !game.winner ||
+      !address ||
+      (mode !== "hybrid" && mode !== "wager") ||
+      !onchainGameId ||
+      resultRecordedRef.current
     ) {
-      resultRecordedRef.current = true;
+      return;
+    }
+    resultRecordedRef.current = true;
+
+    (async () => {
+      try {
+        const onchain = (await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getGame",
+          args: [BigInt(onchainGameId)],
+        })) as readonly [
+          `0x${string}`,
+          `0x${string}`,
+          number,
+          bigint,
+          boolean,
+          `0x${string}`,
+          boolean,
+        ];
+        const finished = onchain[4];
+        if (finished) return;
+      } catch {
+        // If read fails, fall through and attempt the write anyway
+      }
+
       writeResult({
         address: SEABATTLE_CONTRACT_ADDRESS,
         abi: seaBattleAbi,
@@ -202,8 +230,8 @@ export function OffchainGameContent({
         chainId: base.id,
         dataSuffix: BUILDER_CODE_SUFFIX,
       });
-    }
-  }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult]);
+    })();
+  }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult, wagmiConfig]);
 
   // Mark prize as claimed in DB after onchain tx confirms
   useEffect(() => {
