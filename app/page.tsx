@@ -812,7 +812,7 @@ export default function Home() {
             {/* Bot onchain toggle */}
             {mode === "bot" && (
               <label className={`${styles.privateToggle} ${botOnchain ? styles.toggleActive : ""}`}>
-                <span>Record on blockchain (2 txs)</span>
+                <span>Onchain mode (2 txs)</span>
                 <input
                   type="checkbox"
                   checked={botOnchain}

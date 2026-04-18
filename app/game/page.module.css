@@ -16,15 +16,24 @@
   animation: pageIn 0.3s ease-out;
 }
 
-/* App-shell layout for active game — Fire bar always visible without scroll. */
+/* App-shell layout for active game — Fire bar always visible without scroll.
+ * Uses 100svh (small viewport height) so iOS Safari's bottom URL bar never
+ * overlaps the Fire button; 100dvh can still be clipped on some iOS versions. */
 .gameShell {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100svh;
+  max-height: 100svh;
   background: linear-gradient(180deg, #0A1628 0%, #0d2137 40%, #0A1628 100%);
   color: white;
   overflow: hidden;
+}
+
+@supports not (height: 100svh) {
+  .gameShell {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
 }
 
 .gameScroll {
@@ -47,7 +56,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(10, 22, 40, 0.75) 0%, rgba(10, 22, 40, 0.98) 45%);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(26, 58, 92, 0.6);
