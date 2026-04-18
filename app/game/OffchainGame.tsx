@@ -216,10 +216,19 @@ export function OffchainGameContent({
           `0x${string}`,
           boolean,
         ];
-        const finished = onchain[4];
-        if (finished) return;
+        const [p1, p2, , , finished, , cancelled] = onchain;
+        if (finished || cancelled) return;
+        // Game not present in this contract (fresh V3 without this gameId)
+        if (p1 === "0x0000000000000000000000000000000000000000") return;
+        // Caller isn't a player in the onchain game — recordResult would revert
+        const me = address.toLowerCase();
+        if (p1.toLowerCase() !== me && p2.toLowerCase() !== me) return;
+        // Winner must be one of the onchain players
+        const w = (game.winner as string).toLowerCase();
+        if (w !== p1.toLowerCase() && w !== p2.toLowerCase()) return;
       } catch {
-        // If read fails, fall through and attempt the write anyway
+        // If read fails, skip rather than risk a revert
+        return;
       }
 
       writeResult({
