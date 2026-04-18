@@ -811,13 +811,14 @@ export default function Home() {
 
             {/* Bot onchain toggle */}
             {mode === "bot" && (
-              <label className={styles.privateToggle}>
+              <label className={`${styles.privateToggle} ${botOnchain ? styles.toggleActive : ""}`}>
+                <span>Record on blockchain (2 txs)</span>
                 <input
                   type="checkbox"
                   checked={botOnchain}
                   onChange={(e) => setBotOnchain(e.target.checked)}
                 />
-                <span>Record on blockchain (2 txs)</span>
+                <span className={`${styles.toggleSwitch} ${botOnchain ? styles.toggleOn : ""}`} />
               </label>
             )}
 
@@ -841,13 +842,14 @@ export default function Home() {
 
             {mode !== "bot" && (
               <>
-                <label className={styles.privateToggle}>
+                <label className={`${styles.privateToggle} ${isPrivate ? styles.toggleActive : ""}`}>
+                  <span>Private game (invite only)</span>
                   <input
                     type="checkbox"
                     checked={isPrivate}
                     onChange={(e) => setIsPrivate(e.target.checked)}
                   />
-                  <span>Private game (invite only)</span>
+                  <span className={`${styles.toggleSwitch} ${isPrivate ? styles.toggleOn : ""}`} />
                 </label>
 
                 <div className={styles.divider}>

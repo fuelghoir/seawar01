@@ -716,8 +716,8 @@ export function OffchainGameContent({
   const canShoot = isMyTurn && game.turn_phase === 0 && !loading;
 
   return (
-    <div className={styles.container}>
-      <div className={styles.scrollContent}>
+    <div className={styles.gameShell}>
+      <div className={styles.gameScroll}>
         <GameStatus
           isMyTurn={isMyTurn}
           myHits={myHits}
@@ -737,49 +737,49 @@ export function OffchainGameContent({
           />
           <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
         </div>
+      </div>
 
-        <div className={styles.stickyFire}>
-          <ShotTransaction
-            selectedCell={selectedCell}
-            isPending={loading}
-            isConfirming={false}
-            isSuccess={false}
-            onShoot={handleShoot}
-            needsReport={needsReport}
-            disabled={!canShoot}
-          />
+      <div className={styles.stickyFire}>
+        <ShotTransaction
+          selectedCell={selectedCell}
+          isPending={loading}
+          isConfirming={false}
+          isSuccess={false}
+          onShoot={handleShoot}
+          needsReport={needsReport}
+          disabled={!canShoot}
+        />
 
-          {/* Bomb controls (wager only) */}
-          {mode === "wager" && game.state === 2 && (
-            <div className={styles.bombSection}>
-              {!bombOwned && !bombBuying && (
-                <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
-                  Buy Bomb 3x3 (2 USDC)
-                </button>
-              )}
-              {bombBuying && (
-                <p className={styles.hint}>
-                  {bombApprovePending
-                    ? "Approve USDC..."
-                    : bombBuyPending
-                      ? "Buying bomb..."
-                      : "Processing..."}
-                </p>
-              )}
-              {bombOwned && !bombUsed && (
-                <button
-                  className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
-                  onClick={() => setBombActive(!bombActive)}
-                >
-                  {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
-                </button>
-              )}
-              {bombUsed && (
-                <p className={styles.hint}>Bomb used</p>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Bomb controls (wager only) */}
+        {mode === "wager" && game.state === 2 && (
+          <div className={styles.bombSection}>
+            {!bombOwned && !bombBuying && (
+              <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
+                Buy Bomb 3x3 (2 USDC)
+              </button>
+            )}
+            {bombBuying && (
+              <p className={styles.hint}>
+                {bombApprovePending
+                  ? "Approve USDC..."
+                  : bombBuyPending
+                    ? "Buying bomb..."
+                    : "Processing..."}
+              </p>
+            )}
+            {bombOwned && !bombUsed && (
+              <button
+                className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
+                onClick={() => setBombActive(!bombActive)}
+              >
+                {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
+              </button>
+            )}
+            {bombUsed && (
+              <p className={styles.hint}>Bomb used</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -352,9 +352,11 @@ export function BotGameContent({
     );
   }
 
+  const canFire = isMyTurn && !botProcessing && !!selectedCell;
+
   return (
-    <div className={styles.container}>
-      <div className={styles.scrollContent}>
+    <div className={styles.gameShell}>
+      <div className={styles.gameScroll}>
         <div className={styles.botStatus}>
           <div className={styles.turnIndicator}>
             {botProcessing ? "Bot is thinking..." : isMyTurn ? "Your Turn" : ""}
@@ -374,13 +376,22 @@ export function BotGameContent({
           />
           <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
         </div>
+      </div>
 
-        {isMyTurn && !botProcessing && selectedCell && (
-          <button className={styles.shareBtn} onClick={handleShoot}>
-            Fire at {String.fromCharCode(1040 + selectedCell.x)}
-            {selectedCell.y + 1}
-          </button>
-        )}
+      <div className={styles.stickyFire}>
+        <button
+          className={styles.fireButton}
+          onClick={handleShoot}
+          disabled={!canFire}
+        >
+          {canFire
+            ? `Fire at ${String.fromCharCode(1040 + selectedCell!.x)}${selectedCell!.y + 1}`
+            : botProcessing
+              ? "Bot is thinking..."
+              : isMyTurn
+                ? "Select a cell to fire"
+                : "Waiting..."}
+        </button>
       </div>
     </div>
   );

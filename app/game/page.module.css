@@ -16,21 +16,42 @@
   animation: pageIn 0.3s ease-out;
 }
 
+/* App-shell layout for active game — Fire bar always visible without scroll. */
+.gameShell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  background: linear-gradient(180deg, #0A1628 0%, #0d2137 40%, #0A1628 100%);
+  color: white;
+  overflow: hidden;
+}
+
+.gameScroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 14px;
+  animation: pageIn 0.3s ease-out;
+}
+
 .stickyFire {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(10, 22, 40, 0) 0%, rgba(10, 22, 40, 0.92) 35%, rgba(10, 22, 40, 0.98) 100%);
-  backdrop-filter: blur(10px);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(10, 22, 40, 0.75) 0%, rgba(10, 22, 40, 0.98) 45%);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(26, 58, 92, 0.6);
   z-index: 40;
-  margin-top: auto;
 }
 
 .centered {
@@ -339,6 +360,36 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
+}
+
+/* Generic fire button (used by BotGame inside .stickyFire) */
+.fireButton {
+  width: 100%;
+  max-width: 360px;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #00D4FF, #0088cc);
+  border: none;
+  border-radius: 12px;
+  color: #0A1628;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  box-shadow: 0 6px 24px rgba(0, 212, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.fireButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(0, 212, 255, 0.45);
+}
+
+.fireButton:disabled {
+  background: linear-gradient(135deg, #1a3a5c, #13283f);
+  color: #4a6a8a;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Bomb controls */
