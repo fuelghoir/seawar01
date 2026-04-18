@@ -343,7 +343,6 @@ export default function Home() {
       to: address,
       value: BigInt(0),
       chainId: base.id,
-      data: BUILDER_CODE_SUFFIX,
     });
   };
 
