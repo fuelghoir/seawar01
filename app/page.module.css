@@ -604,6 +604,130 @@
   animation: fadeIn 0.3s ease-out;
 }
 
+.profileCard {
+  width: 100%;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.profileHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #e0f4ff;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profileHeader:hover {
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.profileHeaderLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.profileLabel {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #00d4ff;
+}
+
+.profilePoints {
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFD700;
+}
+
+.profileChevron {
+  font-size: 14px;
+  color: #7ab8d4;
+}
+
+.profileBody {
+  padding: 4px 12px 14px;
+  border-top: 1px solid rgba(0, 212, 255, 0.15);
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.profileStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+}
+
+.profileValue {
+  font-size: 18px;
+  font-weight: 800;
+  color: #00d4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.profileKey {
+  font-size: 10px;
+  font-weight: 600;
+  color: #7ab8d4;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profileOnchain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(0, 212, 255, 0.15);
+  margin-top: 4px;
+}
+
+.profileOnchainRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.profileOnchainLabel {
+  color: #7ab8d4;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.profileOnchainValue {
+  color: #e0f4ff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.profileEarnings {
+  color: #4CAF50;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .leaderboardBtn {
   width: 100%;
   padding: 12px 24px;

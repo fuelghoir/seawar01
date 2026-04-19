@@ -617,6 +617,7 @@ export async function dailyCheckin(
       points: reward,
       checkin_streak: newStreak,
       last_checkin: today,
+      total_checkins: 1,
     });
     return { points: reward, streak: newStreak };
   }
@@ -638,6 +639,7 @@ export async function dailyCheckin(
       points: existing.points + reward,
       checkin_streak: newStreak,
       last_checkin: today,
+      total_checkins: (existing.total_checkins ?? 0) + 1,
       updated_at: new Date().toISOString(),
     })
     .eq("wallet", addr);
@@ -665,4 +667,93 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     .limit(50);
 
   return (data as LeaderboardEntry[]) || [];
+}
+
+// ─── Player profile ───
+
+export interface PlayerProfile {
+  wallet: string;
+  points: number;
+  totalCheckins: number;
+  checkinStreak: number;
+  totalWins: number;
+  totalShots: number;
+  onchainGames: number;
+  onchainWins: number;
+  onchainWinRate: number; // 0..1
+  earningsUsdc: number;   // from wager wins (net, 90% of 2x pot)
+}
+
+export async function getPlayerProfile(
+  wallet: string
+): Promise<PlayerProfile> {
+  const addr = wallet.toLowerCase();
+
+  const { data: stats } = await supabase
+    .from("player_stats")
+    .select("points, wins, games_played, checkin_streak, total_checkins")
+    .eq("wallet", addr)
+    .single();
+
+  // All games where this wallet is a player
+  const { data: games } = await supabase
+    .from("games")
+    .select("id, player1, player2, winner, state, game_mode, wager_amount")
+    .or(`player1.eq.${addr},player2.eq.${addr}`);
+
+  const allGames = games || [];
+  const finishedGames = allGames.filter(g => g.state === 3);
+  const freeFinished = finishedGames.filter(
+    g => g.game_mode === "offchain" || g.game_mode === "free" || g.game_mode === null
+  );
+  const freeWins = freeFinished.filter(g => g.winner === addr).length;
+
+  // player_stats counts PvP (all modes) + onchain bot. Free PvP wins/games are in DB games.
+  // Onchain = everything in player_stats minus free PvP.
+  const totalWins = stats?.wins ?? 0;
+  const totalGames = stats?.games_played ?? 0;
+  const onchainWins = Math.max(0, totalWins - freeWins);
+  const onchainGames = Math.max(0, totalGames - freeFinished.length);
+  const onchainWinRate = onchainGames > 0 ? onchainWins / onchainGames : 0;
+
+  // Earnings from wager wins — each win pays 90% of (wager * 2).
+  const wagerWins = finishedGames.filter(
+    g => g.game_mode === "wager" && g.winner === addr
+  );
+  const earningsMicro = wagerWins.reduce(
+    (sum, g) => sum + Math.floor((g.wager_amount ?? 0) * 2 * 0.9),
+    0
+  );
+  const earningsUsdc = earningsMicro / 1_000_000;
+
+  // Count shots — get shot rows per game where this wallet was the shooter.
+  let totalShots = 0;
+  if (allGames.length > 0) {
+    const gameIds = allGames.map(g => g.id);
+    const { data: shotRows } = await supabase
+      .from("shots")
+      .select("game_id, player_num")
+      .in("game_id", gameIds);
+    if (shotRows) {
+      const gameMap = new Map(
+        allGames.map(g => [g.id, g.player1 === addr ? 1 : 2])
+      );
+      totalShots = shotRows.filter(
+        s => gameMap.get(s.game_id) === s.player_num
+      ).length;
+    }
+  }
+
+  return {
+    wallet: addr,
+    points: stats?.points ?? 0,
+    totalCheckins: stats?.total_checkins ?? 0,
+    checkinStreak: stats?.checkin_streak ?? 0,
+    totalWins,
+    totalShots,
+    onchainGames,
+    onchainWins,
+    onchainWinRate,
+    earningsUsdc,
+  };
 }

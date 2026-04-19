@@ -35,9 +35,11 @@ import {
   autoCloseStaleGames,
   getRefundableGames,
   markGameCancelled,
+  getPlayerProfile,
   CheckinStatus,
   UnclaimedWin,
   RefundableGame,
+  PlayerProfile,
 } from "./lib/offchainGame";
 import styles from "./page.module.css";
 
@@ -94,6 +96,8 @@ export default function Home() {
   const [refundableGames, setRefundableGames] = useState<RefundableGame[]>([]);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelErr, setCancelErr] = useState("");
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
   const wagmiConfig = useConfig();
   const autoConnected = useRef(false);
 
@@ -364,6 +368,25 @@ export default function Home() {
       chainId: base.id,
     });
   };
+
+  // ─── Load player profile ───
+  const loadProfile = useCallback(async () => {
+    if (!address) return;
+    try {
+      const p = await getPlayerProfile(address);
+      setProfile(p);
+    } catch { /* ignore */ }
+  }, [address]);
+
+  useEffect(() => {
+    if (address) loadProfile();
+  }, [address, loadProfile]);
+
+  // Refresh profile when check-in confirmed or a claim confirms
+  useEffect(() => {
+    if (checkinTxSuccess || claimConfirmed) loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkinTxSuccess, claimConfirmed]);
 
   // ─── Load unclaimed wins list ───
   const loadUnclaimedWins = useCallback(async () => {
@@ -1114,6 +1137,78 @@ export default function Home() {
                         : `Checked in! Streak: ${checkin.streak}d`}
                 </button>
                 {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
+              </div>
+            )}
+
+            {profile && (
+              <div className={styles.profileCard}>
+                <button
+                  className={styles.profileHeader}
+                  onClick={() => setShowProfile((v) => !v)}
+                  type="button"
+                >
+                  <div className={styles.profileHeaderLeft}>
+                    <span className={styles.profileLabel}>Profile</span>
+                    <span className={styles.profilePoints}>
+                      {profile.points} pts
+                    </span>
+                  </div>
+                  <span className={styles.profileChevron}>
+                    {showProfile ? "▾" : "▸"}
+                  </span>
+                </button>
+
+                {showProfile && (
+                  <div className={styles.profileBody}>
+                    <div className={styles.profileGrid}>
+                      <div className={styles.profileStat}>
+                        <span className={styles.profileValue}>
+                          {profile.totalCheckins}
+                        </span>
+                        <span className={styles.profileKey}>Check-ins</span>
+                      </div>
+                      <div className={styles.profileStat}>
+                        <span className={styles.profileValue}>
+                          {profile.totalWins}
+                        </span>
+                        <span className={styles.profileKey}>Wins</span>
+                      </div>
+                      <div className={styles.profileStat}>
+                        <span className={styles.profileValue}>
+                          {profile.totalShots}
+                        </span>
+                        <span className={styles.profileKey}>Shots</span>
+                      </div>
+                      <div className={styles.profileStat}>
+                        <span className={styles.profileValue}>
+                          {profile.checkinStreak}d
+                        </span>
+                        <span className={styles.profileKey}>Streak</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.profileOnchain}>
+                      <div className={styles.profileOnchainRow}>
+                        <span className={styles.profileOnchainLabel}>
+                          Onchain winrate
+                        </span>
+                        <span className={styles.profileOnchainValue}>
+                          {profile.onchainGames > 0
+                            ? `${Math.round(profile.onchainWinRate * 100)}% (${profile.onchainWins}/${profile.onchainGames})`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className={styles.profileOnchainRow}>
+                        <span className={styles.profileOnchainLabel}>
+                          Earned (wager)
+                        </span>
+                        <span className={styles.profileEarnings}>
+                          {profile.earningsUsdc.toFixed(2)} USDC
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
