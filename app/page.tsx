@@ -1200,9 +1200,16 @@ export default function Home() {
                       </div>
                       <div className={styles.profileOnchainRow}>
                         <span className={styles.profileOnchainLabel}>
-                          Earned (wager)
+                          Net P&amp;L (wager)
                         </span>
-                        <span className={styles.profileEarnings}>
+                        <span
+                          className={
+                            profile.earningsUsdc >= 0
+                              ? styles.profileEarnings
+                              : styles.profileLoss
+                          }
+                        >
+                          {profile.earningsUsdc >= 0 ? "+" : ""}
                           {profile.earningsUsdc.toFixed(2)} USDC
                         </span>
                       </div>

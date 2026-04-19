@@ -728,6 +728,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.profileLoss {
+  color: #ff6b6b;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .leaderboardBtn {
   width: 100%;
   padding: 12px 24px;

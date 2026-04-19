@@ -716,14 +716,15 @@ export async function getPlayerProfile(
   const onchainGames = Math.max(0, totalGames - freeFinished.length);
   const onchainWinRate = onchainGames > 0 ? onchainWins / onchainGames : 0;
 
-  // Earnings from wager wins — each win pays 90% of (wager * 2).
-  const wagerWins = finishedGames.filter(
-    g => g.game_mode === "wager" && g.winner === addr
-  );
-  const earningsMicro = wagerWins.reduce(
-    (sum, g) => sum + Math.floor((g.wager_amount ?? 0) * 2 * 0.9),
-    0
-  );
+  // Net P&L from wager games:
+  //  win  → prize (90% of pot) - own stake = +wager * 0.8
+  //  lose → -wager
+  const wagerFinished = finishedGames.filter(g => g.game_mode === "wager");
+  const earningsMicro = wagerFinished.reduce((sum, g) => {
+    const amt = g.wager_amount ?? 0;
+    if (g.winner === addr) return sum + Math.floor(amt * 0.8);
+    return sum - amt;
+  }, 0);
   const earningsUsdc = earningsMicro / 1_000_000;
 
   // Count shots — get shot rows per game where this wallet was the shooter.
