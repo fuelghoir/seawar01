@@ -99,8 +99,7 @@ export function BotGameContent({
     if (winner && address && isOnchain && !pointsRecorded.current) {
       pointsRecorded.current = true;
       const didWin = winner === "me";
-      const hitPts = didWin ? myHits : 0;
-      addPoints(address, hitPts + (didWin ? 50 : 0))
+      addPoints(address, myHits + (didWin ? 50 : 0))
         .then(() => recordGameResult(address, didWin))
         .catch(() => {});
     }
