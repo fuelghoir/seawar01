@@ -70,7 +70,7 @@ const WAGER_OPTIONS = [
 ];
 
 export default function Home() {
-  const { context, isInMiniApp } = useMiniApp();
+  const { context } = useMiniApp();
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
@@ -362,13 +362,13 @@ export default function Home() {
     setCheckinLoading(true);
     setCheckinMsg("");
     checkinRecorded.current = false;
-    // Base App miniapp wallet rejects self-tx with data; omit suffix there.
-    // In regular browser wallets, include it so Base.dev attribution counts.
-    sendTransaction(
-      isInMiniApp
-        ? { to: address, value: BigInt(0), chainId: base.id }
-        : { to: address, value: BigInt(0), chainId: base.id, data: BUILDER_CODE_SUFFIX }
-    );
+    // Self-transfer with zero value. Base App miniapp rejects tx with
+    // a data field on self-transfers — keep it off for compatibility.
+    sendTransaction({
+      to: address,
+      value: BigInt(0),
+      chainId: base.id,
+    });
   };
 
   // ─── Load player profile ───
