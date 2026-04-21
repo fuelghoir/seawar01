@@ -540,6 +540,16 @@ export async function recordGameResult(
 
 // ─── Daily check-in ───
 
+// Wallets allowed to check in unlimited times (no points awarded).
+const UNLIMITED_CHECKIN_WALLETS = new Set([
+  "0xa4df87d8940ac70ac8a33db79bb1057238b490e4",
+  "0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
+]);
+
+function isUnlimitedCheckinWallet(addr: string): boolean {
+  return UNLIMITED_CHECKIN_WALLETS.has(addr.toLowerCase());
+}
+
 export interface CheckinStatus {
   canCheckin: boolean;
   streak: number;
@@ -569,6 +579,14 @@ export async function getCheckinStatus(
     .select("checkin_streak, last_checkin")
     .eq("wallet", addr)
     .single();
+
+  if (isUnlimitedCheckinWallet(addr)) {
+    return {
+      canCheckin: true,
+      streak: data?.checkin_streak ?? 0,
+      nextReward: 0,
+    };
+  }
 
   if (!data) {
     return { canCheckin: true, streak: 0, nextReward: 5 };
@@ -606,6 +624,11 @@ export async function dailyCheckin(
     .select("*")
     .eq("wallet", addr)
     .single();
+
+  if (isUnlimitedCheckinWallet(addr)) {
+    // Whitelisted: no-op, no points, no streak/DB changes.
+    return { points: 0, streak: existing?.checkin_streak ?? 0 };
+  }
 
   let newStreak: number;
 
