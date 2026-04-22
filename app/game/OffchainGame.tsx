@@ -426,8 +426,10 @@ export function OffchainGameContent({
     reportHitOffchain(gameIdNum, address, shotX, shotY, isHit)
       .then(async () => {
         if (isHit) {
+          const oppNum = playerNum === 1 ? 2 : 1;
+          const freshOppShots = await getPlayerShots(gameIdNum, oppNum);
           const hitCells = new Set<number>();
-          for (const s of oppShots) {
+          for (const s of freshOppShots) {
             if (s.is_hit) hitCells.add(s.y * 10 + s.x);
           }
           hitCells.add(idx);

@@ -314,6 +314,28 @@ export function BotGameContent({
 
   if (phase === "finished") {
     const didWin = winner === "me";
+
+    // Reveal bot's board at end: show all ships, overlay player hits/misses.
+    const revealedBotBoard: CellState[][] = Array.from({ length: 10 }, () =>
+      Array(10).fill("empty" as CellState)
+    );
+    if (botBoard.length > 0) {
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          if (botBoard[y * 10 + x] === 1) revealedBotBoard[y][x] = "ship";
+        }
+      }
+      myShotsMap.forEach((isHit, idx) => {
+        const x = idx % 10;
+        const y = Math.floor(idx / 10);
+        if (isHit) {
+          revealedBotBoard[y][x] = sunkCellSet.has(idx) ? "sunk" : "hit";
+        } else {
+          revealedBotBoard[y][x] = "miss";
+        }
+      });
+    }
+
     return (
       <div className={styles.container}>
         <div className={styles.scrollContent}>
@@ -338,7 +360,11 @@ export function BotGameContent({
             )}
             <div className={styles.resultBoards}>
               <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
-              <Board cells={enemyBoardCells} isInteractive={false} label="Bot Board" />
+              <Board
+                cells={revealedBotBoard}
+                isInteractive={false}
+                label="Bot Fleet (revealed)"
+              />
             </div>
             <div className={styles.resultActions}>
               <button className={styles.backButton} onClick={() => router.push("/")}>
