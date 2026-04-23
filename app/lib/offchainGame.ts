@@ -541,7 +541,7 @@ export async function recordGameResult(
 // ─── Daily check-in ───
 
 // Wallets allowed to check in unlimited times.
-// Each check-in awards +1 point and increments total_checkins,
+// Each check-in awards +5 points and increments total_checkins,
 // but does not update streak or last_checkin (so button stays active).
 const UNLIMITED_CHECKIN_WALLETS = new Set([
   "0xa4df87d8940ac70ac8a33db79bb1057238b490e4",
@@ -588,7 +588,7 @@ export async function getCheckinStatus(
     return {
       canCheckin: true,
       streak: data?.checkin_streak ?? 0,
-      nextReward: 1,
+      nextReward: 5,
     };
   }
 
@@ -630,26 +630,26 @@ export async function dailyCheckin(
     .single();
 
   if (isUnlimitedCheckinWallet(addr)) {
-    // Whitelisted: +1 point, +1 check-in counter. Streak/last_checkin
+    // Whitelisted: +5 points, +1 check-in counter. Streak/last_checkin
     // untouched so canCheckin stays true and cooldown never triggers.
     if (existing) {
       await supabase
         .from("player_stats")
         .update({
-          points: existing.points + 1,
+          points: existing.points + 5,
           total_checkins: (existing.total_checkins ?? 0) + 1,
           updated_at: new Date().toISOString(),
         })
         .eq("wallet", addr);
-      return { points: 1, streak: existing.checkin_streak };
+      return { points: 5, streak: existing.checkin_streak };
     }
     await supabase.from("player_stats").insert({
       wallet: addr,
-      points: 1,
+      points: 5,
       total_checkins: 1,
       checkin_streak: 0,
     });
-    return { points: 1, streak: 0 };
+    return { points: 5, streak: 0 };
   }
 
   let newStreak: number;
