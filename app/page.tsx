@@ -344,13 +344,21 @@ export default function Home() {
     if (checkinTxSuccess && address && !checkinRecorded.current) {
       checkinRecorded.current = true;
       dailyCheckin(address)
-        .then((result) => {
+        .then(async (result) => {
           setCheckinMsg(`+${result.points} pts! Streak: ${result.streak} days`);
-          setCheckin({
-            canCheckin: false,
-            streak: result.streak,
-            nextReward: Math.ceil((result.streak + 1) / 5) * 5,
-          });
+          // Re-fetch status so whitelisted wallets get canCheckin=true again
+          // (they can check in unlimited times), regular wallets get
+          // canCheckin=false after their daily click.
+          try {
+            const status = await getCheckinStatus(address);
+            setCheckin(status);
+          } catch {
+            setCheckin({
+              canCheckin: false,
+              streak: result.streak,
+              nextReward: Math.ceil((result.streak + 1) / 5) * 5,
+            });
+          }
         })
         .catch(() => setCheckinMsg("Already checked in today"))
         .finally(() => setCheckinLoading(false));
