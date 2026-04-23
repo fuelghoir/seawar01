@@ -630,17 +630,30 @@ export async function dailyCheckin(
     .single();
 
   if (isUnlimitedCheckinWallet(addr)) {
-    // Whitelisted: +5 points, +1 check-in counter, +1 streak per click.
-    // last_checkin left untouched so cooldown never triggers and canCheckin
-    // stays true.
+    // Whitelisted: unlimited clicks/day. +5 points and +1 total_checkins
+    // every click. Streak behaves normally — +1 once per UTC day on the
+    // first click of that day, reset to 1 if yesterday was skipped.
     if (existing) {
-      const nextStreak = (existing.checkin_streak ?? 0) + 1;
+      const prevStreak = existing.checkin_streak ?? 0;
+      let nextStreak: number;
+      let nextLastCheckin: string;
+      if (existing.last_checkin === today) {
+        nextStreak = prevStreak;
+        nextLastCheckin = existing.last_checkin;
+      } else if (existing.last_checkin === yesterday) {
+        nextStreak = prevStreak + 1;
+        nextLastCheckin = today;
+      } else {
+        nextStreak = 1;
+        nextLastCheckin = today;
+      }
       await supabase
         .from("player_stats")
         .update({
           points: existing.points + 5,
           total_checkins: (existing.total_checkins ?? 0) + 1,
           checkin_streak: nextStreak,
+          last_checkin: nextLastCheckin,
           updated_at: new Date().toISOString(),
         })
         .eq("wallet", addr);
@@ -651,6 +664,7 @@ export async function dailyCheckin(
       points: 5,
       total_checkins: 1,
       checkin_streak: 1,
+      last_checkin: today,
     });
     return { points: 5, streak: 1 };
   }
