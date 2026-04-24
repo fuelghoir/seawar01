@@ -1,17 +1,81 @@
 :root {
-  --bg-primary: #0A1628;
-  --bg-secondary: #0d2137;
-  --accent: #00D4FF;
+  /* ─── Naval HUD palette ─── */
+  /* Deep ocean base */
+  --bg-abyss: #020814;
+  --bg-deep: #05101f;
+  --bg-primary: #0a1628;
+  --bg-secondary: #0f2440;
+  --bg-elevated: #132c4d;
+  --bg-panel: rgba(10, 22, 40, 0.72);
+  --bg-panel-solid: #0d2137;
+
+  /* Accent — sonar cyan + aqua glow */
+  --accent: #00d4ff;
+  --accent-bright: #4dffd4;
   --accent-dark: #0099cc;
-  --text-primary: #ffffff;
+  --accent-dim: rgba(0, 212, 255, 0.35);
+  --accent-glow: rgba(0, 212, 255, 0.55);
+
+  /* Signals */
+  --hit: #ff4d4d;
+  --hit-glow: rgba(255, 77, 77, 0.55);
+  --damage: #ff3838;
+  --amber: #ffb84d;
+  --amber-glow: rgba(255, 184, 77, 0.55);
+  --warning: #f7d954;
+  --success: #4ade80;
+  --success-dark: #16a34a;
+
+  /* Text */
+  --text-primary: #eaf4ff;
   --text-secondary: #8ab4d4;
   --text-muted: #4a6a8a;
-  --border: #1a3a5c;
-  --hit: #cc2222;
-  --miss: #1a3a5c;
+  --text-dim: #2f4a66;
+
+  /* Board tiles */
   --ship: #4a6a8a;
-  --success: #4CAF50;
-  --warning: #f7d954;
+  --ship-line: #6e91b4;
+  --miss: #1a3a5c;
+  --sea: #0a1e33;
+
+  /* Borders + lines */
+  --border: #1e4063;
+  --border-bright: #2f6aa0;
+  --grid-line: rgba(0, 212, 255, 0.08);
+  --grid-line-bright: rgba(0, 212, 255, 0.18);
+
+  /* ─── Design tokens ─── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 0 18px rgba(0, 212, 255, 0.35);
+  --shadow-accent-strong: 0 0 32px rgba(0, 212, 255, 0.55);
+  --shadow-amber: 0 0 16px rgba(255, 184, 77, 0.45);
+  --shadow-hit: 0 0 18px rgba(255, 77, 77, 0.55);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 360ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  --font-mono: var(--font-mono-raw), ui-monospace, "SF Mono", "JetBrains Mono",
+    Menlo, Consolas, monospace;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
 }
 
 * {
@@ -26,12 +90,68 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
   color: var(--text-primary);
-  background: var(--bg-primary);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(0, 212, 255, 0.12), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgba(77, 255, 212, 0.08), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(0, 212, 255, 0.06), transparent 55%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+  background-attachment: fixed;
+}
+
+/* Sonar grid overlay — subtle graph-paper pattern layered over the body */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-line-bright) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-bright) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+  opacity: 0.9;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* Scanline accent — a slow drifting sonar sweep */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 48%,
+    rgba(0, 212, 255, 0.06) 50%,
+    transparent 52%,
+    transparent 100%
+  );
+  background-size: 100% 300%;
+  animation: scanlineDrift 14s linear infinite;
+  opacity: 0.6;
+}
+
+/* Content sits above the backdrop layers */
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 a {
@@ -39,11 +159,15 @@ a {
   text-decoration: none;
 }
 
-html {
-  color-scheme: dark;
+/* ─── Mono utility for stats and coordinates ─── */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
-/* Smooth page transitions */
+/* ─── Keyframes ─── */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -57,4 +181,55 @@ html {
 @keyframes glow {
   0%, 100% { filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.3)); }
   50% { filter: drop-shadow(0 0 16px rgba(0, 212, 255, 0.6)); }
+}
+
+@keyframes radarPulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(0, 212, 255, 0.55),
+      0 0 0 0 rgba(0, 212, 255, 0.35);
+  }
+  70% {
+    box-shadow:
+      0 0 0 14px rgba(0, 212, 255, 0),
+      0 0 0 28px rgba(0, 212, 255, 0);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(0, 212, 255, 0),
+      0 0 0 0 rgba(0, 212, 255, 0);
+  }
+}
+
+@keyframes scanlineDrift {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 300%; }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 2px); }
+  80% { transform: translate(1px, -2px); }
+}
+
+@keyframes hitFlash {
+  0% { background: rgba(255, 77, 77, 0.0); }
+  30% { background: rgba(255, 77, 77, 0.55); }
+  100% { background: rgba(255, 77, 77, 0.0); }
+}
+
+@keyframes aquaBreathing {
+  0%, 100% {
+    box-shadow: 0 0 12px var(--accent-dim), 0 0 0 1px var(--accent-dim) inset;
+  }
+  50% {
+    box-shadow: 0 0 26px var(--accent-glow), 0 0 0 1px var(--accent-glow) inset;
+  }
 }
