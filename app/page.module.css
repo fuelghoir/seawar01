@@ -22,6 +22,8 @@
 }
 
 .title {
+  font-family: var(--font-sans);
+  font-style: normal;
   font-size: clamp(2.5rem, 8vw, 4rem);
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -602,34 +604,50 @@
 
 .checkinBtn {
   width: 100%;
-  padding: 12px 24px;
+  padding: 13px 24px;
   font-size: 13px;
-  font-weight: 700;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.08));
-  border: 1px solid rgba(76, 175, 80, 0.35);
-  border-radius: 10px;
-  color: #4CAF50;
+  font-weight: 800;
+  background:
+    linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(22, 163, 74, 0.14)),
+    rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(74, 222, 128, 0.6);
+  border-radius: 12px;
+  color: #a5f3c4;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .checkinBtn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.25), rgba(76, 175, 80, 0.15));
-  border-color: rgba(76, 175, 80, 0.5);
-  box-shadow: 0 0 16px rgba(76, 175, 80, 0.15);
+  background:
+    linear-gradient(135deg, rgba(74, 222, 128, 0.35), rgba(22, 163, 74, 0.22)),
+    rgba(6, 20, 34, 0.82);
+  border-color: #4ade80;
+  color: #d6fbe1;
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 8px 22px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(74, 222, 128, 0.35);
 }
 
 .checkinBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .checkinDone {
-  background: rgba(76, 175, 80, 0.05);
-  border-color: rgba(76, 175, 80, 0.15);
-  color: #2e7d32;
+  background: rgba(6, 20, 34, 0.78);
+  border-color: rgba(74, 222, 128, 0.3);
+  color: #5a9a6e;
 }
 
 .checkinMsg {
@@ -641,11 +659,17 @@
 
 .profileCard {
   width: 100%;
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid rgba(0, 212, 255, 0.2);
+  background: rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(0, 212, 255, 0.5);
   border-radius: 12px;
   overflow: hidden;
   margin-top: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .profileHeader {
@@ -771,23 +795,40 @@
 
 .leaderboardBtn {
   width: 100%;
-  padding: 12px 24px;
+  padding: 13px 24px;
   font-size: 13px;
-  font-weight: 700;
-  background: rgba(255, 215, 0, 0.08);
-  border: 1px solid rgba(255, 215, 0, 0.25);
-  border-radius: 10px;
-  color: #FFD700;
+  font-weight: 800;
+  background:
+    linear-gradient(135deg, rgba(255, 215, 0, 0.22), rgba(255, 184, 77, 0.14)),
+    rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(255, 215, 0, 0.55);
+  border-radius: 12px;
+  color: #ffe680;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   margin-top: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .leaderboardBtn:hover {
-  background: rgba(255, 215, 0, 0.15);
-  border-color: rgba(255, 215, 0, 0.4);
+  background:
+    linear-gradient(135deg, rgba(255, 215, 0, 0.35), rgba(255, 184, 77, 0.22)),
+    rgba(6, 20, 34, 0.82);
+  border-color: #ffd700;
+  color: #fff5b3;
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 8px 22px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(255, 215, 0, 0.35);
 }
 
 .contractWarning {
