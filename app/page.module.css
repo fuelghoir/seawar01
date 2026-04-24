@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: linear-gradient(180deg, #0A1628 0%, #0d2137 50%, #0A1628 100%);
-  color: white;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .content {
@@ -22,27 +22,25 @@
 }
 
 .title {
-  font-size: clamp(2.5rem, 8vw, 4rem);
-  font-weight: 900;
-  letter-spacing: 0.12em;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 9vw, 4.2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
   margin-bottom: 0.75rem;
-  background: linear-gradient(135deg, #00D4FF 0%, #0099cc 50%, #00D4FF 100%);
-  background-size: 200% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: titleShimmer 3s linear infinite;
-}
-
-@keyframes titleShimmer {
-  to { background-position: 200% center; }
+  color: var(--text-primary);
+  text-shadow:
+    0 0 18px rgba(0, 212, 255, 0.45),
+    0 0 60px rgba(0, 212, 255, 0.18);
 }
 
 .subtitle {
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
   line-height: 1.5;
-  color: #8ab4d4;
+  color: var(--text-secondary);
   font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .actions {

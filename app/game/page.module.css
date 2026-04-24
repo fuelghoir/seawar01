@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: linear-gradient(180deg, #0A1628 0%, #0d2137 40%, #0A1628 100%);
-  color: white;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .scrollContent {
@@ -24,8 +24,8 @@
   flex-direction: column;
   height: 100svh;
   max-height: 100svh;
-  background: linear-gradient(180deg, #0A1628 0%, #0d2137 40%, #0A1628 100%);
-  color: white;
+  background: transparent;
+  color: var(--text-primary);
   overflow: hidden;
 }
 
