@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { SafeArea } from "./components/SafeArea";
 import { farcasterConfig } from "../farcaster.config";
 import { Providers } from "./providers";
@@ -37,6 +37,12 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-display-raw",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,7 +51,16 @@ export default function RootLayout({
   return (
     <Providers>
       <html lang="en">
-        <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
+        <body
+          className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
+        >
+          <div className="aurora" aria-hidden="true">
+            <span className="aurora-blob aurora-blob--1" />
+            <span className="aurora-blob aurora-blob--2" />
+            <span className="aurora-blob aurora-blob--3" />
+            <span className="aurora-blob aurora-blob--4" />
+            <span className="aurora-blob aurora-blob--5" />
+          </div>
           <SafeArea>{children}</SafeArea>
         </body>
       </html>
