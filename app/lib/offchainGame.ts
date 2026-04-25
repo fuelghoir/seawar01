@@ -321,13 +321,13 @@ export async function reportHitOffchain(
       // Game finished: +1 hit + 50 win for winner, 0 for loser (sequential to avoid race)
       const winnerAddr = updates.winner as string;
       const loserAddr = winnerAddr === game.player1 ? game.player2 : game.player1;
-      addPoints(shooterAddr, 51) // +1 hit + 50 win combined
+      addPoints(shooterAddr, 51, 1) // +1 hit + 50 win combined, hits=1
         .then(() => recordGameResult(shooterAddr, true))
         .then(() => recordGameResult(loserAddr, false))
         .catch(() => {});
     } else {
-      // Regular hit: +1 point
-      addPoints(shooterAddr, 1).catch(() => {});
+      // Regular hit: +1 point, track hit
+      addPoints(shooterAddr, 1, 1).catch(() => {});
     }
   }
 
@@ -489,27 +489,31 @@ export async function getSunkReports(
 
 export async function addPoints(
   wallet: string,
-  points: number
+  points: number,
+  hits = 0,
 ): Promise<void> {
   const addr = wallet.toLowerCase();
   const { data: existing } = await supabase
     .from("player_stats")
-    .select("points")
+    .select("points, total_hits")
     .eq("wallet", addr)
     .single();
 
   if (existing) {
+    const updates: Record<string, unknown> = {
+      points: existing.points + points,
+      updated_at: new Date().toISOString(),
+    };
+    if (hits > 0) updates.total_hits = (existing.total_hits ?? 0) + hits;
     await supabase
       .from("player_stats")
-      .update({
-        points: existing.points + points,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("wallet", addr);
   } else {
     await supabase.from("player_stats").insert({
       wallet: addr,
       points,
+      ...(hits > 0 ? { total_hits: hits } : {}),
     });
   }
 }

@@ -43,6 +43,7 @@ import {
   RefundableGame,
   PlayerProfile,
 } from "./lib/offchainGame";
+import QuestPanel from "./components/QuestPanel";
 import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -1099,6 +1100,14 @@ export default function Home() {
                 </button>
                 {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
               </div>
+            )}
+
+            {/* Weekly Quests */}
+            {address && (
+              <QuestPanel
+                address={address}
+                onPointsChanged={loadProfile}
+              />
             )}
 
             {profile && (

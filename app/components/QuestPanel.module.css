@@ -1,0 +1,282 @@
+.questSection {
+  width: 100%;
+  background: rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(168, 85, 247, 0.18);
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.questHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.questHeader:hover {
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.questHeaderLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.questLabel {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #d8b4fe;
+}
+
+.questWeek {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #a78bfa;
+  letter-spacing: 0.04em;
+}
+
+.questHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.questBadge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fde68a;
+  background: rgba(253, 224, 71, 0.15);
+  border: 1px solid rgba(253, 224, 71, 0.45);
+  padding: 3px 8px;
+  border-radius: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.questChevron {
+  font-size: 14px;
+  color: #a78bfa;
+  transition: transform 0.2s ease;
+}
+
+.questBody {
+  padding: 0 12px 14px;
+  border-top: 1px solid rgba(168, 85, 247, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.questLoadingText {
+  text-align: center;
+  font-size: 12px;
+  color: #a78bfa;
+  padding: 16px 0;
+  font-weight: 600;
+}
+
+.questCard {
+  position: relative;
+  padding: 12px;
+  background: rgba(10, 10, 24, 0.55);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  margin-top: 8px;
+}
+
+.questCardComplete {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: rgba(88, 28, 135, 0.18);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.2);
+}
+
+.questCardClaimed {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(6, 30, 18, 0.4);
+  opacity: 0.7;
+}
+
+.questCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.questCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.questCardName {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e9d5ff;
+  letter-spacing: 0.02em;
+}
+
+.questCardDesc {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a78bfa;
+  line-height: 1.4;
+}
+
+.questCardReward {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: #fde68a;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(253, 230, 138, 0.4);
+  flex-shrink: 0;
+}
+
+.questProgressRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.questProgressBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(168, 85, 247, 0.18);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.questProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #a855f7, #d8b4fe);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.questCardComplete .questProgressFill {
+  background: linear-gradient(90deg, #7c3aed, #c084fc, #fde68a);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.questProgressLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #c4b5fd;
+  min-width: 36px;
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+
+.questClaimBtn {
+  width: 100%;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #7c3aed 100%);
+  background-size: 200% auto;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: background-position 0.3s ease, transform 0.18s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 4px 14px rgba(124, 58, 237, 0.45),
+    0 0 22px rgba(168, 85, 247, 0.35);
+}
+
+.questClaimBtn:hover:not(:disabled) {
+  background-position: right center;
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 20px rgba(124, 58, 237, 0.6),
+    0 0 30px rgba(168, 85, 247, 0.5);
+}
+
+.questClaimBtn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.questClaimBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+
+.questClaimedBadge {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #4ade80;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 0;
+}
+
+.questMsg {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.questMsgSuccess {
+  color: #4ade80;
+}
+
+.questMsgError {
+  color: #ff8a8a;
+}
+
+.questFooter {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #7c6aa0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-top: 4px;
+  margin: 0;
+}
