@@ -234,8 +234,11 @@
 }
 
 .connectText {
-  color: #8ab4d4;
+  color: var(--text-secondary);
   font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .walletInfo {
@@ -401,22 +404,31 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  max-width: 360px;
-  padding: 12px 16px;
+  max-width: 380px;
+  padding: 13px 16px;
   font-size: 13px;
-  font-weight: 600;
-  color: #8ab4d4;
-  background: rgba(13, 33, 55, 0.6);
-  border: 1px solid #1a3a5c;
-  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease,
+    background 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .privateToggle:hover {
-  border-color: #2a5a8c;
-  color: #a0c8e8;
+  border-color: rgba(0, 212, 255, 0.55);
+  color: var(--text-primary);
+  background: rgba(10, 28, 48, 0.82);
 }
 
 .privateToggle input[type="checkbox"] {
@@ -469,9 +481,17 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.08), rgba(46, 125, 50, 0.04));
-  border: 1px solid rgba(76, 175, 80, 0.35);
+  background:
+    linear-gradient(135deg, rgba(74, 222, 128, 0.16), rgba(22, 163, 74, 0.08)),
+    rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(74, 222, 128, 0.5);
   border-radius: 12px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
   animation: fadeIn 0.4s ease-out;
 }
 
@@ -608,81 +628,121 @@
 }
 
 .gameListTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: #8ab4d4;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.16em;
   text-align: center;
+  opacity: 0.75;
 }
 
 .gameItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(13, 33, 55, 0.5);
-  border: 1px solid #1a3a5c;
-  border-radius: 10px;
-  transition: all 0.2s ease;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 12px;
+  transition: transform 0.18s ease, border-color 0.2s ease,
+    background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .gameItem:hover {
-  border-color: #2a5a7c;
-  background: rgba(13, 33, 55, 0.7);
+  transform: translateY(-1px);
+  border-color: rgba(0, 212, 255, 0.5);
+  background: rgba(10, 28, 48, 0.82);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(0, 212, 255, 0.25);
 }
 
 .gameItemInfo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .gameItemId {
-  font-size: 15px;
-  font-weight: 700;
-  color: #00D4FF;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-bright);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .gameItemPlayer {
-  font-size: 12px;
-  color: #4a6a8a;
-  font-family: monospace;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 
 .gameItemWager {
-  font-size: 11px;
-  color: #00c853;
-  font-weight: 700;
-  background: rgba(0, 200, 83, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #a5f3c4;
+  background: rgba(74, 222, 128, 0.16);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  padding: 3px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
 }
 
 .gameItemMode {
-  font-size: 11px;
-  color: #8ab4d4;
-  font-weight: 600;
-  background: rgba(138, 180, 212, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-bright);
+  background: rgba(0, 212, 255, 0.14);
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  padding: 3px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
 }
 
 .gameItemJoin {
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  background: rgba(0, 212, 255, 0.1);
-  border: 1px solid #00D4FF;
-  border-radius: 8px;
-  color: #00D4FF;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background:
+    linear-gradient(180deg, rgba(0, 212, 255, 0.18), rgba(0, 153, 204, 0.1));
+  border: 1px solid rgba(0, 212, 255, 0.55);
+  border-radius: 10px;
+  color: var(--accent-bright);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.18s ease, box-shadow 0.2s ease,
+    background 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
 }
 
 .gameItemJoin:hover:not(:disabled) {
-  background: rgba(0, 212, 255, 0.25);
+  transform: translateY(-1px);
+  background:
+    linear-gradient(180deg, rgba(0, 212, 255, 0.32), rgba(0, 153, 204, 0.18));
+  color: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 22px rgba(0, 212, 255, 0.5);
 }
 
 .gameItemJoin:disabled {
@@ -691,10 +751,12 @@
 }
 
 .noGames {
-  color: #4a6a8a;
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
   margin-top: 8px;
+  letter-spacing: 0.02em;
 }
 
 /* Check-in */
@@ -800,27 +862,33 @@
 }
 
 .profileLabel {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #00d4ff;
+  letter-spacing: 0.16em;
+  color: var(--accent-bright);
 }
 
 .profilePoints {
-  font-size: 13px;
-  font-weight: 600;
-  color: #FFD700;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffe680;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
 }
 
 .profileChevron {
   font-size: 14px;
-  color: #7ab8d4;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
 }
 
 .profileBody {
-  padding: 4px 12px 14px;
-  border-top: 1px solid rgba(0, 212, 255, 0.15);
+  padding: 8px 12px 14px;
+  border-top: 1px solid rgba(0, 212, 255, 0.2);
+  background: linear-gradient(180deg, rgba(0, 212, 255, 0.05), transparent);
 }
 
 .profileGrid {
@@ -834,35 +902,44 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 10px 4px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
-  border: 1px solid rgba(0, 212, 255, 0.12);
+  gap: 4px;
+  padding: 12px 4px;
+  background:
+    linear-gradient(180deg, rgba(0, 212, 255, 0.06), rgba(0, 0, 0, 0.25));
+  border-radius: 10px;
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .profileValue {
+  font-family: var(--font-mono);
   font-size: 18px;
   font-weight: 800;
-  color: #00d4ff;
+  color: var(--accent-bright);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(0, 212, 255, 0.35);
 }
 
 .profileKey {
-  font-size: 10px;
-  font-weight: 600;
-  color: #7ab8d4;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
 }
 
 .profileOnchain {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(0, 212, 255, 0.15);
-  margin-top: 4px;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 10px;
+  margin-top: 6px;
 }
 
 .profileOnchainRow {
@@ -873,28 +950,37 @@
 }
 
 .profileOnchainLabel {
-  color: #7ab8d4;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  font-size: 10px;
 }
 
 .profileOnchainValue {
-  color: #e0f4ff;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .profileEarnings {
-  color: #4CAF50;
+  color: #4ade80;
+  font-family: var(--font-mono);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
 }
 
 .profileLoss {
   color: #ff6b6b;
+  font-family: var(--font-mono);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.35);
 }
 
 .leaderboardBtn {
@@ -937,14 +1023,23 @@
 
 .contractWarning {
   width: 100%;
-  padding: 12px 16px;
-  background: rgba(247, 217, 84, 0.08);
-  border: 1px solid rgba(247, 217, 84, 0.25);
-  border-radius: 10px;
-  color: #f7d954;
+  padding: 13px 16px;
+  background:
+    linear-gradient(135deg, rgba(247, 217, 84, 0.18), rgba(255, 184, 77, 0.1)),
+    rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid rgba(247, 217, 84, 0.5);
+  border-radius: 12px;
+  color: #ffe680;
   font-size: 12px;
+  font-weight: 700;
   text-align: center;
   line-height: 1.5;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 /* Footer with social links */
@@ -952,15 +1047,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 1rem 1.5rem 1.5rem;
+  gap: 12px;
+  padding: 1.25rem 1.5rem 1.5rem;
   margin-top: auto;
-  border-top: 1px solid rgba(26, 58, 92, 0.4);
+  border-top: 1px solid rgba(0, 212, 255, 0.18);
 }
 
 .socialLinks {
   display: flex;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
 }
 
@@ -969,31 +1064,47 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4a6a8a;
-  background: rgba(13, 33, 55, 0.5);
-  border: 1px solid #1a3a5c;
-  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(6, 20, 34, 0.78);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  border-radius: 10px;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: transform 0.18s ease, color 0.2s ease,
+    border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .socialLink:hover {
-  color: #00D4FF;
-  border-color: rgba(0, 212, 255, 0.3);
-  background: rgba(0, 212, 255, 0.05);
+  transform: translateY(-1px);
+  color: var(--accent-bright);
+  border-color: rgba(0, 212, 255, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(0, 212, 255, 0.35);
 }
 
 .socialIcon {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
 }
 
 .footerText {
-  font-size: 11px;
-  color: #2a4a6a;
-  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
 }
 
 /* Wager selector */
