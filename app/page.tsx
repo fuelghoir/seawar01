@@ -864,20 +864,25 @@ export default function Home() {
 
         {/* Mode selector */}
         {isConnected && (
-          <div className={styles.modeSelector}>
-            {(["offchain", "bot", "hybrid", "wager"] as GameMode[]).map((m) => (
+          <div className={styles.modeGrid}>
+            {(
+              [
+                { id: "offchain", label: "Free", icon: "🌊", hint: "No stakes, instant play" },
+                { id: "bot", label: "Bot", icon: "🤖", hint: "Solo vs AI captain" },
+                { id: "hybrid", label: "Onchain", icon: "⚓", hint: "Verified on Base" },
+                { id: "wager", label: "Wager", icon: "💰", hint: "USDC stakes" },
+              ] as { id: GameMode; label: string; icon: string; hint: string }[]
+            ).map((m) => (
               <button
-                key={m}
-                className={`${styles.modeButton} ${mode === m ? styles.modeActive : ""}`}
-                onClick={() => { setMode(m); setError(""); resetWrite(); }}
+                key={m.id}
+                className={`${styles.modeCard} ${mode === m.id ? styles.modeCardActive : ""}`}
+                onClick={() => { setMode(m.id); setError(""); resetWrite(); }}
               >
-                {m === "offchain"
-                  ? "Free"
-                  : m === "bot"
-                    ? "Bot"
-                    : m === "hybrid"
-                      ? "Onchain"
-                      : "Wager"}
+                <span className={styles.modeCardIcon} aria-hidden="true">
+                  {m.icon}
+                </span>
+                <span className={styles.modeCardLabel}>{m.label}</span>
+                <span className={styles.modeCardHint}>{m.hint}</span>
               </button>
             ))}
           </div>
