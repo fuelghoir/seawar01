@@ -9,7 +9,7 @@ import {
   useReadContract,
   useConfig,
 } from "wagmi";
-import { readContract } from "@wagmi/core";
+import { readContract, simulateContract } from "@wagmi/core";
 import { keccak256, toHex, concatHex } from "viem";
 import { base } from "wagmi/chains";
 import { supabase, OffchainGame } from "../lib/supabase";
@@ -185,10 +185,13 @@ export function OffchainGameContent({
     });
   };
 
-  // ─── Record result onchain ───
-  // Wager mode: auto-call V3-style recordResult so winner can claim prize.
-  // Friend mode: nothing here — each player saves their own result via
-  //              recordSoloResult by clicking the Save Result button.
+  // ─── Record result onchain (wager only) ───
+  // Only the WINNER auto-calls recordResult — that's all claimPrize needs.
+  // If both sides called like before we'd race: winner's tx wins the block,
+  // loser's tx reverts with "Already finished" and burns gas. Loser updates
+  // their stats from the off-chain game state alone in wager mode.
+  // Friend mode: each player explicitly calls recordSoloResult via the
+  // Save Result button — no auto-fire here.
   const resultRecordedRef = useRef(false);
   useEffect(() => {
     if (
@@ -199,6 +202,11 @@ export function OffchainGameContent({
       !onchainGameId ||
       resultRecordedRef.current
     ) {
+      return;
+    }
+    // Only the winner records; loser does nothing onchain in wager mode.
+    if ((game.winner as string).toLowerCase() !== address.toLowerCase()) {
+      resultRecordedRef.current = true;
       return;
     }
     resultRecordedRef.current = true;
@@ -226,6 +234,16 @@ export function OffchainGameContent({
         if (p1.toLowerCase() !== me && p2.toLowerCase() !== me) return;
         const w = (game.winner as string).toLowerCase();
         if (w !== p1.toLowerCase() && w !== p2.toLowerCase()) return;
+
+        // Pre-simulate: if the call would revert anyway (race lost, etc.),
+        // skip submitting so we don't waste gas on a confirmed revert.
+        await simulateContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "recordResult",
+          args: [BigInt(onchainGameId), game.winner as `0x${string}`],
+          account: address,
+        });
       } catch {
         return;
       }
