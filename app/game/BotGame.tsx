@@ -25,41 +25,111 @@ import { CellState } from "../components/Cell";
 import { ShipPlacement } from "../components/ShipPlacement";
 import styles from "./page.module.css";
 
-const BOT_DELAY = 800; // ms delay for bot actions
-
+const BOT_DELAY = 800;
 type GamePhase = "placing" | "playing" | "finished";
-
-// Sentinel address used as the "opponent" field on bot-mode SoloResult events.
 const BOT_OPPONENT = "0x0000000000000000000000000000000000000001" as const;
 
-export function BotGameContent({
-  gameIdStr: _gameIdStr,
-}: {
-  gameIdStr: string;
-}) {
+// ─── localStorage persistence ───
+
+const SAVE_KEY = "sbt_bot";
+
+interface SerializedBotState {
+  shotsMade: number[];
+  hits: number[];
+  misses: number[];
+  excluded: number[];
+  sunkShips: number[][];
+  remainingShipSizes: number[];
+  targetHits: number[];
+}
+
+interface SavedBotGame {
+  phase: GamePhase;
+  myBoard: number[];
+  botBoard: number[];
+  isMyTurn: boolean;
+  myHits: number;
+  botHits: number;
+  winner: "me" | "bot" | null;
+  myShotsEntries: [number, boolean][];
+  botShotsEntries: [number, boolean][];
+  botStateData: SerializedBotState;
+}
+
+function serializeBotState(bs: BotState): SerializedBotState {
+  return {
+    shotsMade: [...bs.shotsMade],
+    hits: [...bs.hits],
+    misses: [...bs.misses],
+    excluded: [...bs.excluded],
+    sunkShips: bs.sunkShips,
+    remainingShipSizes: bs.remainingShipSizes,
+    targetHits: bs.targetHits,
+  };
+}
+
+function deserializeBotState(d: SerializedBotState): BotState {
+  return {
+    shotsMade: new Set(d.shotsMade),
+    hits: new Set(d.hits),
+    misses: new Set(d.misses),
+    excluded: new Set(d.excluded),
+    sunkShips: d.sunkShips,
+    remainingShipSizes: d.remainingShipSizes,
+    targetHits: d.targetHits,
+  };
+}
+
+function loadSave(): SavedBotGame | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? (JSON.parse(raw) as SavedBotGame) : null;
+  } catch {
+    return null;
+  }
+}
+
+function deleteSave() {
+  if (typeof window !== "undefined") localStorage.removeItem(SAVE_KEY);
+}
+
+// ─── Component ───
+
+export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string }) {
   void _gameIdStr;
   const router = useRouter();
   const { address } = useAccount();
 
-  // Game state
-  const [phase, setPhase] = useState<GamePhase>("placing");
-  const [myBoard, setMyBoard] = useState<number[]>([]);
-  const [botBoard, setBotBoard] = useState<number[]>([]);
-  const [isMyTurn, setIsMyTurn] = useState(true);
-  const [myHits, setMyHits] = useState(0);
-  const [botHits, setBotHits] = useState(0);
-  const [winner, setWinner] = useState<"me" | "bot" | null>(null);
-  const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
+  // Load saved game once on mount
+  const [save] = useState(loadSave);
+
+  // Restore state from save (or start fresh)
+  const [phase, setPhase] = useState<GamePhase>(() => save?.phase || "placing");
+  const [myBoard, setMyBoard] = useState<number[]>(() => save?.myBoard || []);
+  const [botBoard, setBotBoard] = useState<number[]>(() => save?.botBoard || []);
+  const [isMyTurn, setIsMyTurn] = useState<boolean>(() => save?.isMyTurn ?? true);
+  const [myHits, setMyHits] = useState<number>(() => save?.myHits ?? 0);
+  const [botHits, setBotHits] = useState<number>(() => save?.botHits ?? 0);
+  const [winner, setWinner] = useState<"me" | "bot" | null>(() => save?.winner ?? null);
+  const [myShotsMap, setMyShotsMap] = useState<Map<number, boolean>>(
+    () => save ? new Map(save.myShotsEntries) : new Map()
+  );
+  const [botShotsMap, setBotShotsMap] = useState<Map<number, boolean>>(
+    () => save ? new Map(save.botShotsEntries) : new Map()
+  );
   const [botProcessing, setBotProcessing] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
 
-  // Track all shots
-  const [myShotsMap, setMyShotsMap] = useState<Map<number, boolean>>(new Map());
-  const [botShotsMap, setBotShotsMap] = useState<Map<number, boolean>>(new Map());
+  // Restore bot AI state from save
+  const botState = useRef<BotState>(
+    save?.botStateData ? deserializeBotState(save.botStateData) : createBotState()
+  );
 
-  // Bot AI state
-  const botState = useRef<BotState>(createBotState());
+  // Don't re-award points if restoring a finished game
+  const pointsRecorded = useRef(!!(save?.winner));
 
-  // Refs for doBotTurn to avoid stale closures
+  // Refs for stale-closure safety in doBotTurn
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const myBoardRef = useRef(myBoard);
@@ -68,32 +138,58 @@ export function BotGameContent({
   botHitsRef.current = botHits;
   const doBotTurnRef = useRef<() => void>(() => {});
 
-  // Save result onchain — V4 recordSoloResult, called only if user clicks Save.
+  // ─── Save state to localStorage after every meaningful change ───
+  useEffect(() => {
+    if (phase === "placing") return; // nothing to save yet
+    try {
+      const data: SavedBotGame = {
+        phase,
+        myBoard,
+        botBoard,
+        isMyTurn,
+        myHits,
+        botHits,
+        winner,
+        myShotsEntries: [...myShotsMap.entries()],
+        botShotsEntries: [...botShotsMap.entries()],
+        botStateData: serializeBotState(botState.current),
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch { /* storage full or unavailable */ }
+  }, [phase, myBoard, botBoard, isMyTurn, myHits, botHits, winner, myShotsMap, botShotsMap]);
+
+  // ─── If restored mid-game on bot's turn, auto-trigger bot ───
+  const needsBotTurnOnMount = useRef(
+    !!(save?.phase === "playing" && !save?.isMyTurn && !save?.winner)
+  );
+  useEffect(() => {
+    if (!needsBotTurnOnMount.current) return;
+    needsBotTurnOnMount.current = false;
+    setBotProcessing(true);
+    setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Onchain save result ───
   const {
     data: resultTxHash,
     writeContract,
     isPending: resultPending,
   } = useWriteContract();
-  const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({
-    hash: resultTxHash,
-  });
+  const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({ hash: resultTxHash });
 
   const handleSaveResult = useCallback(() => {
     if (!winner || !address) return;
-    const isWin = winner === "me";
     writeContract({
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
       functionName: "recordSoloResult",
-      args: [BOT_OPPONENT, isWin],
+      args: [BOT_OPPONENT, winner === "me"],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
   }, [winner, address, writeContract]);
 
-  // Always credit local points + DB stats when the bot game ends, even if
-  // the player never opens their wallet to save the result onchain.
-  const pointsRecorded = useRef(false);
+  // Award local points + DB stats when game ends
   useEffect(() => {
     if (winner && address && !pointsRecorded.current) {
       pointsRecorded.current = true;
@@ -104,7 +200,7 @@ export function BotGameContent({
     }
   }, [winner, address, myHits]);
 
-  // Start game after ship placement
+  // ─── Ship placement ───
   const handleConfirmBoard = useCallback((boardLayout: number[]) => {
     setMyBoard(boardLayout);
     const botBoardLayout = generateRandomBoard();
@@ -113,7 +209,7 @@ export function BotGameContent({
     setIsMyTurn(true);
   }, []);
 
-  // Player shoots
+  // ─── Player shoots ───
   const handleShoot = useCallback(() => {
     if (!selectedCell || !isMyTurn || phase !== "playing") return;
     gameSounds.playShot();
@@ -133,7 +229,6 @@ export function BotGameContent({
       setMyHits(newHits);
       setTimeout(() => gameSounds.playHit(), 200);
 
-      // Check for sunk ship
       const ships = findShips(botBoard);
       const hitCells = new Set<number>();
       myShotsMap.forEach((hit, i) => { if (hit) hitCells.add(i); });
@@ -149,19 +244,18 @@ export function BotGameContent({
         setSelectedCell(null);
         return;
       }
-      // Hit = keep turn
       setSelectedCell(null);
     } else {
       setTimeout(() => gameSounds.playMiss(), 200);
       setSelectedCell(null);
       setIsMyTurn(false);
-      // Bot's turn after delay
       setBotProcessing(true);
       setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap]);
 
-  // Bot turn — uses refs to avoid stale closures
+  // ─── Bot turn ───
   doBotTurnRef.current = useCallback(() => {
     if (phaseRef.current !== "playing") return;
 
@@ -171,7 +265,6 @@ export function BotGameContent({
 
     botProcessResult(botState.current, x, y, isHit);
 
-    // Check if bot sunk a ship (we know the player's board)
     if (isHit) {
       const ships = findShips(myBoardRef.current);
       const allBotHits = new Set(botState.current.hits);
@@ -180,7 +273,7 @@ export function BotGameContent({
         for (const c of s) alreadySunk.add(c);
       }
       for (const ship of ships) {
-        if (ship.every((c) => alreadySunk.has(c))) continue; // already reported
+        if (ship.every((c) => alreadySunk.has(c))) continue;
         if (isShipSunk(ship, allBotHits)) {
           botNotifySunk(botState.current, ship);
         }
@@ -205,16 +298,15 @@ export function BotGameContent({
         setBotProcessing(false);
         return;
       }
-      // Bot hit = bot keeps turn
       setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
     } else {
-      // Bot missed = your turn
       setIsMyTurn(true);
       setBotProcessing(false);
     }
   }, []);
 
-  // Build my board cells
+  // ─── Board rendering ───
+
   const myBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
@@ -245,7 +337,6 @@ export function BotGameContent({
     });
   }
 
-  // Build enemy (bot) board cells
   const enemyBoardCells: CellState[][] = Array.from({ length: 10 }, () =>
     Array(10).fill("empty" as CellState)
   );
@@ -295,17 +386,13 @@ export function BotGameContent({
     setSelectedCell({ x, y });
   };
 
-  // ── Render ──
+  // ─── Render ───
 
   if (phase === "placing") {
     return (
       <div className={styles.container}>
         <div className={styles.scrollContent}>
-          <ShipPlacement
-            onConfirm={handleConfirmBoard}
-            isPending={false}
-            isConfirming={false}
-          />
+          <ShipPlacement onConfirm={handleConfirmBoard} isPending={false} isConfirming={false} />
         </div>
       </div>
     );
@@ -314,24 +401,20 @@ export function BotGameContent({
   if (phase === "finished") {
     const didWin = winner === "me";
 
-    // Reveal bot's board at end: show all ships, overlay player hits/misses.
     const revealedBotBoard: CellState[][] = Array.from({ length: 10 }, () =>
       Array(10).fill("empty" as CellState)
     );
     if (botBoard.length > 0) {
-      for (let y = 0; y < 10; y++) {
-        for (let x = 0; x < 10; x++) {
+      for (let y = 0; y < 10; y++)
+        for (let x = 0; x < 10; x++)
           if (botBoard[y * 10 + x] === 1) revealedBotBoard[y][x] = "ship";
-        }
-      }
+
       myShotsMap.forEach((isHit, idx) => {
         const x = idx % 10;
         const y = Math.floor(idx / 10);
-        if (isHit) {
-          revealedBotBoard[y][x] = sunkCellSet.has(idx) ? "sunk" : "hit";
-        } else {
-          revealedBotBoard[y][x] = "miss";
-        }
+        revealedBotBoard[y][x] = isHit
+          ? sunkCellSet.has(idx) ? "sunk" : "hit"
+          : "miss";
       });
     }
 
@@ -339,9 +422,7 @@ export function BotGameContent({
       <div className={styles.container}>
         <div className={styles.scrollContent}>
           <div className={styles.resultSection}>
-            <h2
-              className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}
-            >
+            <h2 className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}>
               {didWin ? "VICTORY!" : "DEFEAT"}
             </h2>
             <p className={styles.resultSubtitle}>
@@ -353,11 +434,7 @@ export function BotGameContent({
             </div>
             <div className={styles.resultBoards}>
               <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
-              <Board
-                cells={revealedBotBoard}
-                isInteractive={false}
-                label="Bot Fleet (revealed)"
-              />
+              <Board cells={revealedBotBoard} isInteractive={false} label="Bot Fleet (revealed)" />
             </div>
             <div className={styles.resultActions}>
               {!resultConfirmed ? (
@@ -371,7 +448,10 @@ export function BotGameContent({
               ) : (
                 <p className={styles.hint}>Saved onchain ✓</p>
               )}
-              <button className={styles.backButton} onClick={() => router.push("/")}>
+              <button
+                className={styles.backButton}
+                onClick={() => { deleteSave(); router.push("/"); }}
+              >
                 New Game
               </button>
             </div>
