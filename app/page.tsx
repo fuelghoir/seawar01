@@ -10,10 +10,13 @@ import {
   useWaitForTransactionReceipt,
   useSwitchChain,
   useConfig,
+  useSendCalls,
+  useCallsStatus,
+  useCapabilities,
 } from "wagmi";
 import { readContract, simulateContract } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog } from "viem";
+import { decodeEventLog, encodeFunctionData } from "viem";
 import {
   seaBattleAbi,
   erc20Abi,
@@ -270,15 +273,46 @@ export default function Home() {
     }
   }, [approveSuccess, writeContract]);
 
-  // ─── Check-in (V4: contract call so Base.dev/Builder Code attribution works) ───
+  // ─── Check-in (V4 contract call) ───
+  // Two paths:
+  //  1. Smart wallets (Coinbase Smart Wallet, Base App): use EIP-5792
+  //     sendCalls with paymasterService — gas is sponsored by CDP, user
+  //     pays $0.
+  //  2. EOA wallets (MetaMask, etc.): fall back to plain writeContract,
+  //     user pays gas as before. Builder Code suffix is included on both
+  //     paths so base.dev "Other" attribution works either way.
+  const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
+  const { data: walletCapabilities } = useCapabilities({ chainId: base.id });
+  const paymasterSupported =
+    !!PAYMASTER_URL &&
+    !!walletCapabilities?.paymasterService?.supported;
+
+  const {
+    sendCalls: sendCheckinCalls,
+    data: checkinCallsData,
+    isPending: checkinCallsPending,
+  } = useSendCalls();
+  const { data: checkinCallsStatus } = useCallsStatus({
+    id: checkinCallsData?.id ?? "",
+    query: {
+      enabled: !!checkinCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1500,
+    },
+  });
+  const checkinCallsSuccess = checkinCallsStatus?.status === "success";
+
   const {
     data: checkinTxHash,
     isPending: checkinTxPending,
     writeContract: writeCheckin,
   } = useWriteContract();
-  const { isSuccess: checkinTxSuccess } = useWaitForTransactionReceipt({
+  const { isSuccess: checkinTxReceiptSuccess } = useWaitForTransactionReceipt({
     hash: checkinTxHash,
   });
+
+  const checkinTxSuccess = checkinTxReceiptSuccess || checkinCallsSuccess;
+  const checkinPending = checkinTxPending || checkinCallsPending;
 
   useEffect(() => {
     if (address) {
@@ -321,8 +355,28 @@ export default function Home() {
     setCheckinLoading(true);
     setCheckinMsg("");
     checkinRecorded.current = false;
-    // V4 contract checkin() — emits Checkin event. Builder Code suffix
-    // here gets us proper Base.dev "Other" attribution on PC and Base App.
+
+    if (paymasterSupported && PAYMASTER_URL) {
+      // Smart wallet path: gas-sponsored by CDP paymaster, user pays $0.
+      sendCheckinCalls({
+        calls: [
+          {
+            to: SEABATTLE_CONTRACT_ADDRESS,
+            data: encodeFunctionData({
+              abi: seaBattleAbi,
+              functionName: "checkin",
+            }),
+          },
+        ],
+        capabilities: {
+          paymasterService: { url: PAYMASTER_URL },
+        },
+      });
+      return;
+    }
+
+    // EOA fallback: regular tx, user pays gas. Builder Code suffix still
+    // gives base.dev "Other" attribution.
     writeCheckin({
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
@@ -1033,12 +1087,14 @@ export default function Home() {
                   onClick={handleCheckin}
                   disabled={!checkin.canCheckin || checkinLoading}
                 >
-                  {checkinTxPending
+                  {checkinPending
                     ? "Confirm in wallet..."
                     : checkinLoading
                       ? "Confirming tx..."
                       : checkin.canCheckin
-                        ? `Daily Check-in (+${checkin.nextReward} pts)`
+                        ? paymasterSupported
+                          ? `Daily Check-in (+${checkin.nextReward} pts) · FREE`
+                          : `Daily Check-in (+${checkin.nextReward} pts)`
                         : `Checked in! Streak: ${checkin.streak}d`}
                 </button>
                 {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
