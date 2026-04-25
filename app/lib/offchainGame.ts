@@ -407,7 +407,7 @@ export async function shootBombOffchain(
 
 export async function getAvailableGames(
   excludeAddress?: string,
-  mode?: "offchain" | "hybrid" | "wager"
+  mode?: "friend" | "wager"
 ): Promise<{ id: number; player1: string; game_mode: string; wager_amount: number }[]> {
   let query = supabase
     .from("games")
@@ -429,9 +429,15 @@ export async function getAvailableGames(
   }));
 
   if (!mode) return rows;
-  // Legacy rows used "free" instead of "offchain" — treat them as offchain.
-  if (mode === "offchain") {
-    return rows.filter(r => r.game_mode === "offchain" || r.game_mode === "free");
+  // Friend mode lists rows persisted under legacy game_mode names too:
+  // "offchain" (V3 default), "free" (very legacy), "hybrid" (removed in V4).
+  if (mode === "friend") {
+    return rows.filter(
+      r => r.game_mode === "offchain"
+        || r.game_mode === "free"
+        || r.game_mode === "hybrid"
+        || r.game_mode === "friend"
+    );
   }
   return rows.filter(r => r.game_mode === mode);
 }

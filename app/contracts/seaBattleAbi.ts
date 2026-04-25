@@ -35,29 +35,25 @@ export const erc20Abi = [
   },
 ] as const;
 
-// SeaBattleV2 ABI
+// SeaBattleV4 ABI — wager state on-chain + per-player solo result + check-in.
 export const seaBattleAbi = [
-  // ─── Hybrid ───
+  // ─── V4: per-player result fix (free bot + friend modes) ───
   {
     type: "function",
-    name: "createGame",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "joinGame",
-    inputs: [{ type: "uint256", name: "gameId" }],
+    name: "recordSoloResult",
+    inputs: [
+      { type: "address", name: "opponent" },
+      { type: "bool", name: "isWin" },
+    ],
     outputs: [],
     stateMutability: "nonpayable",
   },
-  // ─── Bot ───
+  // ─── V4: daily check-in ───
   {
     type: "function",
-    name: "createBotGame",
+    name: "checkin",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [],
     stateMutability: "nonpayable",
   },
   // ─── Wager ───
@@ -199,6 +195,25 @@ export const seaBattleAbi = [
       { type: "uint256", name: "gameId", indexed: true },
       { type: "address", name: "player1", indexed: false },
       { type: "uint256", name: "refund", indexed: false },
+    ],
+  },
+  // ─── V4 events ───
+  {
+    type: "event",
+    name: "SoloResult",
+    inputs: [
+      { type: "address", name: "player", indexed: true },
+      { type: "address", name: "opponent", indexed: false },
+      { type: "bool", name: "isWin", indexed: false },
+      { type: "uint256", name: "timestamp", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Checkin",
+    inputs: [
+      { type: "address", name: "player", indexed: true },
+      { type: "uint256", name: "timestamp", indexed: false },
     ],
   },
 ] as const;

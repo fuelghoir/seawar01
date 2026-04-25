@@ -173,6 +173,43 @@
   color: #fff;
 }
 
+.saveResultButton {
+  padding: 13px 22px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 212, 255, 0.55);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, #1aeaff 0%, #00b8e6 55%, #007ea8 100%);
+  color: #04101c;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.2s ease,
+    filter 0.2s ease;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.25) inset,
+    0 6px 18px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(0, 212, 255, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.saveResultButton:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.3) inset,
+    0 10px 24px rgba(0, 0, 0, 0.55),
+    0 0 32px rgba(0, 212, 255, 0.65);
+}
+
+.saveResultButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+
 .errorText {
   color: #ff6b6b;
   font-size: 15px;

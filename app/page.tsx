@@ -9,7 +9,6 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useSwitchChain,
-  useSendTransaction,
   useConfig,
 } from "wagmi";
 import { readContract, simulateContract } from "@wagmi/core";
@@ -61,7 +60,7 @@ function formatRevert(msg: string): string {
   return msg.slice(0, 140);
 }
 
-type GameMode = "offchain" | "bot" | "hybrid" | "wager";
+type GameMode = "bot" | "friend" | "wager";
 
 const WAGER_OPTIONS = [
   { label: "1 USDC", value: 1_000_000 },
@@ -81,14 +80,13 @@ export default function Home() {
   const [error, setError] = useState("");
   const [action, setAction] = useState<"create" | "join" | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [mode, setMode] = useState<GameMode>("offchain");
+  const [mode, setMode] = useState<GameMode>("bot");
   const [offchainLoading, setOffchainLoading] = useState(false);
   const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string; game_mode: string; wager_amount: number }[]>([]);
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinMsg, setCheckinMsg] = useState("");
   const [wagerAmount, setWagerAmount] = useState(WAGER_OPTIONS[0].value);
-  const [botOnchain, setBotOnchain] = useState(false);
   const [unclaimedWins, setUnclaimedWins] = useState<UnclaimedWin[]>([]);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
@@ -194,57 +192,6 @@ export default function Home() {
     const pa = pendingAction.current;
     pendingAction.current = null;
 
-    if (pa.mode === "bot") {
-      for (const log of receipt.logs) {
-        try {
-          const decoded = decodeEventLog({
-            abi: seaBattleAbi,
-            data: log.data,
-            topics: log.topics,
-          });
-          if (decoded.eventName === "GameCreated") {
-            const gameId = (decoded.args as { gameId: bigint }).gameId;
-            router.push(`/game?id=${gameId.toString()}&mode=bot&oid=${gameId.toString()}`);
-            return;
-          }
-        } catch { /* not our event */ }
-      }
-      router.push(`/game?id=0&mode=bot`);
-      return;
-    }
-
-    if (pa.mode === "hybrid") {
-      if (pa.action === "create") {
-        for (const log of receipt.logs) {
-          try {
-            const decoded = decodeEventLog({
-              abi: seaBattleAbi,
-              data: log.data,
-              topics: log.topics,
-            });
-            if (decoded.eventName === "GameCreated") {
-              const onchainId = (decoded.args as { gameId: bigint }).gameId;
-              createOffchainGame(address!, isPrivate, {
-                game_mode: "hybrid",
-                onchain_game_id: Number(onchainId),
-              })
-                .then((offId) => {
-                  router.push(`/game?id=${offId}&mode=hybrid&oid=${onchainId.toString()}`);
-                })
-                .catch(() => setError("Failed to create offchain game"));
-              return;
-            }
-          } catch { /* not our event */ }
-        }
-      } else {
-        // Join hybrid: fetch onchain_game_id from Supabase
-        getGameOnchainId(Number(pa.joinId)).then((oid) => {
-          router.push(`/game?id=${pa.joinId}&mode=hybrid&oid=${oid || pa.joinId}`);
-        });
-      }
-      return;
-    }
-
     if (pa.mode === "wager") {
       if (pa.action === "create") {
         for (const log of receipt.logs) {
@@ -323,12 +270,12 @@ export default function Home() {
     }
   }, [approveSuccess, writeContract]);
 
-  // ─── Check-in ───
+  // ─── Check-in (V4: contract call so Base.dev/Builder Code attribution works) ───
   const {
-    sendTransaction,
     data: checkinTxHash,
     isPending: checkinTxPending,
-  } = useSendTransaction();
+    writeContract: writeCheckin,
+  } = useWriteContract();
   const { isSuccess: checkinTxSuccess } = useWaitForTransactionReceipt({
     hash: checkinTxHash,
   });
@@ -367,15 +314,21 @@ export default function Home() {
 
   const handleCheckin = () => {
     if (!address || !checkin?.canCheckin) return;
+    if (CONTRACT_NOT_SET) {
+      setCheckinMsg("Contract not deployed");
+      return;
+    }
     setCheckinLoading(true);
     setCheckinMsg("");
     checkinRecorded.current = false;
-    // Self-transfer with zero value. Base App miniapp rejects tx with
-    // a data field on self-transfers — keep it off for compatibility.
-    sendTransaction({
-      to: address,
-      value: BigInt(0),
+    // V4 contract checkin() — emits Checkin event. Builder Code suffix
+    // here gets us proper Base.dev "Other" attribution on PC and Base App.
+    writeCheckin({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "checkin",
       chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
     });
   };
 
@@ -666,47 +619,23 @@ export default function Home() {
     setError("");
     setAction("create");
 
-    if (mode === "offchain") {
+    if (mode === "bot") {
+      // Free game vs AI — no on-chain create, save result is offered at game end.
+      router.push(`/game?id=0&mode=bot`);
+      return;
+    }
+
+    if (mode === "friend") {
       if (!address) return;
       setOffchainLoading(true);
       try {
         const gameId = await createOffchainGame(address, isPrivate);
-        router.push(`/game?id=${gameId}&mode=offchain`);
+        router.push(`/game?id=${gameId}&mode=friend`);
       } catch (e: unknown) {
         setError((e as Error).message);
       } finally {
         setOffchainLoading(false);
       }
-      return;
-    }
-
-    if (mode === "bot") {
-      if (botOnchain) {
-        if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
-        pendingAction.current = { action: "create", mode: "bot" };
-        writeContract({
-          address: SEABATTLE_CONTRACT_ADDRESS,
-          abi: seaBattleAbi,
-          functionName: "createBotGame",
-          chainId: base.id,
-          dataSuffix: BUILDER_CODE_SUFFIX,
-        });
-      } else {
-        router.push(`/game?id=0&mode=bot`);
-      }
-      return;
-    }
-
-    if (mode === "hybrid") {
-      if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
-      pendingAction.current = { action: "create", mode: "hybrid" };
-      writeContract({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "createGame",
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
       return;
     }
 
@@ -733,38 +662,14 @@ export default function Home() {
     setAction("join");
     setJoinGameId(gid);
 
-    if (mode === "offchain") {
+    if (mode === "friend") {
       setOffchainLoading(true);
       try {
         await joinOffchainGame(Number(gid), address);
-        router.push(`/game?id=${gid}&mode=offchain`);
+        router.push(`/game?id=${gid}&mode=friend`);
       } catch (e: unknown) {
         setError((e as Error).message);
       } finally {
-        setOffchainLoading(false);
-      }
-      return;
-    }
-
-    if (mode === "hybrid") {
-      if (CONTRACT_NOT_SET) { setError("Contract not deployed"); return; }
-      setOffchainLoading(true);
-      try {
-        await joinOffchainGame(Number(gid), address);
-        const oid = await getGameOnchainId(Number(gid));
-        setOffchainLoading(false);
-        if (!oid) { setError("Onchain game ID not found"); return; }
-        pendingAction.current = { action: "join", mode: "hybrid", joinId: gid };
-        writeContract({
-          address: SEABATTLE_CONTRACT_ADDRESS,
-          abi: seaBattleAbi,
-          functionName: "joinGame",
-          args: [BigInt(oid)],
-          chainId: base.id,
-          dataSuffix: BUILDER_CODE_SUFFIX,
-        });
-      } catch (e: unknown) {
-        setError((e as Error).message);
         setOffchainLoading(false);
       }
       return;
@@ -839,16 +744,15 @@ export default function Home() {
   };
 
   const loading =
-    mode === "offchain"
+    mode === "bot" || mode === "friend"
       ? offchainLoading
       : isPending || isConfirming || approvePending || offchainLoading;
 
   const displayName = context?.user?.displayName || "Captain";
 
   const modeSubtitle: Record<GameMode, string> = {
-    offchain: "Free to play, no gas fees.",
-    bot: "Play against the bot.",
-    hybrid: "2 transactions, gameplay is free.",
+    bot: "Play vs AI. Save result onchain after the match.",
+    friend: "Play with a friend. Each captain saves their own result.",
     wager: "Bet USDC, winner takes 90%.",
   };
 
@@ -867,9 +771,8 @@ export default function Home() {
           <div className={styles.modeGrid}>
             {(
               [
-                { id: "offchain", label: "Free", icon: "🌊", hint: "No stakes, instant play" },
                 { id: "bot", label: "Bot", icon: "🤖", hint: "Solo vs AI captain" },
-                { id: "hybrid", label: "Onchain", icon: "⚓", hint: "Verified on Base" },
+                { id: "friend", label: "Friend", icon: "👥", hint: "PvP via invite ID" },
                 { id: "wager", label: "Wager", icon: "💰", hint: "USDC stakes" },
               ] as { id: GameMode; label: string; icon: string; hint: string }[]
             ).map((m) => (
@@ -900,7 +803,7 @@ export default function Home() {
           </div>
         ) : (
           <div className={styles.actions}>
-            {(mode === "hybrid" || mode === "wager") && CONTRACT_NOT_SET && (
+            {mode === "wager" && CONTRACT_NOT_SET && (
               <div className={styles.contractWarning}>
                 Contract not deployed yet. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env
               </div>
@@ -921,23 +824,10 @@ export default function Home() {
               </div>
             )}
 
-            {/* Bot onchain toggle */}
-            {mode === "bot" && (
-              <label className={`${styles.privateToggle} ${botOnchain ? styles.toggleActive : ""}`}>
-                <span>Onchain mode (2 txs)</span>
-                <input
-                  type="checkbox"
-                  checked={botOnchain}
-                  onChange={(e) => setBotOnchain(e.target.checked)}
-                />
-                <span className={`${styles.toggleSwitch} ${botOnchain ? styles.toggleOn : ""}`} />
-              </label>
-            )}
-
             <button
               className={styles.primaryButton}
               onClick={handleCreate}
-              disabled={loading || ((mode === "hybrid" || mode === "wager" || (mode === "bot" && botOnchain)) && CONTRACT_NOT_SET)}
+              disabled={loading || (mode === "wager" && CONTRACT_NOT_SET)}
             >
               {loading && action === "create"
                 ? approvePending
@@ -980,7 +870,7 @@ export default function Home() {
                   <button
                     className={styles.secondaryButton}
                     onClick={() => handleJoin()}
-                    disabled={loading || !joinGameId || ((mode === "hybrid" || mode === "wager") && CONTRACT_NOT_SET)}
+                    disabled={loading || !joinGameId || (mode === "wager" && CONTRACT_NOT_SET)}
                   >
                     {loading && action === "join" ? "Joining..." : "Join"}
                   </button>

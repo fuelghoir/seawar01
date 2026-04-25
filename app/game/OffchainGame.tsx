@@ -58,11 +58,11 @@ function saveLocalBoard(gameId: string, board: number[], salt: string) {
   localStorage.setItem(`seabattle_off_${gameId}`, JSON.stringify({ board, salt }));
 }
 
-type GameMode = "offchain" | "hybrid" | "wager";
+type GameMode = "friend" | "wager";
 
 export function OffchainGameContent({
   gameIdStr,
-  mode = "offchain",
+  mode = "friend",
   onchainGameId,
 }: {
   gameIdStr: string;
@@ -185,14 +185,17 @@ export function OffchainGameContent({
     });
   };
 
-  // ─── Record result onchain (hybrid/wager) ───
+  // ─── Record result onchain ───
+  // Wager mode: auto-call V3-style recordResult so winner can claim prize.
+  // Friend mode: nothing here — each player saves their own result via
+  //              recordSoloResult by clicking the Save Result button.
   const resultRecordedRef = useRef(false);
   useEffect(() => {
     if (
       game?.state !== 3 ||
       !game.winner ||
       !address ||
-      (mode !== "hybrid" && mode !== "wager") ||
+      mode !== "wager" ||
       !onchainGameId ||
       resultRecordedRef.current
     ) {
@@ -218,16 +221,12 @@ export function OffchainGameContent({
         ];
         const [p1, p2, , , finished, , cancelled] = onchain;
         if (finished || cancelled) return;
-        // Game not present in this contract (fresh V3 without this gameId)
         if (p1 === "0x0000000000000000000000000000000000000000") return;
-        // Caller isn't a player in the onchain game — recordResult would revert
         const me = address.toLowerCase();
         if (p1.toLowerCase() !== me && p2.toLowerCase() !== me) return;
-        // Winner must be one of the onchain players
         const w = (game.winner as string).toLowerCase();
         if (w !== p1.toLowerCase() && w !== p2.toLowerCase()) return;
       } catch {
-        // If read fails, skip rather than risk a revert
         return;
       }
 
@@ -241,6 +240,24 @@ export function OffchainGameContent({
       });
     })();
   }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult, wagmiConfig]);
+
+  // Friend mode: explicit per-player save via V4 recordSoloResult.
+  const handleSaveFriendResult = useCallback(() => {
+    if (!address || !game?.winner || mode !== "friend") return;
+    const me = address.toLowerCase();
+    const isWin = (game.winner as string).toLowerCase() === me;
+    const opponent = (
+      game.player1.toLowerCase() === me ? game.player2 : game.player1
+    ) as `0x${string}`;
+    writeResult({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "recordSoloResult",
+      args: [opponent, isWin],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [address, game?.winner, game?.player1, game?.player2, mode, writeResult]);
 
   // Mark prize as claimed in DB after onchain tx confirms
   useEffect(() => {
@@ -711,19 +728,14 @@ export function OffchainGameContent({
               <span>Enemy: {enemyHits}/20</span>
             </div>
 
-            {(mode === "hybrid" || mode === "wager") && (
+            {mode === "wager" && (
               <div className={styles.onchainStatus}>
                 {resultPending && <p className={styles.hint}>Recording result onchain...</p>}
-                {resultConfirmed && mode === "hybrid" && (
-                  <p className={styles.hint}>Result recorded onchain!</p>
-                )}
-                {mode === "wager" && didWin && claimPending && (
-                  <p className={styles.hint}>Claiming prize...</p>
-                )}
-                {mode === "wager" && didWin && claimConfirmed && (
+                {didWin && claimPending && <p className={styles.hint}>Claiming prize...</p>}
+                {didWin && claimConfirmed && (
                   <p className={styles.claimedBadge}>Prize claimed! 90% sent to your wallet.</p>
                 )}
-                {mode === "wager" && !didWin && resultConfirmed && (
+                {!didWin && resultConfirmed && (
                   <p className={styles.hint}>Result recorded. Better luck next time!</p>
                 )}
               </div>
@@ -744,6 +756,19 @@ export function OffchainGameContent({
               <Board cells={fullEnemyBoard} isInteractive={false} label="Enemy Fleet (revealed)" />
             </div>
             <div className={styles.resultActions}>
+              {mode === "friend" && (
+                !resultConfirmed ? (
+                  <button
+                    className={styles.saveResultButton}
+                    onClick={handleSaveFriendResult}
+                    disabled={resultPending}
+                  >
+                    {resultPending ? "Confirming..." : "Save Result (1 tx)"}
+                  </button>
+                ) : (
+                  <p className={styles.hint}>Saved onchain ✓</p>
+                )
+              )}
               <button className={styles.backButton} onClick={() => router.push("/")}>New Game</button>
             </div>
           </div>

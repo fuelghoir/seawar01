@@ -8,21 +8,11 @@ import { BotGameContent } from "./BotGame";
 function GameContent() {
   const searchParams = useSearchParams();
   const gameIdStr = searchParams.get("id") || "0";
-  const mode = searchParams.get("mode") || "offchain";
+  const mode = searchParams.get("mode") || "friend";
   const onchainGameId = searchParams.get("oid") || undefined;
 
   if (mode === "bot") {
-    return <BotGameContent gameIdStr={gameIdStr} isOnchain={!!onchainGameId} />;
-  }
-
-  if (mode === "hybrid") {
-    return (
-      <OffchainGameContent
-        gameIdStr={gameIdStr}
-        mode="hybrid"
-        onchainGameId={onchainGameId}
-      />
-    );
+    return <BotGameContent gameIdStr={gameIdStr} />;
   }
 
   if (mode === "wager") {
@@ -35,8 +25,8 @@ function GameContent() {
     );
   }
 
-  // Default: free play (offchain)
-  return <OffchainGameContent gameIdStr={gameIdStr} mode="offchain" />;
+  // Default: free PvP friend match
+  return <OffchainGameContent gameIdStr={gameIdStr} mode="friend" />;
 }
 
 export default function GamePage() {

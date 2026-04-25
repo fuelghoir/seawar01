@@ -29,13 +29,15 @@ const BOT_DELAY = 800; // ms delay for bot actions
 
 type GamePhase = "placing" | "playing" | "finished";
 
+// Sentinel address used as the "opponent" field on bot-mode SoloResult events.
+const BOT_OPPONENT = "0x0000000000000000000000000000000000000001" as const;
+
 export function BotGameContent({
-  gameIdStr,
-  isOnchain,
+  gameIdStr: _gameIdStr,
 }: {
   gameIdStr: string;
-  isOnchain: boolean;
 }) {
+  void _gameIdStr;
   const router = useRouter();
   const { address } = useAccount();
 
@@ -66,7 +68,7 @@ export function BotGameContent({
   botHitsRef.current = botHits;
   const doBotTurnRef = useRef<() => void>(() => {});
 
-  // Onchain: record result
+  // Save result onchain — V4 recordSoloResult, called only if user clicks Save.
   const {
     data: resultTxHash,
     writeContract,
@@ -75,28 +77,25 @@ export function BotGameContent({
   const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({
     hash: resultTxHash,
   });
-  const resultRecorded = useRef(false);
 
-  // Record result onchain when game finishes
-  useEffect(() => {
-    if (winner && isOnchain && address && !resultRecorded.current && gameIdStr !== "0") {
-      resultRecorded.current = true;
-      const winnerAddr = winner === "me" ? address : "0x0000000000000000000000000000000000000001";
-      writeContract({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "recordResult",
-        args: [BigInt(gameIdStr), winnerAddr as `0x${string}`],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
-    }
-  }, [winner, isOnchain, address, gameIdStr, writeContract]);
+  const handleSaveResult = useCallback(() => {
+    if (!winner || !address) return;
+    const isWin = winner === "me";
+    writeContract({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "recordSoloResult",
+      args: [BOT_OPPONENT, isWin],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [winner, address, writeContract]);
 
-  // Record points (only for onchain bot games)
+  // Always credit local points + DB stats when the bot game ends, even if
+  // the player never opens their wallet to save the result onchain.
   const pointsRecorded = useRef(false);
   useEffect(() => {
-    if (winner && address && isOnchain && !pointsRecorded.current) {
+    if (winner && address && !pointsRecorded.current) {
       pointsRecorded.current = true;
       const didWin = winner === "me";
       addPoints(address, myHits + (didWin ? 50 : 0))
@@ -352,12 +351,6 @@ export function BotGameContent({
               <span>You: {myHits}/20</span>
               <span>Bot: {botHits}/20</span>
             </div>
-            {isOnchain && resultPending && (
-              <p className={styles.waitingText}>Recording result onchain...</p>
-            )}
-            {isOnchain && resultConfirmed && (
-              <p className={styles.hint}>Result recorded onchain!</p>
-            )}
             <div className={styles.resultBoards}>
               <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
               <Board
@@ -367,6 +360,17 @@ export function BotGameContent({
               />
             </div>
             <div className={styles.resultActions}>
+              {!resultConfirmed ? (
+                <button
+                  className={styles.saveResultButton}
+                  onClick={handleSaveResult}
+                  disabled={resultPending || !address}
+                >
+                  {resultPending ? "Confirming..." : "Save Result (1 tx)"}
+                </button>
+              ) : (
+                <p className={styles.hint}>Saved onchain ✓</p>
+              )}
               <button className={styles.backButton} onClick={() => router.push("/")}>
                 New Game
               </button>
