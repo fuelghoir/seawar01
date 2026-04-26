@@ -45,6 +45,7 @@ import {
 } from "./lib/offchainGame";
 import QuestPanel from "./components/QuestPanel";
 import GameHistory from "./components/GameHistory";
+import { WalletName } from "./components/WalletName";
 import ReferralPanel from "./components/ReferralPanel";
 import PushPrompt from "./components/PushPrompt";
 import styles from "./page.module.css";
@@ -960,9 +961,7 @@ export default function Home() {
                   <div key={g.id} className={styles.gameItem}>
                     <div className={styles.gameItemInfo}>
                       <span className={styles.gameItemId}>#{g.id}</span>
-                      <span className={styles.gameItemPlayer}>
-                        {g.player1.slice(0, 6)}...{g.player1.slice(-4)}
-                      </span>
+                      <WalletName address={g.player1} className={styles.gameItemPlayer} />
                       {g.wager_amount > 0 && (
                         <span className={styles.gameItemWager}>
                           {g.wager_amount / 1_000_000} USDC

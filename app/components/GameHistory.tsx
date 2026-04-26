@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getPlayerGameHistory, GameHistoryEntry } from "../lib/offchainGame";
+import { WalletName } from "./WalletName";
 import styles from "./GameHistory.module.css";
 
 function formatDate(iso: string): string {
@@ -66,11 +67,10 @@ export default function GameHistory({ address }: { address: string }) {
                   )}
                 </div>
                 <div className={styles.rowRight}>
-                  <span className={styles.opponent}>
-                    {g.opponent
-                      ? `${g.opponent.slice(0, 6)}…${g.opponent.slice(-4)}`
-                      : "Bot"}
-                  </span>
+                  {g.opponent
+                    ? <WalletName address={g.opponent} className={styles.opponent} />
+                    : <span className={styles.opponent}>Bot</span>
+                  }
                   <span className={styles.date}>{formatDate(g.date)}</span>
                 </div>
               </div>

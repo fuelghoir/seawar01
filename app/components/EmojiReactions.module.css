@@ -1,0 +1,73 @@
+/* Fullscreen overlay for floating emojis — pointer-events: none so it doesn't block clicks */
+.overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  overflow: hidden;
+}
+
+.floater {
+  position: absolute;
+  bottom: 80px; /* start just above the fire button area */
+  font-size: 2.6rem;
+  line-height: 1;
+  animation: floatUp 2.5s ease-out forwards;
+  user-select: none;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+
+.floaterMe {
+  animation-name: floatUpMe;
+}
+
+.floaterOpp {
+  animation-name: floatUpOpp;
+}
+
+@keyframes floatUpMe {
+  0%   { transform: translateY(0) scale(1);    opacity: 1; }
+  20%  { transform: translateY(-40px) scale(1.35); opacity: 1; }
+  100% { transform: translateY(-260px) scale(0.7); opacity: 0; }
+}
+
+@keyframes floatUpOpp {
+  0%   { transform: translateY(0) scale(1) rotate(-10deg);    opacity: 1; }
+  20%  { transform: translateY(-30px) scale(1.2) rotate(8deg); opacity: 1; }
+  100% { transform: translateY(-240px) scale(0.6) rotate(-5deg); opacity: 0; }
+}
+
+/* Emoji picker bar */
+.bar {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(10, 22, 40, 0.85);
+  border-top: 1px solid rgba(100, 160, 220, 0.12);
+  flex-wrap: wrap;
+}
+
+.emojiBtn {
+  background: rgba(100, 160, 220, 0.08);
+  border: 1px solid rgba(100, 160, 220, 0.15);
+  border-radius: 8px;
+  font-size: 1.35rem;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emojiBtn:hover {
+  background: rgba(100, 160, 220, 0.2);
+  transform: scale(1.15);
+}
+
+.emojiBtn:active {
+  transform: scale(0.92);
+}

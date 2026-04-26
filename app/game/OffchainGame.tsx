@@ -38,6 +38,7 @@ import { CellState } from "../components/Cell";
 import { ShipPlacement } from "../components/ShipPlacement";
 import { GameStatus } from "../components/GameStatus";
 import { ShotTransaction } from "../components/ShotTransaction";
+import { EmojiReactions } from "../components/EmojiReactions";
 import styles from "./page.module.css";
 
 function buildBoardHash(boardLayout: number[], salt: Uint8Array): string {
@@ -836,6 +837,8 @@ export function OffchainGameContent({
       </div>
 
       <div className={styles.stickyFire}>
+        <EmojiReactions gameId={gameIdNum} playerNum={playerNum} />
+
         <ShotTransaction
           selectedCell={selectedCell}
           isPending={loading}

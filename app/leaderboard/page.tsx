@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { getLeaderboard, LeaderboardEntry } from "../lib/offchainGame";
+import { WalletName } from "../components/WalletName";
 import styles from "./page.module.css";
 
 export default function LeaderboardPage() {
@@ -80,7 +81,7 @@ export default function LeaderboardPage() {
                     {i + 1}
                   </span>
                   <span className={styles.colWallet}>
-                    {entry.wallet.slice(0, 6)}...{entry.wallet.slice(-4)}
+                    <WalletName address={entry.wallet} />
                     {isMe && <span className={styles.youBadge}>you</span>}
                   </span>
                   <span className={styles.colStat}>
