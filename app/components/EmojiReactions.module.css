@@ -17,6 +17,10 @@
   will-change: transform, opacity;
 }
 
+.floaterOppBig {
+  font-size: 5rem;
+}
+
 .floaterMe {
   animation: floatMe 2.6s ease-out forwards;
 }

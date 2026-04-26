@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import styles from "./EmojiReactions.module.css";
 
-const EMOJIS = ["⚓", "💥", "🔥", "💀", "😤", "🤣", "😱", "🫡", "👑", "🌊"];
+const EMOJIS = ["🤣", "😂", "💀", "🤡", "🫠", "😭", "🤦", "🙈", "🫵", "💩"];
 
 interface FloatingEmoji {
   id: number;
@@ -93,7 +93,7 @@ export function EmojiReactions({ gameId, playerNum }: Props) {
         {floating.map(e => (
           <span
             key={e.id}
-            className={`${styles.floater} ${e.fromMe ? styles.floaterMe : styles.floaterOpp}`}
+            className={`${styles.floater} ${e.fromMe ? styles.floaterMe : `${styles.floaterOpp} ${styles.floaterOppBig}`}`}
             style={{ left: `${e.x}%` }}
           >
             {e.emoji}
