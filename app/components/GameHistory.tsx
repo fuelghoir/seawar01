@@ -3,20 +3,24 @@
 import { useState, useEffect } from "react";
 import { getPlayerGameHistory, GameHistoryEntry } from "../lib/offchainGame";
 import { WalletName } from "./WalletName";
+import { useSettings, TR } from "../lib/settings";
 import styles from "./GameHistory.module.css";
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, lang: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("en", { month: "short", day: "numeric" });
+  return d.toLocaleDateString(lang === "ru" ? "ru" : "en", { month: "short", day: "numeric" });
 }
 
-function modeLabel(mode: string): string {
-  if (mode === "wager") return "Wager";
+function modeLabel(mode: string, lang: string): string {
+  if (mode === "wager") return lang === "ru" ? "Ставка" : "Wager";
   if (mode === "bot" || mode === "solo") return "Bot";
   return "PvP";
 }
 
 export default function GameHistory({ address }: { address: string }) {
+  const { lang } = useSettings();
+  const tr = TR[lang];
+
   const [expanded, setExpanded] = useState(false);
   const [history, setHistory] = useState<GameHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,7 +41,7 @@ export default function GameHistory({ address }: { address: string }) {
     <div className={styles.section}>
       <button className={styles.header} onClick={() => setExpanded(v => !v)} type="button">
         <div className={styles.headerLeft}>
-          <span className={styles.label}>Recent Games</span>
+          <span className={styles.label}>{tr.recent_games}</span>
           {history.length > 0 && (
             <span className={styles.summary}>{wins}W · {losses}L</span>
           )}
@@ -48,9 +52,9 @@ export default function GameHistory({ address }: { address: string }) {
       {expanded && (
         <div className={styles.body}>
           {loading ? (
-            <p className={styles.loading}>Loading...</p>
+            <p className={styles.loading}>{tr.hist_loading}</p>
           ) : history.length === 0 ? (
-            <p className={styles.empty}>No finished games yet.</p>
+            <p className={styles.empty}>{tr.hist_empty}</p>
           ) : (
             history.map(g => (
               <div
@@ -61,7 +65,7 @@ export default function GameHistory({ address }: { address: string }) {
                   <span className={`${styles.badge} ${g.result === "win" ? styles.badgeWin : styles.badgeLoss}`}>
                     {g.result === "win" ? "WIN" : "LOSS"}
                   </span>
-                  <span className={styles.mode}>{modeLabel(g.mode)}</span>
+                  <span className={styles.mode}>{modeLabel(g.mode, lang)}</span>
                   {g.wager > 0 && (
                     <span className={styles.wager}>{g.wager / 1_000_000} USDC</span>
                   )}
@@ -71,7 +75,7 @@ export default function GameHistory({ address }: { address: string }) {
                     ? <WalletName address={g.opponent} className={styles.opponent} />
                     : <span className={styles.opponent}>Bot</span>
                   }
-                  <span className={styles.date}>{formatDate(g.date)}</span>
+                  <span className={styles.date}>{formatDate(g.date, lang)}</span>
                 </div>
               </div>
             ))
