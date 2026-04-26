@@ -814,6 +814,8 @@ export function OffchainGameContent({
 
   return (
     <div className={styles.gameShell}>
+      <EmojiReactions gameId={gameIdNum} playerNum={playerNum} />
+
       <div className={styles.gameScroll}>
         <GameStatus
           isMyTurn={isMyTurn}
@@ -837,8 +839,6 @@ export function OffchainGameContent({
       </div>
 
       <div className={styles.stickyFire}>
-        <EmojiReactions gameId={gameIdNum} playerNum={playerNum} />
-
         <ShotTransaction
           selectedCell={selectedCell}
           isPending={loading}

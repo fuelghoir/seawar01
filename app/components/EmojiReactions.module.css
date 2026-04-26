@@ -1,73 +1,126 @@
-/* Fullscreen overlay for floating emojis — pointer-events: none so it doesn't block clicks */
+/* ── Floating emoji overlay ── */
 .overlay {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 999;
+  z-index: 9999;
   overflow: hidden;
 }
 
 .floater {
   position: absolute;
-  bottom: 80px; /* start just above the fire button area */
-  font-size: 2.6rem;
+  bottom: 100px;
+  font-size: 2.8rem;
   line-height: 1;
-  animation: floatUp 2.5s ease-out forwards;
   user-select: none;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.6));
+  will-change: transform, opacity;
 }
 
 .floaterMe {
-  animation-name: floatUpMe;
+  animation: floatMe 2.6s ease-out forwards;
 }
 
 .floaterOpp {
-  animation-name: floatUpOpp;
+  animation: floatOpp 2.6s ease-out forwards;
 }
 
-@keyframes floatUpMe {
-  0%   { transform: translateY(0) scale(1);    opacity: 1; }
-  20%  { transform: translateY(-40px) scale(1.35); opacity: 1; }
-  100% { transform: translateY(-260px) scale(0.7); opacity: 0; }
+@keyframes floatMe {
+  0%   { transform: translateY(0) scale(1);       opacity: 1; }
+  15%  { transform: translateY(-50px) scale(1.45); opacity: 1; }
+  100% { transform: translateY(-280px) scale(0.65); opacity: 0; }
 }
 
-@keyframes floatUpOpp {
-  0%   { transform: translateY(0) scale(1) rotate(-10deg);    opacity: 1; }
-  20%  { transform: translateY(-30px) scale(1.2) rotate(8deg); opacity: 1; }
-  100% { transform: translateY(-240px) scale(0.6) rotate(-5deg); opacity: 0; }
+@keyframes floatOpp {
+  0%   { transform: translateY(0) scale(1) rotate(-12deg);     opacity: 1; }
+  15%  { transform: translateY(-40px) scale(1.3) rotate(10deg); opacity: 1; }
+  100% { transform: translateY(-260px) scale(0.6) rotate(-6deg); opacity: 0; }
 }
 
-/* Emoji picker bar */
-.bar {
+/* ── Left-side toggle + picker ── */
+.container {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
   display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toggle {
+  width: 42px;
+  height: 50px;
+  border-radius: 0 12px 12px 0;
+  border: 1px solid rgba(100, 160, 220, 0.25);
+  border-left: none;
+  background: rgba(10, 22, 40, 0.92);
+  backdrop-filter: blur(8px);
+  box-shadow: 3px 0 16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: rgba(10, 22, 40, 0.85);
-  border-top: 1px solid rgba(100, 160, 220, 0.12);
-  flex-wrap: wrap;
+  gap: 3px;
+  transition: background 0.15s, box-shadow 0.15s;
+  padding: 0;
+}
+
+.toggle:hover {
+  background: rgba(30, 50, 80, 0.95);
+  box-shadow: 3px 0 20px rgba(100, 160, 220, 0.2);
+}
+
+.toggleOpen {
+  background: rgba(40, 70, 110, 0.95);
+  border-color: rgba(100, 160, 220, 0.4);
+}
+
+.toggleIcon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* Emoji picker popup */
+.picker {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  padding: 8px;
+  background: rgba(10, 22, 40, 0.97);
+  border: 1px solid rgba(100, 160, 220, 0.25);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.6);
+  animation: popIn 0.15s ease-out;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.85) translateX(-8px); opacity: 0; }
+  to   { transform: scale(1) translateX(0);       opacity: 1; }
 }
 
 .emojiBtn {
-  background: rgba(100, 160, 220, 0.08);
-  border: 1px solid rgba(100, 160, 220, 0.15);
-  border-radius: 8px;
-  font-size: 1.35rem;
-  line-height: 1;
   width: 40px;
   height: 40px;
+  font-size: 1.4rem;
+  background: rgba(100, 160, 220, 0.07);
+  border: 1px solid rgba(100, 160, 220, 0.12);
+  border-radius: 9px;
   cursor: pointer;
-  transition: background 0.12s, transform 0.1s;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.12s, transform 0.1s;
 }
 
 .emojiBtn:hover {
-  background: rgba(100, 160, 220, 0.2);
-  transform: scale(1.15);
+  background: rgba(100, 160, 220, 0.22);
+  transform: scale(1.18);
 }
 
 .emojiBtn:active {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
