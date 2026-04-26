@@ -19,6 +19,8 @@ import {
   getWeekKey,
   UserQuestState,
 } from "../lib/quests";
+import { QUESTS_RU } from "../lib/questsRu";
+import { useSettings, TR } from "../lib/settings";
 import styles from "./QuestPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -29,6 +31,8 @@ interface QuestPanelProps {
 }
 
 export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps) {
+  const { lang } = useSettings();
+  const tr = TR[lang];
   const [expanded, setExpanded] = useState(false);
   const [quests, setQuests] = useState<UserQuestState[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,12 +174,12 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
         type="button"
       >
         <div className={styles.questHeaderLeft}>
-          <span className={styles.questLabel}>Weekly Quests</span>
+          <span className={styles.questLabel}>{tr.weekly_quests}</span>
           <span className={styles.questWeek}>{weekKey}</span>
         </div>
         <div className={styles.questHeaderRight}>
           {completedCount > 0 && (
-            <span className={styles.questBadge}>{completedCount} ready</span>
+            <span className={styles.questBadge}>{completedCount} {tr.quests_ready}</span>
           )}
           <span className={styles.questChevron}>{expanded ? "▾" : "▸"}</span>
         </div>
@@ -184,7 +188,7 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
       {expanded && (
         <div className={styles.questBody}>
           {loading ? (
-            <p className={styles.questLoadingText}>Loading quests...</p>
+            <p className={styles.questLoadingText}>{tr.quests_loading}</p>
           ) : (
             quests.map(q => {
               const { definition: def, progress, completed, claimed } = q;
@@ -201,8 +205,12 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
                 >
                   <div className={styles.questCardTop}>
                     <div className={styles.questCardInfo}>
-                      <span className={styles.questCardName}>{def.name}</span>
-                      <span className={styles.questCardDesc}>{def.desc}</span>
+                      <span className={styles.questCardName}>
+                        {lang === "ru" ? (QUESTS_RU[def.id]?.name ?? def.name) : def.name}
+                      </span>
+                      <span className={styles.questCardDesc}>
+                        {lang === "ru" ? (QUESTS_RU[def.id]?.desc ?? def.desc) : def.desc}
+                      </span>
                     </div>
                     <span className={styles.questCardReward}>
                       +{def.reward.toLocaleString()} pts
@@ -222,7 +230,7 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
                   </div>
 
                   {claimed ? (
-                    <span className={styles.questClaimedBadge}>Claimed ✓</span>
+                    <span className={styles.questClaimedBadge}>{tr.quest_claimed}</span>
                   ) : completed ? (
                     <button
                       className={styles.questClaimBtn}
@@ -232,10 +240,10 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
                       {isActive
                         ? claimPending
                           ? "Confirm in wallet..."
-                          : "Processing..."
+                          : tr.quest_processing
                         : paymasterSupported
-                          ? "Claim · FREE"
-                          : "Claim (1 tx)"}
+                          ? tr.quest_claim_free
+                          : tr.quest_claim_tx}
                     </button>
                   ) : null}
 
@@ -255,7 +263,7 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
 
           {!loading && quests.length > 0 && (
             <p className={styles.questFooter}>
-              {claimedCount}/{quests.length} claimed · resets next Monday
+              {claimedCount}/{quests.length} {tr.quest_footer}
             </p>
           )}
         </div>
