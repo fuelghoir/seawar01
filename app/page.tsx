@@ -48,6 +48,8 @@ import GameHistory from "./components/GameHistory";
 import { WalletName } from "./components/WalletName";
 import ReferralPanel from "./components/ReferralPanel";
 import PushPrompt from "./components/PushPrompt";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { useSettings, TR } from "./lib/settings";
 import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -105,6 +107,8 @@ export default function Home() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [refParam, setRefParam] = useState<string | null>(null);
+  const { lang } = useSettings();
+  const tr = TR[lang];
   const wagmiConfig = useConfig();
   const autoConnected = useRef(false);
 
@@ -822,13 +826,14 @@ export default function Home() {
   const displayName = context?.user?.displayName || "Captain";
 
   const modeSubtitle: Record<GameMode, string> = {
-    bot: "Play vs AI. Save result onchain after the match.",
-    friend: "Play with a friend. Each captain saves their own result.",
-    wager: "Bet USDC, winner takes 90%.",
+    bot: tr.subtitle_bot,
+    friend: tr.subtitle_friend,
+    wager: tr.subtitle_wager,
   };
 
   return (
     <div className={styles.container}>
+      <SettingsPanel />
       <div className={styles.content}>
         <div className={styles.header}>
           <h1 className={styles.title}>SEA BATTLE</h1>
@@ -842,9 +847,9 @@ export default function Home() {
           <div className={styles.modeGrid}>
             {(
               [
-                { id: "bot", label: "Bot", icon: "🤖", hint: "Solo vs AI captain" },
-                { id: "friend", label: "Friend", icon: "👥", hint: "PvP via invite ID" },
-                { id: "wager", label: "Wager", icon: "💰", hint: "USDC stakes" },
+                { id: "bot",    label: tr.mode_bot,    icon: "🤖", hint: tr.mode_bot_hint },
+                { id: "friend", label: tr.mode_friend, icon: "👥", hint: tr.mode_friend_hint },
+                { id: "wager",  label: tr.mode_wager,  icon: "💰", hint: tr.mode_wager_hint },
               ] as { id: GameMode; label: string; icon: string; hint: string }[]
             ).map((m) => (
               <button
@@ -869,7 +874,7 @@ export default function Home() {
               className={styles.primaryButton}
               onClick={() => connectors[0] && connect({ connector: connectors[0] })}
             >
-              Connect Wallet
+              {tr.connect}
             </button>
           </div>
         ) : (
@@ -909,14 +914,14 @@ export default function Home() {
                       ? "Confirming..."
                       : "Creating..."
                 : mode === "bot"
-                  ? "Play vs Bot"
-                  : "Create Game"}
+                  ? tr.play_bot
+                  : tr.create_game}
             </button>
 
             {mode !== "bot" && (
               <>
                 <label className={`${styles.privateToggle} ${isPrivate ? styles.toggleActive : ""}`}>
-                  <span>Private game (invite only)</span>
+                  <span>{tr.private_game}</span>
                   <input
                     type="checkbox"
                     checked={isPrivate}
@@ -926,14 +931,14 @@ export default function Home() {
                 </label>
 
                 <div className={styles.divider}>
-                  <span>or join by ID</span>
+                  <span>{tr.join_by_id}</span>
                 </div>
 
                 <div className={styles.joinSection}>
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder="Game ID"
+                    placeholder={tr.game_id}
                     value={joinGameId}
                     onChange={(e) => setJoinGameId(e.target.value)}
                     className={styles.input}
@@ -943,7 +948,7 @@ export default function Home() {
                     onClick={() => handleJoin()}
                     disabled={loading || !joinGameId || (mode === "wager" && CONTRACT_NOT_SET)}
                   >
-                    {loading && action === "join" ? "Joining..." : "Join"}
+                    {loading && action === "join" ? tr.joining : tr.join}
                   </button>
                 </div>
               </>
@@ -955,7 +960,7 @@ export default function Home() {
             {mode !== "bot" && offchainGames.length > 0 && (
               <div className={styles.gameList}>
                 <h3 className={styles.gameListTitle}>
-                  Open Games ({offchainGames.length})
+                  {tr.open_games} ({offchainGames.length})
                 </h3>
                 {offchainGames.map((g) => (
                   <div key={g.id} className={styles.gameItem}>
@@ -976,7 +981,7 @@ export default function Home() {
                       onClick={() => handleJoin(g.id.toString())}
                       disabled={loading}
                     >
-                      Join
+                      {tr.join}
                     </button>
                   </div>
                 ))}
@@ -984,20 +989,20 @@ export default function Home() {
             )}
 
             {mode !== "bot" && offchainGames.length === 0 && (
-              <p className={styles.noGames}>No open games. Create one!</p>
+              <p className={styles.noGames}>{tr.no_open_games}</p>
             )}
 
             {/* Unclaimed wager prizes */}
             {unclaimedWins.length > 0 && (
               <div className={styles.unclaimedSection}>
                 <h3 className={styles.unclaimedTitle}>
-                  Unclaimed Prizes ({unclaimedWins.length})
+                  {tr.unclaimed} ({unclaimedWins.length})
                 </h3>
                 {unclaimedWins.map((w) => {
                   const isActive = claimingId === w.id;
                   const amount = (w.wager_amount * 2 * 0.9) / 1_000_000;
                   const btnLabel = !isActive
-                    ? "Claim"
+                    ? tr.claim
                     : claimStep === "recording"
                       ? recordPending
                         ? "Confirm 1/2..."
@@ -1048,13 +1053,13 @@ export default function Home() {
             {refundableGames.length > 0 && (
               <div className={`${styles.unclaimedSection} ${styles.refundSection}`}>
                 <h3 className={`${styles.unclaimedTitle} ${styles.refundTitle}`}>
-                  Refundable Games ({refundableGames.length})
+                  {tr.refundable} ({refundableGames.length})
                 </h3>
                 {refundableGames.map((g) => {
                   const isActive = cancellingId === g.id;
                   const amount = g.wager_amount / 1_000_000;
                   const btnLabel = !isActive
-                    ? "Refund"
+                    ? tr.refund
                     : cancelPending
                       ? "Confirm in wallet..."
                       : "Refunding...";
@@ -1108,9 +1113,9 @@ export default function Home() {
                       ? "Confirming tx..."
                       : checkin.canCheckin
                         ? paymasterSupported
-                          ? `Daily Check-in (+${checkin.nextReward} pts) · FREE`
-                          : `Daily Check-in (+${checkin.nextReward} pts)`
-                        : `Checked in! Streak: ${checkin.streak}d`}
+                          ? `${tr.checkin_btn} (+${checkin.nextReward} pts) · ${tr.checkin_free}`
+                          : `${tr.checkin_btn} (+${checkin.nextReward} pts)`
+                        : `${tr.checkin_done} ${checkin.streak}d`}
                 </button>
                 {checkinMsg && <p className={styles.checkinMsg}>{checkinMsg}</p>}
               </div>
@@ -1135,7 +1140,7 @@ export default function Home() {
                   type="button"
                 >
                   <div className={styles.profileHeaderLeft}>
-                    <span className={styles.profileLabel}>Profile</span>
+                    <span className={styles.profileLabel}>{tr.profile}</span>
                     <span className={styles.profilePoints}>
                       {profile.points} pts
                     </span>
@@ -1152,32 +1157,32 @@ export default function Home() {
                         <span className={styles.profileValue}>
                           {profile.totalCheckins}
                         </span>
-                        <span className={styles.profileKey}>Check-ins</span>
+                        <span className={styles.profileKey}>{tr.checkins}</span>
                       </div>
                       <div className={styles.profileStat}>
                         <span className={styles.profileValue}>
                           {profile.totalWins}
                         </span>
-                        <span className={styles.profileKey}>Wins</span>
+                        <span className={styles.profileKey}>{tr.wins}</span>
                       </div>
                       <div className={styles.profileStat}>
                         <span className={styles.profileValue}>
                           {profile.totalShots}
                         </span>
-                        <span className={styles.profileKey}>Shots</span>
+                        <span className={styles.profileKey}>{tr.shots}</span>
                       </div>
                       <div className={styles.profileStat}>
                         <span className={styles.profileValue}>
                           {profile.checkinStreak}d
                         </span>
-                        <span className={styles.profileKey}>Streak</span>
+                        <span className={styles.profileKey}>{tr.streak}</span>
                       </div>
                     </div>
 
                     <div className={styles.profileOnchain}>
                       <div className={styles.profileOnchainRow}>
                         <span className={styles.profileOnchainLabel}>
-                          Onchain winrate
+                          {tr.onchain_winrate}
                         </span>
                         <span className={styles.profileOnchainValue}>
                           {profile.onchainGames > 0
@@ -1187,7 +1192,7 @@ export default function Home() {
                       </div>
                       <div className={styles.profileOnchainRow}>
                         <span className={styles.profileOnchainLabel}>
-                          Net P&amp;L (wager)
+                          {tr.net_pnl}
                         </span>
                         <span
                           className={
@@ -1218,7 +1223,7 @@ export default function Home() {
               className={styles.leaderboardBtn}
               onClick={() => router.push("/leaderboard")}
             >
-              Leaderboard
+              {tr.leaderboard}
             </button>
           </div>
         )}
@@ -1254,7 +1259,7 @@ export default function Home() {
             YouTube
           </a>
         </div>
-        <span className={styles.footerText}>Sea Battle on Base</span>
+        <span className={styles.footerText}>{tr.footer}</span>
       </footer>
     </div>
   );

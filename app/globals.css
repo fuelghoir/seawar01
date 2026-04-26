@@ -369,3 +369,174 @@ a {
     animation: none !important;
   }
 }
+
+/* ─── Midnight theme (purple) ─── */
+[data-theme="midnight"] {
+  --bg-abyss:      #050210;
+  --bg-deep:       #0a0520;
+  --bg-primary:    #100a2e;
+  --bg-secondary:  #1a1245;
+  --bg-elevated:   #1f1650;
+  --bg-panel:      rgba(16, 10, 46, 0.72);
+  --bg-panel-solid:#140c3a;
+  --accent:        #b47fff;
+  --accent-bright: #d4b0ff;
+  --accent-dark:   #8040cc;
+  --accent-dim:    rgba(180, 127, 255, 0.35);
+  --accent-glow:   rgba(180, 127, 255, 0.55);
+  --text-secondary:#a084d4;
+  --text-muted:    #6a4a9a;
+  --text-dim:      #3a2560;
+  --ship:          #5a4a8a;
+  --miss:          #1a1245;
+  --sea:           #0a0820;
+  --border:        #2e1a60;
+  --border-bright: #5a30a0;
+  --grid-line:         rgba(180, 127, 255, 0.08);
+  --grid-line-bright:  rgba(180, 127, 255, 0.18);
+  --shadow-accent:       0 0 18px rgba(180, 127, 255, 0.35);
+  --shadow-accent-strong:0 0 32px rgba(180, 127, 255, 0.55);
+}
+
+[data-theme="midnight"] body {
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(180, 127, 255, 0.12), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgba(120, 60, 220, 0.08), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(180, 127, 255, 0.06), transparent 55%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="midnight"] body::after {
+  background: linear-gradient(
+    180deg,
+    transparent 0%, transparent 48%,
+    rgba(180, 127, 255, 0.06) 50%,
+    transparent 52%, transparent 100%
+  );
+  background-size: 100% 300%;
+}
+
+[data-theme="midnight"] .aurora-blob--1 {
+  background: radial-gradient(circle at 50% 50%, rgba(180, 127, 255, 0.9) 0%, rgba(180, 127, 255, 0) 65%);
+}
+[data-theme="midnight"] .aurora-blob--2 {
+  background: radial-gradient(circle at 50% 50%, rgba(120, 60, 220, 0.8) 0%, rgba(120, 60, 220, 0) 65%);
+}
+[data-theme="midnight"] .aurora-blob--4 {
+  background: radial-gradient(circle at 50% 50%, rgba(200, 150, 255, 0.75) 0%, rgba(200, 150, 255, 0) 65%);
+}
+
+/* ─── Abyss theme (green) ─── */
+[data-theme="abyss"] {
+  --bg-abyss:      #020e08;
+  --bg-deep:       #051a0f;
+  --bg-primary:    #0a2818;
+  --bg-secondary:  #0f3a22;
+  --bg-elevated:   #13452a;
+  --bg-panel:      rgba(10, 40, 24, 0.72);
+  --bg-panel-solid:#0d3320;
+  --accent:        #00ff88;
+  --accent-bright: #4dffaa;
+  --accent-dark:   #00cc66;
+  --accent-dim:    rgba(0, 255, 136, 0.35);
+  --accent-glow:   rgba(0, 255, 136, 0.55);
+  --text-secondary:#6ab48a;
+  --text-muted:    #2a6a4a;
+  --text-dim:      #1a4030;
+  --ship:          #3a6a4a;
+  --miss:          #0a2818;
+  --sea:           #061810;
+  --border:        #1a4030;
+  --border-bright: #2a7050;
+  --grid-line:         rgba(0, 255, 136, 0.08);
+  --grid-line-bright:  rgba(0, 255, 136, 0.18);
+  --shadow-accent:       0 0 18px rgba(0, 255, 136, 0.35);
+  --shadow-accent-strong:0 0 32px rgba(0, 255, 136, 0.55);
+}
+
+[data-theme="abyss"] body {
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(0, 255, 136, 0.10), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgba(0, 200, 100, 0.07), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(0, 255, 136, 0.05), transparent 55%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="abyss"] body::after {
+  background: linear-gradient(
+    180deg,
+    transparent 0%, transparent 48%,
+    rgba(0, 255, 136, 0.05) 50%,
+    transparent 52%, transparent 100%
+  );
+  background-size: 100% 300%;
+}
+
+[data-theme="abyss"] .aurora-blob--1 {
+  background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.85) 0%, rgba(0, 255, 136, 0) 65%);
+}
+[data-theme="abyss"] .aurora-blob--2 {
+  background: radial-gradient(circle at 50% 50%, rgba(77, 255, 170, 0.75) 0%, rgba(77, 255, 170, 0) 65%);
+}
+[data-theme="abyss"] .aurora-blob--4 {
+  background: radial-gradient(circle at 50% 50%, rgba(0, 200, 100, 0.80) 0%, rgba(0, 200, 100, 0) 65%);
+}
+
+/* ─── Inferno theme (orange/red) ─── */
+[data-theme="inferno"] {
+  --bg-abyss:      #0e0200;
+  --bg-deep:       #1a0500;
+  --bg-primary:    #280a00;
+  --bg-secondary:  #3d0f00;
+  --bg-elevated:   #4d1300;
+  --bg-panel:      rgba(40, 10, 0, 0.72);
+  --bg-panel-solid:#350c00;
+  --accent:        #ff6600;
+  --accent-bright: #ff9944;
+  --accent-dark:   #cc4400;
+  --accent-dim:    rgba(255, 102, 0, 0.35);
+  --accent-glow:   rgba(255, 102, 0, 0.55);
+  --text-secondary:#d48060;
+  --text-muted:    #8a4a2a;
+  --text-dim:      #4a2010;
+  --ship:          #6a3a1a;
+  --miss:          #280a00;
+  --sea:           #180600;
+  --border:        #4a2010;
+  --border-bright: #8a3a10;
+  --grid-line:         rgba(255, 102, 0, 0.08);
+  --grid-line-bright:  rgba(255, 102, 0, 0.18);
+  --shadow-accent:       0 0 18px rgba(255, 102, 0, 0.35);
+  --shadow-accent-strong:0 0 32px rgba(255, 102, 0, 0.55);
+}
+
+[data-theme="inferno"] body {
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(255, 102, 0, 0.12), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgba(255, 50, 0, 0.08), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(255, 102, 0, 0.06), transparent 55%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="inferno"] body::after {
+  background: linear-gradient(
+    180deg,
+    transparent 0%, transparent 48%,
+    rgba(255, 102, 0, 0.06) 50%,
+    transparent 52%, transparent 100%
+  );
+  background-size: 100% 300%;
+}
+
+[data-theme="inferno"] .aurora-blob--1 {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 102, 0, 0.90) 0%, rgba(255, 102, 0, 0) 65%);
+}
+[data-theme="inferno"] .aurora-blob--2 {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 50, 0, 0.80) 0%, rgba(255, 50, 0, 0) 65%);
+}
+[data-theme="inferno"] .aurora-blob--4 {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 150, 0, 0.80) 0%, rgba(255, 150, 0, 0) 65%);
+}
