@@ -81,6 +81,20 @@
   color: #ffb83a;
 }
 
+.linkGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.linkLabel {
+  font-size: 0.68rem;
+  color: rgba(255, 184, 58, 0.55);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-left: 2px;
+}
+
 .linkRow {
   display: flex;
   align-items: center;

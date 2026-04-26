@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { recordReferral, getReferralStats, getReferralLink } from "../lib/referrals";
+import { recordReferral, getReferralStats, getReferralLink, getBaseAppReferralLink } from "../lib/referrals";
 import styles from "./ReferralPanel.module.css";
 
 interface Props {
@@ -13,12 +13,15 @@ export default function ReferralPanel({ address, refParam }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [count, setCount] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"direct" | "base" | null>(null);
   const [link, setLink] = useState("");
+  const [baseLink, setBaseLink] = useState("");
 
-  // Build referral link client-side (needs window.location)
   useEffect(() => {
-    if (address) setLink(getReferralLink(address));
+    if (address) {
+      setLink(getReferralLink(address));
+      setBaseLink(getBaseAppReferralLink(address));
+    }
   }, [address]);
 
   // Record referral if ?ref= param was present in URL
@@ -41,12 +44,12 @@ export default function ReferralPanel({ address, refParam }: Props) {
     if (expanded) loadStats();
   }, [expanded, loadStats]);
 
-  const handleCopy = async () => {
-    if (!link) return;
+  const handleCopy = async (text: string, type: "direct" | "base") => {
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(text);
+      setCopied(type);
+      setTimeout(() => setCopied(null), 2000);
     } catch { /* ignore */ }
   };
 
@@ -71,11 +74,30 @@ export default function ReferralPanel({ address, refParam }: Props) {
             которые он зарабатывает в играх навсегда.
           </p>
 
-          <div className={styles.linkRow}>
-            <span className={styles.linkText}>{link || "…"}</span>
-            <button className={styles.copyBtn} onClick={handleCopy} disabled={!link}>
-              {copied ? "Скопировано!" : "Копировать"}
-            </button>
+          <div className={styles.linkGroup}>
+            <span className={styles.linkLabel}>Base App</span>
+            <div className={styles.linkRow}>
+              <span className={styles.linkText}>{baseLink || "…"}</span>
+              <button
+                className={styles.copyBtn}
+                onClick={() => handleCopy(baseLink, "base")}
+                disabled={!baseLink}
+              >
+                {copied === "base" ? "Скопировано!" : "Копировать"}
+              </button>
+            </div>
+
+            <span className={styles.linkLabel}>Прямая ссылка</span>
+            <div className={styles.linkRow}>
+              <span className={styles.linkText}>{link || "…"}</span>
+              <button
+                className={styles.copyBtn}
+                onClick={() => handleCopy(link, "direct")}
+                disabled={!link}
+              >
+                {copied === "direct" ? "Скопировано!" : "Копировать"}
+              </button>
+            </div>
           </div>
 
           {count > 0 && (

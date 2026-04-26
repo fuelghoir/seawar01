@@ -45,3 +45,7 @@ export function getReferralLink(wallet: string): string {
   if (typeof window === "undefined") return "";
   return `${window.location.origin}?ref=${wallet.toLowerCase()}`;
 }
+
+export function getBaseAppReferralLink(wallet: string): string {
+  return `https://base.app/app/seawar01.vercel.app?ref=${wallet.toLowerCase()}`;
+}
