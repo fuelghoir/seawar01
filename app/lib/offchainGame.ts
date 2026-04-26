@@ -516,6 +516,31 @@ export async function addPoints(
       ...(hits > 0 ? { total_hits: hits } : {}),
     });
   }
+
+  // Award 10% of points to referrer (fire-and-forget, doesn't block game flow)
+  if (points > 0) {
+    const share = Math.floor(points * 0.1);
+    if (share > 0) {
+      Promise.resolve(
+        supabase.from("referrals").select("referrer").eq("referee", addr).single()
+      ).then(({ data: ref }) => {
+        if (!ref?.referrer) return;
+        const referrer = ref.referrer as string;
+        return Promise.resolve(
+          supabase.from("player_stats").select("points").eq("wallet", referrer).single()
+        ).then(({ data: rs }) => {
+          if (rs) {
+            return supabase.from("player_stats").update({
+              points: rs.points + share,
+              updated_at: new Date().toISOString(),
+            }).eq("wallet", referrer);
+          } else {
+            return supabase.from("player_stats").insert({ wallet: referrer, points: share });
+          }
+        });
+      }).catch(() => {});
+    }
+  }
 }
 
 /** Record win/loss stats only (points are added separately via addPoints). */
@@ -529,6 +554,8 @@ export async function recordGameResult(
     .select("*")
     .eq("wallet", addr)
     .single();
+
+  const isFirstGame = !existing || existing.games_played === 0;
 
   if (existing) {
     await supabase
@@ -545,6 +572,28 @@ export async function recordGameResult(
       games_played: 1,
       wins: won ? 1 : 0,
     });
+  }
+
+  // On first game ever: award 1000 pts referral bonus to whoever invited this player
+  if (isFirstGame) {
+    Promise.resolve(
+      supabase.from("referrals").select("referrer").eq("referee", addr).single()
+    ).then(({ data: ref }) => {
+      if (!ref?.referrer) return;
+      const referrer = ref.referrer as string;
+      return Promise.resolve(
+        supabase.from("player_stats").select("points").eq("wallet", referrer).single()
+      ).then(({ data: rs }) => {
+        if (rs) {
+          return supabase.from("player_stats").update({
+            points: rs.points + 1000,
+            updated_at: new Date().toISOString(),
+          }).eq("wallet", referrer);
+        } else {
+          return supabase.from("player_stats").insert({ wallet: referrer, points: 1000 });
+        }
+      });
+    }).catch(() => {});
   }
 }
 
@@ -829,4 +878,35 @@ export async function getPlayerProfile(
     onchainWinRate,
     earningsUsdc,
   };
+}
+
+// ─── Game History ───
+
+export interface GameHistoryEntry {
+  id: number;
+  opponent: string | null;
+  result: "win" | "loss";
+  mode: string;
+  wager: number;
+  date: string;
+}
+
+export async function getPlayerGameHistory(wallet: string): Promise<GameHistoryEntry[]> {
+  const addr = wallet.toLowerCase();
+  const { data } = await supabase
+    .from("games")
+    .select("id, player1, player2, winner, game_mode, wager_amount, created_at")
+    .or(`player1.eq.${addr},player2.eq.${addr}`)
+    .eq("state", 3)
+    .order("id", { ascending: false })
+    .limit(10);
+
+  return (data || []).map(g => ({
+    id: g.id,
+    opponent: g.player1 === addr ? g.player2 : g.player1,
+    result: (g.winner === addr ? "win" : "loss") as "win" | "loss",
+    mode: g.game_mode || "friend",
+    wager: g.wager_amount || 0,
+    date: g.created_at,
+  }));
 }

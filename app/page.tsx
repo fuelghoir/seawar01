@@ -44,6 +44,9 @@ import {
   PlayerProfile,
 } from "./lib/offchainGame";
 import QuestPanel from "./components/QuestPanel";
+import GameHistory from "./components/GameHistory";
+import ReferralPanel from "./components/ReferralPanel";
+import PushPrompt from "./components/PushPrompt";
 import styles from "./page.module.css";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -100,6 +103,7 @@ export default function Home() {
   const [cancelErr, setCancelErr] = useState("");
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [refParam, setRefParam] = useState<string | null>(null);
   const wagmiConfig = useConfig();
   const autoConnected = useRef(false);
 
@@ -159,6 +163,17 @@ export default function Home() {
   const { isSuccess: cancelConfirmed } = useWaitForTransactionReceipt({
     hash: cancelTxHash,
   });
+
+  // Capture ?ref= param + register service worker
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setRefParam(ref);
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   // Auto-connect
   useEffect(() => {
@@ -1102,6 +1117,9 @@ export default function Home() {
               </div>
             )}
 
+            {/* Push notification opt-in */}
+            {address && <PushPrompt address={address} />}
+
             {/* Weekly Quests */}
             {address && (
               <QuestPanel
@@ -1187,6 +1205,14 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Game History */}
+            {address && <GameHistory address={address} />}
+
+            {/* Referral Panel */}
+            {address && (
+              <ReferralPanel address={address} refParam={refParam} />
             )}
 
             <button

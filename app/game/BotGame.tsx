@@ -401,21 +401,35 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   if (phase === "finished") {
     const didWin = winner === "me";
 
+    // Revealed bot board: if player won, all ships are sunk; otherwise show partial state
     const revealedBotBoard: CellState[][] = Array.from({ length: 10 }, () =>
       Array(10).fill("empty" as CellState)
     );
     if (botBoard.length > 0) {
+      if (didWin) {
+        for (let y = 0; y < 10; y++)
+          for (let x = 0; x < 10; x++)
+            if (botBoard[y * 10 + x] === 1) revealedBotBoard[y][x] = "sunk";
+        myShotsMap.forEach((isHit, idx) => {
+          if (!isHit) revealedBotBoard[Math.floor(idx / 10)][idx % 10] = "miss";
+        });
+      } else {
+        for (let y = 0; y < 10; y++)
+          for (let x = 0; x < 10; x++)
+            if (botBoard[y * 10 + x] === 1) revealedBotBoard[y][x] = "ship";
+        myShotsMap.forEach((isHit, idx) => {
+          const x = idx % 10, y = Math.floor(idx / 10);
+          revealedBotBoard[y][x] = isHit ? (sunkCellSet.has(idx) ? "sunk" : "hit") : "miss";
+        });
+      }
+    }
+
+    // Player's final board: if bot won, all player ships are sunk
+    const myBoardFinal: CellState[][] = myBoardCells.map(row => [...row]);
+    if (!didWin && myBoard.length > 0) {
       for (let y = 0; y < 10; y++)
         for (let x = 0; x < 10; x++)
-          if (botBoard[y * 10 + x] === 1) revealedBotBoard[y][x] = "ship";
-
-      myShotsMap.forEach((isHit, idx) => {
-        const x = idx % 10;
-        const y = Math.floor(idx / 10);
-        revealedBotBoard[y][x] = isHit
-          ? sunkCellSet.has(idx) ? "sunk" : "hit"
-          : "miss";
-      });
+          if (myBoard[y * 10 + x] === 1) myBoardFinal[y][x] = "sunk";
     }
 
     return (
@@ -433,7 +447,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
               <span>Bot: {botHits}/20</span>
             </div>
             <div className={styles.resultBoards}>
-              <Board cells={myBoardCells} isInteractive={false} label="Your Board" />
+              <Board cells={myBoardFinal} isInteractive={false} label="Your Board" />
               <Board cells={revealedBotBoard} isInteractive={false} label="Bot Fleet (revealed)" />
             </div>
             <div className={styles.resultActions}>

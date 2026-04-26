@@ -529,8 +529,7 @@ export function OffchainGameContent({
 
       try {
         await shootBombOffchain(gameIdNum, address, cx, cy);
-        await loadGame();
-        await loadShots();
+        Promise.all([loadGame(), loadShots()]).catch(() => {});
       } catch {
         bombFiringRef.current = false;
         bombQueueRef.current = [];
@@ -540,13 +539,20 @@ export function OffchainGameContent({
       return;
     }
 
-    try {
-      await shootOffchain(gameIdNum, address, selectedCell.x, selectedCell.y);
-      setSelectedCell(null);
-      await loadGame();
-      await loadShots();
-    } catch { /* ignore */ }
+    const { x, y } = selectedCell;
+    // Optimistic: show shot immediately without waiting for server
+    setMyShots(prev => [...prev, { x, y, is_hit: null }]);
+    setSelectedCell(null);
     setLoading(false);
+
+    try {
+      await shootOffchain(gameIdNum, address, x, y);
+      // Reload game + shots in parallel (not sequential)
+      Promise.all([loadGame(), loadShots()]).catch(() => {});
+    } catch {
+      // Revert optimistic shot on error
+      setMyShots(prev => prev.filter(s => !(s.x === x && s.y === y)));
+    }
   };
 
   // ── Build board cells with sunk detection ──
@@ -606,7 +612,13 @@ export function OffchainGameContent({
   }
 
   for (const s of myShots) {
-    if (s.is_hit === null) continue;
+    if (s.is_hit === null) {
+      // Shot fired but opponent hasn't reported yet — show as pending
+      if (enemyBoardCells[s.y][s.x] === "empty") {
+        enemyBoardCells[s.y][s.x] = "pending";
+      }
+      continue;
+    }
     if (s.is_hit) {
       enemyBoardCells[s.y][s.x] = sunkCellSet.has(`${s.x},${s.y}`) ? "sunk" : "hit";
     } else {
@@ -627,6 +639,8 @@ export function OffchainGameContent({
 
   const handleEnemyCellClick = (x: number, y: number) => {
     if (!isMyTurn || game.turn_phase !== 0) return;
+    // Block already-fired cells (including optimistic pending shots)
+    if (myShots.some(s => s.x === x && s.y === y)) return;
     if (enemyBoardCells[y][x] !== "empty" && enemyBoardCells[y][x] !== "pending") return;
     setSelectedCell({ x, y });
   };
@@ -700,10 +714,10 @@ export function OffchainGameContent({
             if (opponentBoard[y * 10 + x] === 1) fullEnemyBoard[y][x] = "ship";
           }
         }
-        // Overlay my shots (hits/misses) on top
+        // Overlay my shots (hits/misses) on top; game over = all hits are sunk
         for (const s of myShots) {
           if (s.is_hit === null) continue;
-          fullEnemyBoard[s.y][s.x] = s.is_hit ? "hit" : "miss";
+          fullEnemyBoard[s.y][s.x] = s.is_hit ? (didWin ? "sunk" : "hit") : "miss";
         }
       } catch { /* fall through to shot-only view */ }
     }
@@ -720,7 +734,7 @@ export function OffchainGameContent({
       }
       for (const s of oppShots) {
         if (s.is_hit === null) continue;
-        fullMyBoard[s.y][s.x] = s.is_hit ? "hit" : "miss";
+        fullMyBoard[s.y][s.x] = s.is_hit ? (!didWin ? "sunk" : "hit") : "miss";
       }
     }
 

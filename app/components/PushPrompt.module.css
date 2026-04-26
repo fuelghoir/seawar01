@@ -1,0 +1,52 @@
+.prompt {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(10, 22, 40, 0.7);
+  border: 1px solid rgba(100, 160, 220, 0.15);
+  gap: 10px;
+}
+
+.text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: rgba(138, 180, 212, 0.75);
+}
+
+.icon {
+  font-size: 1rem;
+}
+
+.btn {
+  flex-shrink: 0;
+  background: rgba(100, 160, 220, 0.15);
+  border: 1px solid rgba(100, 160, 220, 0.3);
+  color: #8ab4d4;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(100, 160, 220, 0.25);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btnDenied {
+  border-color: rgba(200, 80, 80, 0.3);
+  color: rgba(220, 100, 100, 0.7);
+  background: rgba(200, 60, 60, 0.08);
+}

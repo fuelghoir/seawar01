@@ -1,0 +1,139 @@
+.section {
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(10, 22, 40, 0.7);
+  border: 1px solid rgba(100, 160, 220, 0.15);
+  overflow: hidden;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.header:hover {
+  background: rgba(100, 160, 220, 0.05);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #8ab4d4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.summary {
+  font-size: 0.75rem;
+  color: rgba(138, 180, 212, 0.6);
+}
+
+.chevron {
+  font-size: 0.9rem;
+  color: #8ab4d4;
+}
+
+.body {
+  border-top: 1px solid rgba(100, 160, 220, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.loading,
+.empty {
+  text-align: center;
+  color: rgba(138, 180, 212, 0.5);
+  font-size: 0.8rem;
+  padding: 12px 0;
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+.rowWin {
+  background: rgba(0, 180, 120, 0.07);
+  border-color: rgba(0, 180, 120, 0.15);
+}
+
+.rowLoss {
+  background: rgba(200, 40, 40, 0.07);
+  border-color: rgba(200, 40, 40, 0.12);
+}
+
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badgeWin {
+  background: rgba(0, 200, 120, 0.2);
+  color: #00e090;
+}
+
+.badgeLoss {
+  background: rgba(220, 50, 50, 0.2);
+  color: #ff6060;
+}
+
+.mode {
+  font-size: 0.75rem;
+  color: rgba(138, 180, 212, 0.7);
+}
+
+.wager {
+  font-size: 0.72rem;
+  color: #ffd97a;
+  background: rgba(255, 200, 60, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.rowRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.opponent {
+  font-size: 0.78rem;
+  color: #8ab4d4;
+  font-family: monospace;
+}
+
+.date {
+  font-size: 0.68rem;
+  color: rgba(138, 180, 212, 0.45);
+}

@@ -66,10 +66,10 @@ export const QUEST_POOL: QuestDefinition[] = [
 
   // ─── Total Check-ins ───
   { id: 37, name: "Daily Habit",       desc: "Check in 5 times",       metric: "total_checkins", goal: 5,   reward: 300   },
-  { id: 38, name: "Regular",           desc: "Check in 15 times",      metric: "total_checkins", goal: 15,  reward: 800   },
-  { id: 39, name: "Devoted",           desc: "Check in 30 times",      metric: "total_checkins", goal: 30,  reward: 1600  },
-  { id: 40, name: "Check-in Champ",    desc: "Check in 50 times",      metric: "total_checkins", goal: 50,  reward: 2500  },
-  { id: 41, name: "Obsessed",          desc: "Check in 100 times",     metric: "total_checkins", goal: 100, reward: 5000  },
+  { id: 38, name: "Fire at Will",       desc: "Land 40 hits",           metric: "total_hits",     goal: 40,  reward: 800   },
+  { id: 39, name: "Grinder",           desc: "Play 20 games",          metric: "total_games",    goal: 20,  reward: 1600  },
+  { id: 40, name: "Battlemaster",      desc: "Win 8 games",            metric: "total_wins",     goal: 8,   reward: 2500  },
+  { id: 41, name: "All-In",            desc: "Play 3 wager games",     metric: "wager_games",    goal: 3,   reward: 5000  },
 
   // ─── Wager Wins ───
   { id: 42, name: "Risk Taker",        desc: "Win 1 wager game",       metric: "wager_wins",     goal: 1,   reward: 600   },
