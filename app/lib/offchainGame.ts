@@ -709,19 +709,6 @@ export async function recordGameResult(
 
 // ─── Daily check-in ───
 
-// Wallets allowed to check in unlimited times.
-// Each check-in awards +5 points and increments total_checkins,
-// but does not update streak or last_checkin (so button stays active).
-const UNLIMITED_CHECKIN_WALLETS = new Set([
-  "0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
-  "0x070441c0f583752ec53efb18903ecef0a53b65d0",
-  "0x24e6d7eca78f48cf61565d585d80f5a940aded56",
-]);
-
-function isUnlimitedCheckinWallet(addr: string): boolean {
-  return UNLIMITED_CHECKIN_WALLETS.has(addr.toLowerCase());
-}
-
 export interface CheckinStatus {
   canCheckin: boolean;
   streak: number;
@@ -751,14 +738,6 @@ export async function getCheckinStatus(
     .select("checkin_streak, last_checkin")
     .eq("wallet", addr)
     .single();
-
-  if (isUnlimitedCheckinWallet(addr)) {
-    return {
-      canCheckin: true,
-      streak: data?.checkin_streak ?? 0,
-      nextReward: 5,
-    };
-  }
 
   if (!data) {
     return { canCheckin: true, streak: 0, nextReward: 5 };
@@ -808,46 +787,6 @@ export async function dailyCheckin(
     .select("*")
     .eq("wallet", addr)
     .single();
-
-  if (isUnlimitedCheckinWallet(addr)) {
-    // Whitelisted: unlimited clicks/day. +5 points and +1 total_checkins
-    // every click. Streak behaves normally — +1 once per UTC day on the
-    // first click of that day, reset to 1 if yesterday was skipped.
-    if (existing) {
-      const prevStreak = existing.checkin_streak ?? 0;
-      let nextStreak: number;
-      let nextLastCheckin: string;
-      if (existing.last_checkin === today) {
-        nextStreak = prevStreak;
-        nextLastCheckin = existing.last_checkin;
-      } else if (existing.last_checkin === yesterday) {
-        nextStreak = prevStreak + 1;
-        nextLastCheckin = today;
-      } else {
-        nextStreak = 1;
-        nextLastCheckin = today;
-      }
-      await supabase
-        .from("player_stats")
-        .update({
-          points: existing.points + 5,
-          total_checkins: (existing.total_checkins ?? 0) + 1,
-          checkin_streak: nextStreak,
-          last_checkin: nextLastCheckin,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("wallet", addr);
-      return { points: 5, streak: nextStreak };
-    }
-    await supabase.from("player_stats").insert({
-      wallet: addr,
-      points: 5,
-      total_checkins: 1,
-      checkin_streak: 1,
-      last_checkin: today,
-    });
-    return { points: 5, streak: 1 };
-  }
 
   let newStreak: number;
 
