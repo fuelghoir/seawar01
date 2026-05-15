@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sea Battle Promo Screenshot</title>
+  <style>
+    :root {
+      --cyan: #00d4ff;
+      --mint: #4dffd4;
+      --blue: #3b82f6;
+      --gold: #fbbf24;
+      --purple: #a855f7;
+      --red: #ff4d6d;
+      --bg: #020814;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 1284px;
+      height: 2778px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: #eaf4ff;
+      font-family: "Arial Black", Impact, system-ui, sans-serif;
+    }
+
+    body {
+      position: relative;
+    }
+
+    .shot {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.98;
+    }
+
+    .topShade,
+    .bottomShade,
+    .sideGlow,
+    .grid {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .topShade {
+      background:
+        radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 42%),
+        linear-gradient(180deg, rgba(2, 8, 20, 0.98) 0%, rgba(2, 8, 20, 0.88) 17%, rgba(2, 8, 20, 0.18) 42%, transparent 62%);
+    }
+
+    .bottomShade {
+      background:
+        linear-gradient(0deg, rgba(2, 8, 20, 0.92) 0%, rgba(2, 8, 20, 0.55) 13%, transparent 34%);
+    }
+
+    .sideGlow {
+      background:
+        radial-gradient(circle at 0% 28%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 34%),
+        radial-gradient(circle at 100% 78%, rgba(77, 255, 212, 0.14), transparent 38%);
+      mix-blend-mode: screen;
+    }
+
+    .grid {
+      opacity: 0.22;
+      background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 58%);
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 58%);
+    }
+
+    .copy {
+      position: absolute;
+      top: 96px;
+      left: 72px;
+      right: 72px;
+      z-index: 3;
+      text-align: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 24px;
+      border: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
+      border-radius: 999px;
+      color: var(--accent);
+      background: rgba(2, 8, 20, 0.58);
+      font-size: 23px;
+      font-weight: 900;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 42px 0 0;
+      color: #ffffff;
+      font-size: 98px;
+      font-weight: 950;
+      line-height: 0.96;
+      letter-spacing: 0.045em;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 32px color-mix(in srgb, var(--accent) 58%, transparent),
+        0 12px 42px rgba(0, 0, 0, 0.75);
+    }
+
+    .accent {
+      display: block;
+      margin-top: 4px;
+      color: var(--accent);
+      text-shadow:
+        0 0 34px color-mix(in srgb, var(--accent) 74%, transparent),
+        0 12px 42px rgba(0, 0, 0, 0.75);
+    }
+
+    .subtitle {
+      width: min(920px, 100%);
+      margin: 34px auto 0;
+      color: rgba(234, 244, 255, 0.84);
+      font-family: Arial, system-ui, sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+      line-height: 1.22;
+      text-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    }
+
+    .badgeRow {
+      position: absolute;
+      left: 72px;
+      right: 72px;
+      bottom: 126px;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .badge {
+      min-height: 82px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid color-mix(in srgb, var(--accent) 36%, transparent);
+      border-radius: 18px;
+      color: rgba(234, 244, 255, 0.9);
+      background: rgba(2, 8, 20, 0.7);
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
+    .brand {
+      position: absolute;
+      left: 72px;
+      right: 72px;
+      bottom: 42px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: rgba(234, 244, 255, 0.72);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .anchor {
+      width: 42px;
+      height: 42px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 12px;
+      color: #020814;
+      background: linear-gradient(135deg, var(--accent), var(--mint));
+      font-family: Arial, sans-serif;
+      font-size: 28px;
+      line-height: 1;
+      box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 48%, transparent);
+    }
+
+    .slide-1 { --accent: var(--cyan); }
+    .slide-2 { --accent: var(--mint); }
+    .slide-3 { --accent: var(--purple); }
+    .slide-4 { --accent: var(--gold); }
+
+    .slide-2 .copy {
+      top: 86px;
+    }
+
+    .slide-2 h1 {
+      font-size: 86px;
+    }
+
+    .slide-3 .topShade {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.38), transparent 44%),
+        linear-gradient(180deg, rgba(2, 8, 20, 0.98) 0%, rgba(2, 8, 20, 0.86) 20%, rgba(2, 8, 20, 0.2) 45%, transparent 68%);
+    }
+
+    .slide-4 .copy {
+      top: 88px;
+    }
+
+    .slide-4 h1 {
+      font-size: 90px;
+    }
+  </style>
+</head>
+<body>
+  <img class="shot" alt="" />
+  <div class="topShade"></div>
+  <div class="bottomShade"></div>
+  <div class="sideGlow"></div>
+  <div class="grid"></div>
+
+  <main class="copy">
+    <div class="eyebrow">Sea Battle on Base</div>
+    <h1></h1>
+    <p class="subtitle"></p>
+  </main>
+
+  <section class="badgeRow"></section>
+  <footer class="brand"><span class="anchor">⚓</span> Sea Battle</footer>
+
+  <script>
+    const slides = {
+      "1": {
+        className: "slide-1",
+        image: "raw/home.png",
+        title: "Command<br><span class='accent'>Your Fleet</span>",
+        subtitle: "Launch fast naval battles from a sharp mobile command deck.",
+        badges: ["Mobile", "Onchain", "PvP"]
+      },
+      "2": {
+        className: "slide-2",
+        image: "raw/bot.png",
+        title: "Place Ships.<br><span class='accent'>Strike First.</span>",
+        subtitle: "Train versus AI, plan your grid, and sink every target.",
+        badges: ["AI Bot", "Strategy", "Rewards"]
+      },
+      "3": {
+        className: "slide-3",
+        image: "raw/wager.png",
+        title: "Play<br><span class='accent'>For USDC</span>",
+        subtitle: "Lock a stake on Base and battle for the prize pool.",
+        badges: ["USDC", "Base", "90% Prize"]
+      },
+      "4": {
+        className: "slide-4",
+        image: "raw/leaderboard.png",
+        title: "Climb<br><span class='accent'>The Ranks</span>",
+        subtitle: "Earn points, build streaks, and chase the top captains.",
+        badges: ["Points", "Streaks", "Leaderboard"]
+      }
+    };
+
+    const slide = slides[new URLSearchParams(location.search).get("slide") || "1"];
+    document.body.className = slide.className;
+    document.querySelector(".shot").src = slide.image;
+    document.querySelector("h1").innerHTML = slide.title;
+    document.querySelector(".subtitle").textContent = slide.subtitle;
+    document.querySelector(".badgeRow").innerHTML = slide.badges
+      .map((badge) => `<div class="badge">${badge}</div>`)
+      .join("");
+  </script>
+</body>
+</html>

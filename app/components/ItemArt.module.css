@@ -1,0 +1,441 @@
+.itemArt {
+  --item-accent: var(--accent, #00dcb4);
+  --item-accent-2: var(--accent-2, #66e9ff);
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--item-accent) 44%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--item-accent) 16%, transparent), transparent 56%),
+    rgba(0, 0, 0, 0.34);
+  box-shadow:
+    inset 0 0 18px color-mix(in srgb, var(--item-accent) 12%, transparent),
+    0 0 16px color-mix(in srgb, var(--item-accent) 14%, transparent);
+  color: var(--item-accent);
+  isolation: isolate;
+}
+
+.tiny {
+  width: 26px;
+  height: 26px;
+}
+
+.small {
+  width: 38px;
+  height: 38px;
+}
+
+.medium {
+  width: 52px;
+  height: 52px;
+}
+
+.large {
+  width: 78px;
+  height: 78px;
+}
+
+.showcase {
+  width: 96px;
+  height: 96px;
+}
+
+.hero {
+  width: 172px;
+  height: 172px;
+}
+
+.itemGlow {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--item-accent) 28%, transparent), transparent 68%);
+  filter: blur(7px);
+  z-index: 0;
+}
+
+.bomb_3x3 {
+  --item-accent: #ffbf3d;
+  --item-accent-2: #ff5a3d;
+}
+
+.double_points_1h {
+  --item-accent: #ffc850;
+  --item-accent-2: #ffe9a6;
+}
+
+.quest_reroll {
+  --item-accent: #00dcb4;
+  --item-accent-2: #66e9ff;
+}
+
+.streak_freeze {
+  --item-accent: #7dd3fc;
+  --item-accent-2: #c4f1ff;
+}
+
+.radar_scan {
+  --item-accent: #4ade80;
+  --item-accent-2: #bbf7d0;
+}
+
+.torpedo {
+  --item-accent: #fb7185;
+  --item-accent-2: #ffd0d8;
+}
+
+.points {
+  --item-accent: #ffd65a;
+  --item-accent-2: #00dcb4;
+}
+
+.bombGrid {
+  position: relative;
+  z-index: 1;
+  width: 56%;
+  height: 56%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.bombGrid span {
+  border: 1px solid color-mix(in srgb, var(--item-accent) 68%, transparent);
+  background: color-mix(in srgb, var(--item-accent) 12%, transparent);
+}
+
+.bombGrid .bombCore {
+  background: var(--item-accent);
+  box-shadow: 0 0 12px var(--item-accent-2);
+}
+
+.bombSpark {
+  position: absolute;
+  z-index: 2;
+  width: 36%;
+  height: 2px;
+  background: var(--item-accent-2);
+  box-shadow: 0 0 9px var(--item-accent-2);
+  transform: rotate(-35deg);
+}
+
+.coinBack,
+.coinFront {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.coinBack {
+  width: 46%;
+  height: 46%;
+  left: 20%;
+  top: 23%;
+  border: 2px solid color-mix(in srgb, var(--item-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--item-accent) 12%, transparent);
+}
+
+.coinFront {
+  z-index: 1;
+  right: 17%;
+  bottom: 18%;
+  width: 48%;
+  height: 48%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--item-accent);
+  background: color-mix(in srgb, var(--item-accent) 20%, #050d14 80%);
+  color: var(--item-accent-2);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 27%;
+  font-weight: 900;
+}
+
+.rerollSvg {
+  position: absolute;
+  z-index: 1;
+  width: 72%;
+  height: 72%;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+.rerollPath {
+  fill: none;
+  stroke: var(--item-accent-2);
+  stroke-width: 2.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--item-accent-2) 46%, transparent));
+}
+
+.freezeShield {
+  position: absolute;
+  width: 52%;
+  height: 62%;
+  border: 2px solid var(--item-accent);
+  border-radius: 44% 44% 50% 50%;
+  background: color-mix(in srgb, var(--item-accent) 12%, transparent);
+  clip-path: polygon(50% 0, 88% 16%, 78% 74%, 50% 100%, 22% 74%, 12% 16%);
+}
+
+.freezeCutA,
+.freezeCutB,
+.freezeCutC {
+  position: absolute;
+  z-index: 1;
+  width: 38%;
+  height: 2px;
+  background: var(--item-accent-2);
+  box-shadow: 0 0 8px var(--item-accent-2);
+}
+
+.freezeCutA {
+  transform: rotate(90deg);
+}
+
+.freezeCutB {
+  transform: rotate(30deg);
+}
+
+.freezeCutC {
+  transform: rotate(-30deg);
+}
+
+.freezeSvg {
+  position: absolute;
+  z-index: 1;
+  width: 70%;
+  height: 70%;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+.freezeShieldPath {
+  fill: color-mix(in srgb, var(--item-accent) 13%, #06121d 87%);
+  stroke: var(--item-accent);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 5px color-mix(in srgb, var(--item-accent) 42%, transparent))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--item-accent-2) 20%, transparent));
+}
+
+.freezeFlakeMain,
+.freezeFlakeBranch {
+  fill: none;
+  stroke: var(--item-accent-2);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--item-accent-2) 50%, transparent));
+}
+
+.freezeFlakeMain {
+  stroke-width: 3.2;
+}
+
+.freezeFlakeBranch {
+  stroke-width: 2.2;
+  opacity: 0.9;
+}
+
+.freezeCore {
+  fill: #effcff;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--item-accent-2) 68%, transparent));
+}
+
+.radarRingA,
+.radarRingB {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--item-accent) 56%, transparent);
+  border-radius: 50%;
+}
+
+.radarRingA {
+  width: 66%;
+  height: 66%;
+}
+
+.radarRingB {
+  width: 36%;
+  height: 36%;
+}
+
+.radarSweep {
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--item-accent) 70%, transparent), transparent);
+  transform: translate(16%, -16%) rotate(16deg);
+  transform-origin: 0 100%;
+}
+
+.radarDot {
+  position: absolute;
+  right: 28%;
+  top: 33%;
+  width: 8%;
+  height: 8%;
+  border-radius: 50%;
+  background: var(--item-accent-2);
+  box-shadow: 0 0 8px var(--item-accent-2);
+}
+
+.torpedoWake,
+.torpedoBody,
+.torpedoNose {
+  position: absolute;
+  z-index: 1;
+}
+
+.torpedoWake {
+  left: 18%;
+  width: 24%;
+  height: 28%;
+  border-left: 2px solid color-mix(in srgb, var(--item-accent) 65%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--item-accent) 42%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--item-accent) 42%, transparent);
+  transform: skewX(-18deg);
+}
+
+.torpedoBody {
+  width: 48%;
+  height: 22%;
+  border: 2px solid var(--item-accent);
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--item-accent) 12%, #06121d 88%), var(--item-accent));
+}
+
+.torpedoNose {
+  right: 21%;
+  width: 13%;
+  height: 22%;
+  border-radius: 0 999px 999px 0;
+  background: var(--item-accent-2);
+  box-shadow: 0 0 8px var(--item-accent-2);
+}
+
+.pointsSvg {
+  position: absolute;
+  z-index: 1;
+  width: 66%;
+  height: 66%;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+
+.pointsCoinOuter {
+  fill: color-mix(in srgb, var(--item-accent) 18%, #050d14 82%);
+  stroke: var(--item-accent);
+  stroke-width: 6;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--item-accent) 34%, transparent));
+}
+
+.pointsCoinInner {
+  fill: color-mix(in srgb, var(--item-accent) 22%, transparent);
+  stroke: color-mix(in srgb, var(--item-accent) 64%, transparent);
+  stroke-width: 4;
+}
+
+.pointsStar {
+  fill: var(--item-accent-2);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--item-accent-2) 40%, transparent));
+}
+
+.tiny .coinFront {
+  font-size: 7px;
+}
+
+.small .coinFront {
+  font-size: 8px;
+}
+
+.medium .coinFront {
+  font-size: 10px;
+}
+
+.large .coinFront {
+  font-size: 14px;
+}
+
+.showcase .coinFront {
+  font-size: 18px;
+}
+
+.hero .coinFront {
+  font-size: 30px;
+}
+
+.hero .coinBack {
+  width: 52%;
+  height: 52%;
+  left: 16%;
+  top: 20%;
+}
+
+.hero .coinFront {
+  right: 14%;
+  bottom: 15%;
+  width: 54%;
+  height: 54%;
+}
+
+.streak_freeze .freezeSvg {
+  transform: translateY(-1px);
+}
+
+.showcase .coinBack,
+.showcase .coinFront,
+.hero .coinBack,
+.hero .coinFront {
+  border-width: 3px;
+}
+
+.showcase .freezeShield {
+  border-width: 3px;
+}
+
+.hero .freezeShield {
+  border-width: 4px;
+}
+
+.showcase .freezeCutA,
+.showcase .freezeCutB,
+.showcase .freezeCutC {
+  height: 3px;
+}
+
+.hero .freezeCutA,
+.hero .freezeCutB,
+.hero .freezeCutC {
+  height: 5px;
+}
+
+.showcase .freezeShieldPath {
+  stroke-width: 3;
+}
+
+.showcase .freezeFlakeMain {
+  stroke-width: 3.5;
+}
+
+.showcase .freezeFlakeBranch {
+  stroke-width: 2.5;
+}
+
+.hero .freezeShieldPath {
+  stroke-width: 3.6;
+}
+
+.hero .freezeFlakeMain {
+  stroke-width: 4.2;
+}
+
+.hero .freezeFlakeBranch {
+  stroke-width: 3;
+}

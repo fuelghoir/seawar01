@@ -2,7 +2,16 @@
 
 import styles from "./Cell.module.css";
 
-export type CellState = "empty" | "ship" | "hit" | "miss" | "sunk" | "pending" | "preview" | "preview-invalid";
+export type CellState =
+  | "empty"
+  | "ship"
+  | "hit"
+  | "miss"
+  | "sunk"
+  | "pending"
+  | "radar"
+  | "preview"
+  | "preview-invalid";
 
 interface CellProps {
   state: CellState;

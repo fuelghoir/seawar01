@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { consumeItem, getItemQuantity } from "./season";
 
 export type QuestMetric =
   | "total_wins"
@@ -53,7 +54,7 @@ export const QUEST_POOL: QuestDefinition[] = [
   { id: 26, name: "Bombardier",        desc: "Land 250 hits",          metric: "total_hits",     goal: 250, reward: 2500  },
   { id: 27, name: "Artillery God",     desc: "Land 500 hits",          metric: "total_hits",     goal: 500, reward: 5000  },
 
-  // ─── Check-in Streak (absolute metric) ───
+  // ─── Weekly Check-in Streak ───
   { id: 28, name: "Morning Crew",      desc: "Reach 2-day streak",     metric: "checkin_streak", goal: 2,   reward: 150   },
   { id: 29, name: "Loyal Sailor",      desc: "Reach 3-day streak",     metric: "checkin_streak", goal: 3,   reward: 300   },
   { id: 30, name: "Consistent",        desc: "Reach 5-day streak",     metric: "checkin_streak", goal: 5,   reward: 400   },
@@ -85,6 +86,22 @@ export const QUEST_POOL: QuestDefinition[] = [
 ];
 
 // ─── Deterministic per-user weekly assignment ───
+
+function isAssignableQuest(q: QuestDefinition): boolean {
+  // Weekly daily/check-in quests must fit inside a 7-day week.
+  if (q.metric === "total_checkins" || q.metric === "checkin_streak") {
+    return q.goal <= 7;
+  }
+  return true;
+}
+
+const QUEST_BUCKETS: QuestMetric[][] = [
+  ["total_hits"],
+  ["checkin_streak", "total_checkins"],
+  ["total_wins"],
+  ["total_games"],
+  ["wager_wins", "wager_games"],
+];
 
 function walletWeekSeed(wallet: string, weekKey: string): number {
   const str = wallet.toLowerCase() + weekKey;
@@ -118,8 +135,49 @@ export function getWeekKey(date = new Date()): string {
 
 export function getAssignedQuestIds(wallet: string, weekKey: string): number[] {
   const seed = walletWeekSeed(wallet, weekKey);
-  const allIds = QUEST_POOL.map(q => q.id);
-  return seededShuffle(allIds, seed).slice(0, 5);
+  const assignable = QUEST_POOL.filter(isAssignableQuest);
+  const selected = QUEST_BUCKETS.flatMap((metrics, index) => {
+    const ids = assignable
+      .filter(q => metrics.includes(q.metric))
+      .map(q => q.id);
+    const bucketSeed = (seed ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
+    return seededShuffle(ids, bucketSeed).slice(0, 1);
+  });
+
+  if (selected.length < 5) {
+    const selectedSet = new Set(selected);
+    const fallbackIds = assignable
+      .map(q => q.id)
+      .filter(id => !selectedSet.has(id));
+    selected.push(...seededShuffle(fallbackIds, seed ^ 0x85ebca6b).slice(0, 5 - selected.length));
+  }
+
+  return seededShuffle(selected, seed ^ 0xc2b2ae35).slice(0, 5);
+}
+
+async function getAssignedQuestIdsForUser(wallet: string, weekKey: string): Promise<number[]> {
+  const addr = wallet.toLowerCase();
+  const baseIds = getAssignedQuestIds(addr, weekKey);
+  const { data, error } = await supabase
+    .from("user_quest_rerolls")
+    .select("old_quest_id, new_quest_id")
+    .eq("wallet", addr)
+    .eq("week_key", weekKey);
+
+  if (error) return baseIds;
+
+  const rerollMap = new Map<number, number>();
+  for (const row of data || []) {
+    rerollMap.set(row.old_quest_id as number, row.new_quest_id as number);
+  }
+
+  const seen = new Set<number>();
+  return baseIds.map((id) => {
+    const next = rerollMap.get(id) ?? id;
+    if (seen.has(next)) return id;
+    seen.add(next);
+    return next;
+  });
 }
 
 // Encode quest claim as a unique sentinel address so the SoloResult event
@@ -129,6 +187,35 @@ export function questSentinelAddress(questId: number): `0x${string}` {
 }
 
 // ─── Metric fetching ───
+
+const DAY_MS = 86_400_000;
+
+function getWeekStartUTC(date = new Date()): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 1 - day);
+  return d;
+}
+
+function parseUTCDateKey(dateKey: string | null | undefined): Date | null {
+  if (!dateKey) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+}
+
+function getWeeklyCheckinStreak(globalStreak: number, lastCheckin: string | null | undefined): number {
+  const lastCheckinDate = parseUTCDateKey(lastCheckin);
+  if (!lastCheckinDate || globalStreak <= 0) return 0;
+
+  const weekStart = getWeekStartUTC();
+  if (lastCheckinDate.getTime() < weekStart.getTime()) return 0;
+
+  const daysIntoWeek = Math.floor((lastCheckinDate.getTime() - weekStart.getTime()) / DAY_MS) + 1;
+  return Math.max(0, Math.min(globalStreak, daysIntoWeek, 7));
+}
 
 interface UserMetrics {
   total_wins: number;
@@ -146,7 +233,7 @@ async function getUserMetrics(wallet: string): Promise<UserMetrics> {
   const [statsResult, wagerResult] = await Promise.all([
     supabase
       .from("player_stats")
-      .select("wins, games_played, total_hits, total_checkins, checkin_streak")
+      .select("wins, games_played, total_hits, total_checkins, checkin_streak, last_checkin")
       .eq("wallet", addr)
       .single(),
     supabase
@@ -165,7 +252,7 @@ async function getUserMetrics(wallet: string): Promise<UserMetrics> {
     total_games: stats?.games_played ?? 0,
     total_hits: stats?.total_hits ?? 0,
     total_checkins: stats?.total_checkins ?? 0,
-    checkin_streak: stats?.checkin_streak ?? 0,
+    checkin_streak: getWeeklyCheckinStreak(stats?.checkin_streak ?? 0, stats?.last_checkin),
     wager_wins: wagerRows.filter(g => g.winner === addr).length,
     wager_games: wagerRows.length,
   };
@@ -181,10 +268,17 @@ export interface UserQuestState {
   claimed: boolean;
 }
 
+function getQuestProgress(def: QuestDefinition, metrics: UserMetrics, baseline: number) {
+  const currentValue = metrics[def.metric] ?? 0;
+  return def.metric === "checkin_streak"
+    ? currentValue
+    : Math.max(0, currentValue - baseline);
+}
+
 export async function getUserQuestsWithProgress(wallet: string): Promise<UserQuestState[]> {
   const addr = wallet.toLowerCase();
   const weekKey = getWeekKey();
-  const assignedIds = getAssignedQuestIds(addr, weekKey);
+  const assignedIds = await getAssignedQuestIdsForUser(addr, weekKey);
   const assignedDefs = assignedIds.map(id => QUEST_POOL.find(q => q.id === id)!);
 
   const [metrics, dbResult] = await Promise.all([
@@ -196,6 +290,10 @@ export async function getUserQuestsWithProgress(wallet: string): Promise<UserQue
       .eq("week_key", weekKey),
   ]);
 
+  if (dbResult.error) {
+    throw new Error("Could not load quest state");
+  }
+
   const rowMap = new Map((dbResult.data || []).map(r => [r.quest_id as number, r]));
 
   // Insert rows for any quests not yet tracked this week
@@ -205,13 +303,16 @@ export async function getUserQuestsWithProgress(wallet: string): Promise<UserQue
       wallet: addr,
       quest_id: d.id,
       week_key: weekKey,
-      // streak quests are absolute (baseline=0), all others are delta from now
+      // weekly streak quests use week-local progress, all others are delta from now
       baseline: d.metric === "checkin_streak" ? 0 : (metrics[d.metric] ?? 0),
-    }));
-    const { data: inserted } = await supabase
+      }));
+    const { data: inserted, error } = await supabase
       .from("user_quests")
       .insert(inserts)
       .select("quest_id, baseline, claimed");
+    if (error) {
+      throw new Error("Could not start weekly quests");
+    }
     for (const row of inserted || []) {
       rowMap.set(row.quest_id as number, row);
     }
@@ -221,10 +322,7 @@ export async function getUserQuestsWithProgress(wallet: string): Promise<UserQue
     const row = rowMap.get(def.id);
     const baseline = row?.baseline ?? 0;
     const claimed = row?.claimed ?? false;
-    const currentValue = metrics[def.metric] ?? 0;
-    const progress = def.metric === "checkin_streak"
-      ? currentValue
-      : Math.max(0, currentValue - baseline);
+    const progress = getQuestProgress(def, metrics, baseline);
 
     return {
       definition: def,
@@ -236,33 +334,45 @@ export async function getUserQuestsWithProgress(wallet: string): Promise<UserQue
   });
 }
 
-export async function claimUserQuest(wallet: string, questId: number): Promise<{ reward: number }> {
+async function getClaimableQuestState(wallet: string, questId: number) {
   const addr = wallet.toLowerCase();
   const weekKey = getWeekKey();
 
-  if (!getAssignedQuestIds(addr, weekKey).includes(questId)) {
+  if (!(await getAssignedQuestIdsForUser(addr, weekKey)).includes(questId)) {
     throw new Error("Quest not assigned this week");
   }
 
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from("user_quests")
     .select("baseline, claimed")
     .eq("wallet", addr)
     .eq("quest_id", questId)
     .eq("week_key", weekKey)
-    .single();
+    .maybeSingle();
 
+  if (error) throw new Error("Could not load quest state");
   if (!row) throw new Error("Quest not started");
   if (row.claimed) throw new Error("Already claimed");
 
   const metrics = await getUserMetrics(addr);
   const def = QUEST_POOL.find(q => q.id === questId)!;
-  const currentValue = metrics[def.metric] ?? 0;
-  const progress = def.metric === "checkin_streak"
-    ? currentValue
-    : Math.max(0, currentValue - row.baseline);
+  const progress = getQuestProgress(def, metrics, row.baseline);
 
   if (progress < def.goal) throw new Error(`Not completed yet (${progress}/${def.goal})`);
+
+  return { addr, weekKey, def };
+}
+
+export async function validateUserQuestClaim(
+  wallet: string,
+  questId: number
+): Promise<{ reward: number }> {
+  const { def } = await getClaimableQuestState(wallet, questId);
+  return { reward: def.reward };
+}
+
+export async function claimUserQuest(wallet: string, questId: number): Promise<{ reward: number }> {
+  const { addr, weekKey, def } = await getClaimableQuestState(wallet, questId);
 
   // Award points and mark claimed atomically
   const { data: ps } = await supabase
@@ -289,4 +399,78 @@ export async function claimUserQuest(wallet: string, questId: number): Promise<{
   ]);
 
   return { reward: def.reward };
+}
+
+export async function rerollUserQuest(
+  wallet: string,
+  questId: number
+): Promise<{ definition: QuestDefinition }> {
+  const addr = wallet.toLowerCase();
+  const weekKey = getWeekKey();
+  const baseIds = getAssignedQuestIds(addr, weekKey);
+  const currentIds = await getAssignedQuestIdsForUser(addr, weekKey);
+
+  if (!currentIds.includes(questId)) {
+    throw new Error("Quest not assigned this week");
+  }
+
+  const { data: questRow } = await supabase
+    .from("user_quests")
+    .select("claimed")
+    .eq("wallet", addr)
+    .eq("quest_id", questId)
+    .eq("week_key", weekKey)
+    .maybeSingle();
+
+  if (questRow?.claimed) throw new Error("Claimed quests cannot be rerolled");
+
+  const qty = await getItemQuantity(addr, "quest_reroll");
+  if (qty <= 0) throw new Error("No reroll tokens");
+
+  const { data: existingRerolls } = await supabase
+    .from("user_quest_rerolls")
+    .select("old_quest_id, new_quest_id")
+    .eq("wallet", addr)
+    .eq("week_key", weekKey);
+
+  const rerollMap = new Map<number, number>();
+  for (const row of existingRerolls || []) {
+    rerollMap.set(row.old_quest_id as number, row.new_quest_id as number);
+  }
+
+  const baseQuestId =
+    baseIds.find((id) => (rerollMap.get(id) ?? id) === questId) ?? questId;
+  const currentSet = new Set(currentIds);
+  const currentDef = QUEST_POOL.find((q) => q.id === questId);
+  const sameMetric = QUEST_POOL
+    .filter(isAssignableQuest)
+    .filter((q) => q.metric === currentDef?.metric)
+    .filter((q) => !currentSet.has(q.id) && q.id !== questId);
+  const fallback = QUEST_POOL
+    .filter(isAssignableQuest)
+    .filter((q) => !currentSet.has(q.id) && q.id !== questId);
+  const candidates = sameMetric.length > 0 ? sameMetric : fallback;
+  if (candidates.length === 0) throw new Error("No replacement quest available");
+
+  const seed = walletWeekSeed(addr, `${weekKey}:${questId}:${Date.now()}`);
+  const [newQuestId] = seededShuffle(candidates.map((q) => q.id), seed);
+  const definition = QUEST_POOL.find((q) => q.id === newQuestId)!;
+
+  const { error } = await supabase
+    .from("user_quest_rerolls")
+    .upsert(
+      {
+        wallet: addr,
+        week_key: weekKey,
+        old_quest_id: baseQuestId,
+        new_quest_id: newQuestId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "wallet,week_key,old_quest_id" }
+    );
+
+  if (error) throw new Error(error.message);
+
+  await consumeItem(addr, "quest_reroll", 1);
+  return { definition };
 }

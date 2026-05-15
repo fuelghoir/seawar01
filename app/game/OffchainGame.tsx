@@ -15,15 +15,14 @@ import { base } from "wagmi/chains";
 import { supabase, OffchainGame } from "../lib/supabase";
 import {
   seaBattleAbi,
-  erc20Abi,
   SEABATTLE_CONTRACT_ADDRESS,
-  USDC_ADDRESS,
 } from "../contracts/seaBattleAbi";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   commitOffchainBoard,
   shootOffchain,
   shootBombOffchain,
+  shootLineOffchain,
   reportHitOffchain,
   getPlayerShots,
   getSunkReports,
@@ -31,6 +30,7 @@ import {
   markPrizeClaimed,
   SunkReport,
 } from "../lib/offchainGame";
+import { consumeItem, getItemQuantity } from "../lib/season";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
@@ -39,6 +39,10 @@ import { ShipPlacement } from "../components/ShipPlacement";
 import { GameStatus } from "../components/GameStatus";
 import { ShotTransaction } from "../components/ShotTransaction";
 import { EmojiReactions } from "../components/EmojiReactions";
+import { GameTopBar } from "./components/GameTopBar";
+import { GameLobby } from "./components/GameLobby";
+import { GameWaitOpponent } from "./components/GameWaitOpponent";
+import { GameResult } from "./components/GameResult";
 import styles from "./page.module.css";
 
 function buildBoardHash(boardLayout: number[], salt: Uint8Array): string {
@@ -59,7 +63,36 @@ function saveLocalBoard(gameId: string, board: number[], salt: string) {
   localStorage.setItem(`seabattle_off_${gameId}`, JSON.stringify({ board, salt }));
 }
 
+function friendResultSaveKey(gameId: string, wallet: string) {
+  return `seabattle_friend_result_saved_${gameId}_${wallet.toLowerCase()}`;
+}
+
 type GameMode = "friend" | "wager";
+type TacticalDirection = "up" | "right" | "down" | "left";
+
+const TORPEDO_LENGTH = 3;
+const TACTICAL_DIRS: Record<TacticalDirection, { dx: number; dy: number; label: string }> = {
+  up: { dx: 0, dy: -1, label: "^" },
+  right: { dx: 1, dy: 0, label: ">" },
+  down: { dx: 0, dy: 1, label: "v" },
+  left: { dx: -1, dy: 0, label: "<" },
+};
+
+function buildTorpedoLine(
+  start: { x: number; y: number },
+  direction: TacticalDirection
+): { x: number; y: number }[] {
+  const dir = TACTICAL_DIRS[direction];
+  const cells: { x: number; y: number }[] = [];
+  for (let i = 0; i < TORPEDO_LENGTH; i++) {
+    const x = start.x + dir.dx * i;
+    const y = start.y + dir.dy * i;
+    if (x >= 0 && x < 10 && y >= 0 && y < 10) {
+      cells.push({ x, y });
+    }
+  }
+  return cells;
+}
 
 export function OffchainGameContent({
   gameIdStr,
@@ -96,9 +129,81 @@ export function OffchainGameContent({
     writeContract: writeResult,
     isPending: resultPending,
   } = useWriteContract();
-  const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({
+  const { data: resultReceipt } = useWaitForTransactionReceipt({
     hash: resultTxHash,
   });
+  const resultConfirmed = resultReceipt?.status === "success";
+  const [wagerResultRecorded, setWagerResultRecorded] = useState(false);
+
+  useEffect(() => {
+    if (!address || mode !== "friend") {
+      setFriendResultSaved(false);
+      return;
+    }
+    setFriendResultSaved(
+      typeof window !== "undefined" &&
+        localStorage.getItem(friendResultSaveKey(gameIdStr, address)) === "1"
+    );
+  }, [address, gameIdStr, mode]);
+
+  useEffect(() => {
+    if (!resultConfirmed || !address || mode !== "friend") return;
+    setFriendResultSaved(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(friendResultSaveKey(gameIdStr, address), "1");
+    }
+  }, [resultConfirmed, address, gameIdStr, mode]);
+
+  useEffect(() => {
+    if (resultConfirmed && mode === "wager") {
+      setWagerResultRecorded(true);
+    }
+  }, [resultConfirmed, mode]);
+
+  useEffect(() => {
+    if (mode !== "wager" || game?.state !== 3 || !onchainGameId) {
+      setWagerResultRecorded(false);
+      return;
+    }
+
+    let cancelled = false;
+    const refreshOnchainResult = async () => {
+      try {
+        const onchain = (await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getGame",
+          args: [BigInt(onchainGameId)],
+        })) as readonly [
+          `0x${string}`,
+          `0x${string}`,
+          number,
+          bigint,
+          boolean,
+          `0x${string}`,
+          boolean,
+        ];
+        const [, , , , finished, winner, cancelledOnchain] = onchain;
+        if (!cancelled) {
+          setWagerResultRecorded(
+            finished &&
+              !cancelledOnchain &&
+              !!game.winner &&
+              winner.toLowerCase() === (game.winner as string).toLowerCase()
+          );
+        }
+      } catch {
+        // Keep the result screen usable even if one poll fails.
+      }
+    };
+
+    refreshOnchainResult();
+    const interval = window.setInterval(refreshOnchainResult, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [mode, game?.state, game?.winner, onchainGameId, wagmiConfig]);
 
   // ─── Claim prize (wager) ───
   const {
@@ -106,85 +211,82 @@ export function OffchainGameContent({
     writeContract: writeClaim,
     isPending: claimPending,
   } = useWriteContract();
-  const { isSuccess: claimConfirmed } = useWaitForTransactionReceipt({
+  const { data: claimReceipt } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
+  const claimConfirmed = claimReceipt?.status === "success";
 
-  // ─── Buy bomb (wager) ───
-  const {
-    data: bombApproveTxHash,
-    writeContract: writeBombApprove,
-    isPending: bombApprovePending,
-  } = useWriteContract();
-  const { isSuccess: bombApproveConfirmed } = useWaitForTransactionReceipt({
-    hash: bombApproveTxHash,
-  });
-  const {
-    data: bombBuyTxHash,
-    writeContract: writeBombBuy,
-    isPending: bombBuyPending,
-  } = useWriteContract();
-  const { isSuccess: bombBuyConfirmed } = useWaitForTransactionReceipt({
-    hash: bombBuyTxHash,
-  });
-
-  const [bombOwned, setBombOwned] = useState(false);
-  const [bombUsed, setBombUsed] = useState(false);
-  const [bombActive, setBombActive] = useState(false); // toggle for firing bomb
-  const [bombBuying, setBombBuying] = useState(false);
+  // ─── V5 bomb inventory (purchase in /shop, consume off-chain) ───
+  // Contract tracks total purchased; off-chain games track which fired.
+  // Available now = total - count(games where this addr fired a bomb).
+  const [bombsUsedAcrossGames, setBombsUsedAcrossGames] = useState(0);
+  const [bombActive, setBombActive] = useState(false);
+  const [bombFiredLocal, setBombFiredLocal] = useState(false); // optimistic UI
   const bombQueueRef = useRef<{ x: number; y: number }[]>([]);
   const bombFiringRef = useRef(false);
+  const [radarQty, setRadarQty] = useState(0);
+  const [torpedoQty, setTorpedoQty] = useState(0);
+  const [radarHints, setRadarHints] = useState<Set<string>>(() => new Set());
+  const [torpedoActive, setTorpedoActive] = useState(false);
+  const [torpedoDir, setTorpedoDir] = useState<TacticalDirection>("right");
+  const [itemHint, setItemHint] = useState("");
+  const [friendResultSaved, setFriendResultSaved] = useState(false);
+  const torpedoQueueRef = useRef<{ x: number; y: number }[]>([]);
+  const torpedoFiringRef = useRef(false);
 
-  // Check bomb ownership from contract
-  const { data: hasBombData } = useReadContract({
+  const { data: bombsData } = useReadContract({
     address: SEABATTLE_CONTRACT_ADDRESS,
     abi: seaBattleAbi,
-    functionName: "playerHasBomb",
-    args: [BigInt(onchainGameId || "0"), address || "0x0000000000000000000000000000000000000000"],
+    functionName: "playerBombs",
+    args: [address || "0x0000000000000000000000000000000000000000"],
     query: {
-      enabled: mode === "wager" && !!onchainGameId && !!address,
-      refetchInterval: 5000,
+      enabled: mode === "wager" && !!address,
+      refetchInterval: 10000,
     },
   });
+  const bombsTotal = Number(bombsData ?? BigInt(0));
 
+  // Refresh "used across games" whenever the game state polls back.
   useEffect(() => {
-    if (hasBombData === true) setBombOwned(true);
-  }, [hasBombData]);
+    if (!address || mode !== "wager") return;
+    import("../lib/offchainGame").then(({ getBombsUsedCount }) =>
+      getBombsUsedCount(address).then(setBombsUsedAcrossGames).catch(() => {})
+    );
+  }, [address, mode, game?.id, game?.bomb_used_p1, game?.bomb_used_p2]);
 
-  // After bomb approve, buy bomb
-  useEffect(() => {
-    if (bombApproveConfirmed && bombBuying && onchainGameId) {
-      writeBombBuy({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "buyBomb",
-        args: [BigInt(onchainGameId)],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
+  const refreshTacticalItems = useCallback(async () => {
+    if (!address || mode !== "friend") {
+      setRadarQty(0);
+      setTorpedoQty(0);
+      return;
     }
-  }, [bombApproveConfirmed, bombBuying, onchainGameId, writeBombBuy]);
+    const [radar, torpedo] = await Promise.all([
+      getItemQuantity(address, "radar_scan").catch(() => 0),
+      getItemQuantity(address, "torpedo").catch(() => 0),
+    ]);
+    setRadarQty(radar);
+    setTorpedoQty(torpedo);
+  }, [address, mode]);
 
   useEffect(() => {
-    if (bombBuyConfirmed) {
-      setBombOwned(true);
-      setBombBuying(false);
-    }
-  }, [bombBuyConfirmed]);
+    if (game?.state !== 2) return;
+    refreshTacticalItems().catch(() => {});
+  }, [game?.state, refreshTacticalItems]);
 
-  const handleBuyBomb = () => {
-    if (!address || bombOwned || bombBuying) return;
-    setBombBuying(true);
-    // Approve 2 USDC to contract
-    writeBombApprove({
-      address: USDC_ADDRESS,
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(2_000_000)],
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
-  };
+  const playerNumForBomb =
+    address && game
+      ? game.player1 === address.toLowerCase()
+        ? 1
+        : game.player2 === address.toLowerCase()
+          ? 2
+          : 0
+      : 0;
+  const bombUsedThisGame =
+    bombFiredLocal ||
+    (playerNumForBomb === 1 ? !!game?.bomb_used_p1 :
+     playerNumForBomb === 2 ? !!game?.bomb_used_p2 : false);
+  const bombsAvailable = Math.max(0, bombsTotal - bombsUsedAcrossGames);
+  const canUseBomb = bombsAvailable > 0 && !bombUsedThisGame;
 
   // ─── Record result onchain (wager only) ───
   // Only the WINNER auto-calls recordResult — that's all claimPrize needs.
@@ -194,6 +296,69 @@ export function OffchainGameContent({
   // Friend mode: each player explicitly calls recordSoloResult via the
   // Save Result button — no auto-fire here.
   const resultRecordedRef = useRef(false);
+  const handleRecordWagerResult = useCallback(async () => {
+    if (
+      game?.state !== 3 ||
+      !game.winner ||
+      !address ||
+      mode !== "wager" ||
+      !onchainGameId ||
+      wagerResultRecorded
+    ) {
+      return;
+    }
+
+    const me = address.toLowerCase();
+    if ((game.winner as string).toLowerCase() !== me) return;
+
+    try {
+      const onchain = (await readContract(wagmiConfig, {
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "getGame",
+        args: [BigInt(onchainGameId)],
+      })) as readonly [
+        `0x${string}`,
+        `0x${string}`,
+        number,
+        bigint,
+        boolean,
+        `0x${string}`,
+        boolean,
+      ];
+      const [p1, p2, , , finished, onchainWinner, cancelled] = onchain;
+      if (cancelled) return;
+      if (
+        finished &&
+        onchainWinner.toLowerCase() === (game.winner as string).toLowerCase()
+      ) {
+        setWagerResultRecorded(true);
+        return;
+      }
+      if (p1 === "0x0000000000000000000000000000000000000000") return;
+      if (p1.toLowerCase() !== me && p2.toLowerCase() !== me) return;
+    } catch {
+      // If the read is flaky, still let the wallet/simulation surface the result.
+    }
+
+    writeResult({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "recordResult",
+      args: [BigInt(onchainGameId), game.winner as `0x${string}`],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [
+    address,
+    game?.state,
+    game?.winner,
+    mode,
+    onchainGameId,
+    wagerResultRecorded,
+    wagmiConfig,
+    writeResult,
+  ]);
   useEffect(() => {
     if (
       game?.state !== 3 ||
@@ -201,6 +366,7 @@ export function OffchainGameContent({
       !address ||
       mode !== "wager" ||
       !onchainGameId ||
+      wagerResultRecorded ||
       resultRecordedRef.current
     ) {
       return;
@@ -258,7 +424,7 @@ export function OffchainGameContent({
         dataSuffix: BUILDER_CODE_SUFFIX,
       });
     })();
-  }, [game?.state, game?.winner, address, mode, onchainGameId, writeResult, wagmiConfig]);
+  }, [game?.state, game?.winner, address, mode, onchainGameId, wagerResultRecorded, writeResult, wagmiConfig]);
 
   // Friend mode: explicit per-player save via V4 recordSoloResult.
   const handleSaveFriendResult = useCallback(() => {
@@ -395,6 +561,40 @@ export function OffchainGameContent({
     }
   }, [game?.turn_phase, game?.state, game?.current_turn, address, gameIdNum, loadGame, loadShots]);
 
+  useEffect(() => {
+    if (
+      !game ||
+      !address ||
+      !torpedoFiringRef.current ||
+      torpedoQueueRef.current.length === 0 ||
+      game.turn_phase !== 0 ||
+      game.state !== 2
+    ) return;
+
+    const addr2 = address.toLowerCase();
+    const pNum = game.player1 === addr2 ? 1 : game.player2 === addr2 ? 2 : 0;
+    if (game.current_turn !== pNum) {
+      torpedoFiringRef.current = false;
+      torpedoQueueRef.current = [];
+      return;
+    }
+
+    const nextCell = torpedoQueueRef.current.shift()!;
+    setMyShots(prev => [...prev, { x: nextCell.x, y: nextCell.y, is_hit: null }]);
+    shootOffchain(gameIdNum, address, nextCell.x, nextCell.y)
+      .then(() => { loadGame(); loadShots(); })
+      .catch(() => {
+        setMyShots(prev => prev.filter(s => !(s.x === nextCell.x && s.y === nextCell.y && s.is_hit === null)));
+        if (torpedoQueueRef.current.length === 0) {
+          torpedoFiringRef.current = false;
+        }
+      });
+
+    if (torpedoQueueRef.current.length === 0) {
+      torpedoFiringRef.current = false;
+    }
+  }, [game?.turn_phase, game?.state, game?.current_turn, address, gameIdNum, loadGame, loadShots]);
+
   if (!game || !address) {
     return (
       <div className={styles.container}>
@@ -505,9 +705,9 @@ export function OffchainGameContent({
     gameSounds.playShot();
     setLoading(true);
 
-    if (bombActive && bombOwned && !bombUsed) {
+    if (bombActive && canUseBomb) {
       // Bomb shot: fire 3x3 area via shootBombOffchain
-      setBombUsed(true);
+      setBombFiredLocal(true);
       setBombActive(false);
       bombFiringRef.current = true;
       const { x: cx, y: cy } = selectedCell;
@@ -553,6 +753,104 @@ export function OffchainGameContent({
     } catch {
       // Revert optimistic shot on error
       setMyShots(prev => prev.filter(s => !(s.x === x && s.y === y)));
+    }
+  };
+
+  const handleUseRadar = async () => {
+    if (mode !== "friend" || !address || !game || !isMyTurn || game.turn_phase !== 0 || loading) return;
+    if (radarQty <= 0) {
+      setItemHint("No radar scans in inventory");
+      return;
+    }
+
+    const opponentBoardStr = playerNum === 1 ? game.player2_board : game.player1_board;
+    if (!opponentBoardStr) {
+      setItemHint("Radar needs the enemy board to be placed");
+      return;
+    }
+
+    let opponentBoard: number[];
+    try {
+      opponentBoard = JSON.parse(opponentBoardStr) as number[];
+    } catch {
+      setItemHint("Radar could not read enemy board");
+      return;
+    }
+
+    const candidates = opponentBoard
+      .map((value, idx) => ({ value, idx, key: `${idx % 10},${Math.floor(idx / 10)}` }))
+      .filter(({ value, key }) =>
+        value === 1 &&
+        !radarHints.has(key) &&
+        !myShots.some(s => `${s.x},${s.y}` === key)
+      );
+
+    if (candidates.length === 0) {
+      setItemHint("Radar found no new targets");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await consumeItem(address, "radar_scan", 1);
+      const hit = candidates[Math.floor(Math.random() * candidates.length)];
+      setRadarHints(prev => {
+        const next = new Set(prev);
+        next.add(hit.key);
+        return next;
+      });
+      setRadarQty(qty => Math.max(0, qty - 1));
+      setItemHint(`Radar ping: ${String.fromCharCode(65 + (hit.idx % 10))}${Math.floor(hit.idx / 10) + 1}`);
+    } catch (err) {
+      setItemHint(err instanceof Error ? err.message : "Radar failed");
+      refreshTacticalItems().catch(() => {});
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseTorpedo = async () => {
+    if (mode !== "friend" || !address || !game || !isMyTurn || game.turn_phase !== 0 || loading) return;
+    if (!selectedCell) {
+      setItemHint("Select torpedo start cell");
+      return;
+    }
+    if (torpedoQty <= 0) {
+      setItemHint("No torpedoes in inventory");
+      return;
+    }
+
+    const line = buildTorpedoLine(selectedCell, torpedoDir)
+      .filter(cell => !myShots.some(s => s.x === cell.x && s.y === cell.y));
+    if (line.length === 0) {
+      setItemHint("Pick a line with unshot cells");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await consumeItem(address, "torpedo", 1);
+      setTorpedoQty(qty => Math.max(0, qty - 1));
+      setTorpedoActive(false);
+      gameSounds.playShot();
+
+      const [first, ...rest] = line;
+      torpedoQueueRef.current = rest;
+      torpedoFiringRef.current = rest.length > 0;
+      setMyShots(prev => [...prev, { x: first.x, y: first.y, is_hit: null }]);
+      setSelectedCell(null);
+      setItemHint(`Torpedo line: ${line.length} cells`);
+
+      await shootLineOffchain(gameIdNum, address, line);
+      Promise.all([loadGame(), loadShots()]).catch(() => {});
+    } catch (err) {
+      torpedoFiringRef.current = false;
+      torpedoQueueRef.current = [];
+      setMyShots(prev => prev.filter(s => s.is_hit !== null));
+      setItemHint(err instanceof Error ? err.message : "Torpedo failed");
+      refreshTacticalItems().catch(() => {});
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -634,7 +932,18 @@ export function OffchainGameContent({
     }
   }
 
-  if (selectedCell && enemyBoardCells[selectedCell.y][selectedCell.x] === "empty") {
+  for (const key of radarHints) {
+    const [sx, sy] = key.split(",").map(Number);
+    if (enemyBoardCells[sy]?.[sx] === "empty") {
+      enemyBoardCells[sy][sx] = "radar";
+    }
+  }
+
+  if (
+    selectedCell &&
+    (enemyBoardCells[selectedCell.y][selectedCell.x] === "empty" ||
+      enemyBoardCells[selectedCell.y][selectedCell.x] === "radar")
+  ) {
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }
 
@@ -642,7 +951,11 @@ export function OffchainGameContent({
     if (!isMyTurn || game.turn_phase !== 0) return;
     // Block already-fired cells (including optimistic pending shots)
     if (myShots.some(s => s.x === x && s.y === y)) return;
-    if (enemyBoardCells[y][x] !== "empty" && enemyBoardCells[y][x] !== "pending") return;
+    if (
+      enemyBoardCells[y][x] !== "empty" &&
+      enemyBoardCells[y][x] !== "pending" &&
+      enemyBoardCells[y][x] !== "radar"
+    ) return;
     setSelectedCell({ x, y });
   };
 
@@ -661,46 +974,52 @@ export function OffchainGameContent({
 
   if (game.state === 0) {
     return (
-      <div className={styles.container}>
-        <div className={styles.centered}>
-          <h2 className={styles.phaseTitle}>Game #{gameIdStr}</h2>
-          <p className={styles.waitingText}>Waiting for opponent to join...</p>
-          <p className={styles.hint}>Share this game ID with a friend:</p>
-          <div className={styles.gameIdDisplay}>{gameIdStr}</div>
-          <button className={styles.backButton} onClick={() => router.push("/")}>Back</button>
-        </div>
-      </div>
+      <>
+        <GameTopBar mode={mode} phase="lobby" />
+        <GameLobby
+          mode={mode}
+          gameId={gameIdStr}
+          wagerAmount={mode === "wager" ? game.wager_amount ?? undefined : undefined}
+          onCancel={() => router.push("/")}
+        />
+      </>
     );
   }
 
   if (game.state === 1 && !myBoardCommitted) {
     return (
-      <div className={styles.container}>
-        <div className={styles.scrollContent}>
-          <ShipPlacement
-            onConfirm={handleCommitBoard}
-            isPending={loading}
-            isConfirming={false}
-          />
+      <>
+        <GameTopBar mode={mode} phase="placement" />
+        <div className={styles.container}>
+          <div className={styles.scrollContent}>
+            <ShipPlacement
+              onConfirm={handleCommitBoard}
+              isPending={loading}
+              isConfirming={false}
+            />
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (game.state === 1 && myBoardCommitted && !oppBoardCommitted) {
+    const accent =
+      mode === "wager" ? "var(--accent)" : mode === "friend" ? "var(--accent-2)" : "var(--accent)";
     return (
-      <div className={styles.container}>
-        <div className={styles.centered}>
-          <h2 className={styles.phaseTitle}>Ships Placed!</h2>
-          <p className={styles.waitingText}>Waiting for opponent to place their ships...</p>
-          <div className={styles.spinner} />
-        </div>
-      </div>
+      <>
+        <GameTopBar mode={mode} phase="placement" />
+        <GameWaitOpponent accent={accent} />
+      </>
     );
   }
 
   if (game.state === 3) {
     const didWin = game.winner === addr;
+    const wagerResultReady = mode === "wager" ? wagerResultRecorded : resultConfirmed;
+    const resultSaving =
+      resultPending ||
+      (!!resultTxHash && !resultReceipt && (mode !== "wager" || !wagerResultRecorded));
 
     // Build full enemy board revealing undestroyed ships
     const fullEnemyBoard: CellState[][] = Array.from({ length: 10 }, () =>
@@ -742,78 +1061,113 @@ export function OffchainGameContent({
     const showClaimButton =
       mode === "wager" &&
       didWin &&
-      resultConfirmed &&
+      wagerResultReady &&
       !game.prize_claimed &&
       !claimConfirmed;
 
+    const prizeUsdc =
+      mode === "wager" && game.wager_amount && didWin
+        ? `+${((game.wager_amount * 2 * 0.9) / 1_000_000).toFixed(2)}`
+        : null;
+
+    const primaryHandler = () => router.push("/");
+    const primaryLabel = "← Main Menu";
+    const primaryDisabled = false;
+    let secondaryHandler: (() => void) | undefined;
+    let secondaryLabel: string | undefined;
+    let secondaryVariant: "default" | "claim" = "default";
+    let message =
+      didWin
+        ? "All enemy ships sunk! The ocean is yours, Captain."
+        : "Your fleet was destroyed. Regroup and fight back.";
+
+    if (mode === "wager") {
+      if (didWin) {
+        if (claimConfirmed) {
+          message = "Prize claimed — 90% transferred to your wallet ⚓";
+        } else if (showClaimButton) {
+          secondaryHandler = handleClaim;
+          secondaryVariant = "claim";
+          secondaryLabel = "💰 CLAIM PRIZE (90%)";
+        } else if (claimPending) {
+          message = "Claiming prize…";
+        } else if (resultSaving) {
+          message = "Recording result onchain…";
+        } else if (!wagerResultReady) {
+          secondaryHandler = handleRecordWagerResult;
+          secondaryLabel = "RECORD RESULT (1 TX)";
+          message = "Wait for result to be recorded onchain…";
+        }
+      } else if (!wagerResultReady) {
+        message = "Result is being recorded onchain…";
+      }
+      if (!didWin && !wagerResultReady) {
+        message = "Waiting for winner to record result onchain.";
+      }
+    } else if (mode === "friend") {
+      if (!resultConfirmed && !friendResultSaved) {
+        if (resultSaving) {
+          message = "Confirming result save…";
+        } else {
+          secondaryHandler = handleSaveFriendResult;
+          secondaryLabel = "💾 SAVE RESULT (1 TX)";
+        }
+      }
+    }
+
     return (
-      <div className={styles.container}>
-        <div className={styles.scrollContent}>
-          <div className={styles.resultSection}>
-            <h2 className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}>
-              {didWin ? "VICTORY!" : "DEFEAT"}
-            </h2>
-            <p className={styles.resultSubtitle}>
-              {didWin ? "You sank all enemy ships!" : "Your fleet has been destroyed."}
-            </p>
-            <div className={styles.resultScores}>
-              <span>You: {myHits}/20</span>
-              <span>Enemy: {enemyHits}/20</span>
-            </div>
-
-            {mode === "wager" && (
-              <div className={styles.onchainStatus}>
-                {resultPending && <p className={styles.hint}>Recording result onchain...</p>}
-                {didWin && claimPending && <p className={styles.hint}>Claiming prize...</p>}
-                {didWin && claimConfirmed && (
-                  <p className={styles.claimedBadge}>Prize claimed! 90% sent to your wallet.</p>
-                )}
-                {!didWin && resultConfirmed && (
-                  <p className={styles.hint}>Result recorded. Better luck next time!</p>
-                )}
-              </div>
-            )}
-
-            {showClaimButton && (
-              <button className={styles.claimButton} onClick={handleClaim}>
-                Claim Prize (90%)
-              </button>
-            )}
-
-            {mode === "wager" && didWin && !resultConfirmed && (
-              <p className={styles.hint}>Wait for result to be recorded before claiming...</p>
-            )}
-
-            <div className={styles.resultBoards}>
-              <Board cells={fullMyBoard} isInteractive={false} label="Your Fleet" />
-              <Board cells={fullEnemyBoard} isInteractive={false} label="Enemy Fleet (revealed)" />
-            </div>
-            <div className={styles.resultActions}>
-              {mode === "friend" && (
-                !resultConfirmed ? (
-                  <button
-                    className={styles.saveResultButton}
-                    onClick={handleSaveFriendResult}
-                    disabled={resultPending}
-                  >
-                    {resultPending ? "Confirming..." : "Save Result (1 tx)"}
-                  </button>
-                ) : (
-                  <p className={styles.hint}>Saved onchain ✓</p>
-                )
-              )}
-              <button className={styles.backButton} onClick={() => router.push("/")}>New Game</button>
-            </div>
+      <>
+        <GameTopBar mode={mode} phase="result" />
+        <GameResult
+          didWin={didWin}
+          mode={mode}
+          myHits={myHits}
+          enemyHits={enemyHits}
+          prizeUsdc={prizeUsdc}
+          message={message}
+          onPrimary={primaryHandler}
+          primaryLabel={primaryLabel}
+          primaryDisabled={primaryDisabled}
+          onSecondary={secondaryHandler}
+          secondaryLabel={secondaryLabel}
+          secondaryVariant={secondaryVariant}
+        >
+          <div className={styles.resultBoards}>
+            <Board cells={fullMyBoard} isInteractive={false} label="Your Fleet" />
+            <Board cells={fullEnemyBoard} isInteractive={false} label="Enemy Fleet" />
           </div>
-        </div>
-      </div>
+        </GameResult>
+      </>
     );
   }
 
-  const canShoot = isMyTurn && game.turn_phase === 0 && !loading;
+  const canUseTactical = mode === "friend" && isMyTurn && game.turn_phase === 0 && !loading;
+  const canShoot = isMyTurn && game.turn_phase === 0 && !loading && !torpedoActive;
+  const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0;
+
+  // Hit-count proxies for the top bar (each board has 20 ship cells).
+  const enemyShipsAlive = Math.max(0, 20 - myHits);
+  const yourShipsAlive = Math.max(0, 20 - enemyHits);
+
+  const turnLabel = needsReport
+    ? "REPORT HIT"
+    : isMyTurn
+      ? "YOUR TURN"
+      : "ENEMY TURN";
+  const modeAccent =
+    mode === "wager" ? "var(--accent)" : mode === "friend" ? "var(--accent-2)" : "var(--accent)";
+  const turnAccent = isMyTurn ? modeAccent : "#ef4444";
 
   return (
     <div className={styles.gameShell}>
+      <GameTopBar
+        mode={mode}
+        phase="battle"
+        turnLabel={turnLabel}
+        turnAccent={turnAccent}
+        yourShips={yourShipsAlive}
+        enemyShips={enemyShipsAlive}
+      />
       <EmojiReactions gameId={gameIdNum} playerNum={playerNum} />
 
       <div className={styles.gameScroll}>
@@ -831,7 +1185,7 @@ export function OffchainGameContent({
           <Board
             cells={enemyBoardCells}
             onCellClick={handleEnemyCellClick}
-            isInteractive={canShoot}
+            isInteractive={isMyTurn && game.turn_phase === 0 && !loading}
             label="Enemy Waters"
           />
           <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
@@ -839,6 +1193,56 @@ export function OffchainGameContent({
       </div>
 
       <div className={styles.stickyFire}>
+        {mode === "friend" && game.state === 2 && (
+          <div className={styles.tacticalSection}>
+            <div className={styles.tacticalButtons}>
+              <button
+                type="button"
+                className={`${styles.tacticalBtn} ${styles.radarBtn}`}
+                onClick={handleUseRadar}
+                disabled={!canUseTactical || radarQty <= 0}
+              >
+                Radar · {radarQty}
+              </button>
+              <button
+                type="button"
+                className={`${styles.tacticalBtn} ${styles.torpedoBtn} ${torpedoActive ? styles.tacticalActive : ""}`}
+                onClick={() => setTorpedoActive(active => !active)}
+                disabled={!canUseTactical || torpedoQty <= 0}
+              >
+                Torpedo · {torpedoQty}
+              </button>
+            </div>
+            {torpedoActive && (
+              <>
+                <div className={styles.directionPanel}>
+                  {(Object.keys(TACTICAL_DIRS) as TacticalDirection[]).map((direction) => (
+                    <button
+                      type="button"
+                      key={direction}
+                      className={`${styles.directionBtn} ${torpedoDir === direction ? styles.directionActive : ""}`}
+                      onClick={() => setTorpedoDir(direction)}
+                      disabled={!canUseTactical}
+                    >
+                      {TACTICAL_DIRS[direction].label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className={styles.torpedoFireBtn}
+                  onClick={handleUseTorpedo}
+                  disabled={!canFireTorpedo}
+                >
+                  {selectedCell
+                    ? `Fire Line ${String.fromCharCode(65 + selectedCell.x)}${selectedCell.y + 1}`
+                    : "Select Torpedo Start"}
+                </button>
+              </>
+            )}
+            <div className={styles.itemHint}>{itemHint}</div>
+          </div>
+        )}
         <ShotTransaction
           selectedCell={selectedCell}
           isPending={loading}
@@ -849,33 +1253,24 @@ export function OffchainGameContent({
           disabled={!canShoot}
         />
 
-        {/* Bomb controls (wager only) */}
+        {/* Bomb controls (wager only) — inventory bought in /shop */}
         {mode === "wager" && game.state === 2 && (
           <div className={styles.bombSection}>
-            {!bombOwned && !bombBuying && (
-              <button className={styles.bombBuyBtn} onClick={handleBuyBomb}>
-                Buy Bomb 3x3 (2 USDC)
-              </button>
-            )}
-            {bombBuying && (
-              <p className={styles.hint}>
-                {bombApprovePending
-                  ? "Approve USDC..."
-                  : bombBuyPending
-                    ? "Buying bomb..."
-                    : "Processing..."}
-              </p>
-            )}
-            {bombOwned && !bombUsed && (
+            {canUseBomb && (
               <button
                 className={`${styles.bombToggleBtn} ${bombActive ? styles.bombActiveBtn : ""}`}
                 onClick={() => setBombActive(!bombActive)}
               >
-                {bombActive ? "Bomb Active (3x3)" : "Use Bomb (3x3)"}
+                {bombActive
+                  ? `Bomb Active (3x3)`
+                  : `Use Bomb (3x3) · ${bombsAvailable}`}
               </button>
             )}
-            {bombUsed && (
+            {bombUsedThisGame && (
               <p className={styles.hint}>Bomb used</p>
+            )}
+            {!canUseBomb && !bombUsedThisGame && bombsAvailable === 0 && (
+              <p className={styles.hint}>Buy bombs in Shop</p>
             )}
           </div>
         )}

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { addSeasonXp, consumeItem, getGamePointMultiplier, getItemQuantity } from "./season";
 
 // ─── Offchain game CRUD ───
 
@@ -157,11 +158,10 @@ export interface RefundableGame {
 }
 
 /**
- * Wager games created by `wallet`, still unjoined, older than STALE_MINUTES,
- * and not yet cancelled. These are eligible for onchain refund.
+ * Wager games created by `wallet` and still unjoined. Hidden/cancelled rows are
+ * excluded so old local dismissals cannot resurface as bogus refunds.
  */
 export async function getRefundableGames(wallet: string): Promise<RefundableGame[]> {
-  const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
   const { data } = await supabase
     .from("games")
     .select("id, onchain_game_id, wager_amount, created_at")
@@ -169,7 +169,8 @@ export async function getRefundableGames(wallet: string): Promise<RefundableGame
     .eq("game_mode", "wager")
     .eq("state", 0)
     .is("player2", null)
-    .lt("created_at", cutoff)
+    .not("onchain_game_id", "is", null)
+    .gt("wager_amount", 0)
     .order("id", { ascending: false });
   return (data || []) as RefundableGame[];
 }
@@ -278,15 +279,37 @@ export async function reportHitOffchain(
     .eq("x", x)
     .eq("y", y);
 
-  const bombRemaining = game.bomb_shots_remaining ?? 0;
-  const isBombShot = bombRemaining > 0;
+  const volleyRaw = game.bomb_shots_remaining ?? 0;
+  const isBombShot = volleyRaw > 0;
+  const isLineShot = volleyRaw < 0;
+  const lineCode = Math.abs(volleyRaw);
+  const lineTotal = Math.floor(lineCode / 10);
+  const lineRemaining = lineCode % 10;
 
   let nextTurn = game.current_turn;
   if (isBombShot) {
     // During bomb: always keep current player's turn
     // On last bomb shot: switch turn
-    if (bombRemaining <= 1) {
+    if (volleyRaw <= 1) {
       nextTurn = game.current_turn === 1 ? 2 : 1;
+    }
+  } else if (isLineShot) {
+    // Torpedo line: resolve the whole line, then keep turn only if every
+    // line cell hit. This preserves the regular Battleship "hit keeps turn"
+    // feel for a perfect torpedo.
+    if (lineRemaining <= 1) {
+      const { data: recentLineShots } = await supabase
+        .from("shots")
+        .select("is_hit")
+        .eq("game_id", gameId)
+        .eq("player_num", shooterNum)
+        .order("created_at", { ascending: false })
+        .limit(lineTotal);
+
+      const allLineHits =
+        (recentLineShots?.length ?? 0) >= lineTotal &&
+        (recentLineShots || []).every((shot) => shot.is_hit === true);
+      nextTurn = allLineHits ? game.current_turn : (game.current_turn === 1 ? 2 : 1);
     }
   } else {
     // Normal: hit = keep turn, miss = switch
@@ -298,7 +321,11 @@ export async function reportHitOffchain(
     current_turn: nextTurn,
   };
   if (isBombShot) {
-    updates.bomb_shots_remaining = bombRemaining - 1;
+    updates.bomb_shots_remaining = volleyRaw - 1;
+  }
+  if (isLineShot) {
+    updates.bomb_shots_remaining =
+      lineRemaining <= 1 ? 0 : -(lineTotal * 10 + (lineRemaining - 1));
   }
 
   if (isHit) {
@@ -390,7 +417,9 @@ export async function shootBombOffchain(
     y: first.y,
   });
 
-  // Set bomb_shots_remaining = total cells (including first shot's pending report)
+  // Set bomb_shots_remaining = total cells (including first shot's pending report).
+  // Also flip bomb_used_p<N> = true so the off-chain inventory reflects this
+  // bomb being consumed (V5 inventory model — see scripts/supabase-v5-bomb-inventory.sql).
   await supabase
     .from("games")
     .update({
@@ -399,10 +428,87 @@ export async function shootBombOffchain(
       last_shooter: addr,
       turn_phase: 1,
       bomb_shots_remaining: newCells.length,
+      [playerNum === 1 ? "bomb_used_p1" : "bomb_used_p2"]: true,
     })
     .eq("id", gameId);
 
   return newCells.length;
+}
+
+export async function shootLineOffchain(
+  gameId: number,
+  playerAddress: string,
+  cells: { x: number; y: number }[]
+): Promise<number> {
+  const { data: game } = await supabase
+    .from("games")
+    .select("*")
+    .eq("id", gameId)
+    .single();
+  if (!game) throw new Error("Game not found");
+  if (game.state !== 2) throw new Error("Game not active");
+  if (game.turn_phase !== 0) throw new Error("Waiting for hit report");
+
+  const addr = playerAddress.toLowerCase();
+  const playerNum = game.player1 === addr ? 1 : game.player2 === addr ? 2 : 0;
+  if (playerNum === 0) throw new Error("Not a player");
+  if (game.current_turn !== playerNum) throw new Error("Not your turn");
+
+  const validCells = cells.filter(({ x, y }) => x >= 0 && x < 10 && y >= 0 && y < 10);
+  if (validCells.length === 0) throw new Error("No cells to fire");
+
+  const { data: existingShots } = await supabase
+    .from("shots")
+    .select("x, y")
+    .eq("game_id", gameId)
+    .eq("player_num", playerNum);
+  const shotSet = new Set((existingShots || []).map(s => `${s.x},${s.y}`));
+  const newCells = validCells.filter(c => !shotSet.has(`${c.x},${c.y}`));
+
+  if (newCells.length === 0) throw new Error("All cells already shot");
+
+  const first = newCells[0];
+  await supabase.from("shots").insert({
+    game_id: gameId,
+    player_num: playerNum,
+    x: first.x,
+    y: first.y,
+  });
+
+  // Reuse the existing volley counter so hit reports keep the same shooter
+  // until every line cell has resolved.
+  const { error } = await supabase
+    .from("games")
+    .update({
+      last_shot_x: first.x,
+      last_shot_y: first.y,
+      last_shooter: addr,
+      turn_phase: 1,
+      bomb_shots_remaining: -(newCells.length * 10 + newCells.length),
+    })
+    .eq("id", gameId);
+  if (error) throw new Error(error.message);
+
+  return newCells.length;
+}
+
+/// Count of games where this wallet has fired a bomb (V5 inventory:
+/// bombs_available = contract.bombs(addr) - this).
+export async function getBombsUsedCount(wallet: string): Promise<number> {
+  const addr = wallet.toLowerCase();
+  const [{ count: usedAsP1 }, { count: usedAsP2 }] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id", { count: "exact", head: true })
+      .eq("player1", addr)
+      .eq("bomb_used_p1", true),
+    supabase
+      .from("games")
+      .select("id", { count: "exact", head: true })
+      .eq("player2", addr)
+      .eq("bomb_used_p2", true),
+  ]);
+  return (usedAsP1 || 0) + (usedAsP2 || 0);
 }
 
 export async function getAvailableGames(
@@ -493,6 +599,8 @@ export async function addPoints(
   hits = 0,
 ): Promise<void> {
   const addr = wallet.toLowerCase();
+  const multiplier = await getGamePointMultiplier(addr).catch(() => 1);
+  const awardedPoints = Math.floor(points * multiplier);
   const { data: existing } = await supabase
     .from("player_stats")
     .select("points, total_hits")
@@ -501,7 +609,7 @@ export async function addPoints(
 
   if (existing) {
     const updates: Record<string, unknown> = {
-      points: existing.points + points,
+      points: existing.points + awardedPoints,
       updated_at: new Date().toISOString(),
     };
     if (hits > 0) updates.total_hits = (existing.total_hits ?? 0) + hits;
@@ -512,14 +620,16 @@ export async function addPoints(
   } else {
     await supabase.from("player_stats").insert({
       wallet: addr,
-      points,
+      points: awardedPoints,
       ...(hits > 0 ? { total_hits: hits } : {}),
     });
   }
 
+  addSeasonXp(addr, Math.max(1, points)).catch(() => {});
+
   // Award 10% of points to referrer (fire-and-forget, doesn't block game flow)
-  if (points > 0) {
-    const share = Math.floor(points * 0.1);
+  if (awardedPoints > 0) {
+    const share = Math.floor(awardedPoints * 0.1);
     if (share > 0) {
       Promise.resolve(
         supabase.from("referrals").select("referrer").eq("referee", addr).single()
@@ -603,7 +713,6 @@ export async function recordGameResult(
 // Each check-in awards +5 points and increments total_checkins,
 // but does not update streak or last_checkin (so button stays active).
 const UNLIMITED_CHECKIN_WALLETS = new Set([
-  "0xa4df87d8940ac70ac8a33db79bb1057238b490e4",
   "0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
   "0x070441c0f583752ec53efb18903ecef0a53b65d0",
   "0x24e6d7eca78f48cf61565d585d80f5a940aded56",
@@ -668,6 +777,18 @@ export async function getCheckinStatus(
 
   const streak =
     data.last_checkin === yesterday ? data.checkin_streak : 0;
+
+  if (streak === 0 && (data.checkin_streak ?? 0) > 0) {
+    const freezeQty = await getItemQuantity(addr, "streak_freeze").catch(() => 0);
+    if (freezeQty > 0) {
+      return {
+        canCheckin: true,
+        streak: data.checkin_streak,
+        nextReward: getCheckinReward(data.checkin_streak + 1),
+      };
+    }
+  }
+
   return {
     canCheckin: true,
     streak,
@@ -677,7 +798,7 @@ export async function getCheckinStatus(
 
 export async function dailyCheckin(
   wallet: string
-): Promise<{ points: number; streak: number }> {
+): Promise<{ points: number; streak: number; usedFreeze?: boolean }> {
   const addr = wallet.toLowerCase();
   const today = todayUTC();
   const yesterday = yesterdayUTC();
@@ -740,6 +861,7 @@ export async function dailyCheckin(
       last_checkin: today,
       total_checkins: 1,
     });
+    addSeasonXp(addr, 20).catch(() => {});
     return { points: reward, streak: newStreak };
   }
 
@@ -747,10 +869,20 @@ export async function dailyCheckin(
     throw new Error("Already checked in today");
   }
 
-  newStreak =
-    existing.last_checkin === yesterday
-      ? existing.checkin_streak + 1
-      : 1;
+  let usedFreeze = false;
+  if (existing.last_checkin === yesterday) {
+    newStreak = existing.checkin_streak + 1;
+  } else if ((existing.checkin_streak ?? 0) > 0) {
+    try {
+      await consumeItem(addr, "streak_freeze", 1);
+      usedFreeze = true;
+      newStreak = existing.checkin_streak + 1;
+    } catch {
+      newStreak = 1;
+    }
+  } else {
+    newStreak = 1;
+  }
 
   const reward = getCheckinReward(newStreak);
 
@@ -765,7 +897,8 @@ export async function dailyCheckin(
     })
     .eq("wallet", addr);
 
-  return { points: reward, streak: newStreak };
+  addSeasonXp(addr, 20).catch(() => {});
+  return { points: reward, streak: newStreak, usedFreeze };
 }
 
 // ─── Leaderboard ───

@@ -3,6 +3,8 @@ export const SEABATTLE_CONTRACT_ADDRESS = (process.env
 
 export const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`;
 export const COMMISSION_WALLET = "0xA4Df87d8940ac70aC8A33DB79bb1057238B490e4" as `0x${string}`;
+export const SHOP_TREASURY_ADDRESS = (process.env
+  .NEXT_PUBLIC_SHOP_TREASURY_ADDRESS || COMMISSION_WALLET) as `0x${string}`;
 
 // Minimal ERC-20 ABI for USDC approve/allowance/balanceOf
 export const erc20Abi = [
@@ -33,9 +35,20 @@ export const erc20Abi = [
     outputs: [{ type: "uint256", name: "" }],
     stateMutability: "view",
   },
+  {
+    type: "function",
+    name: "transfer",
+    inputs: [
+      { type: "address", name: "to" },
+      { type: "uint256", name: "amount" },
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable",
+  },
 ] as const;
 
-// SeaBattleV4 ABI — wager state on-chain + per-player solo result + check-in.
+// SeaBattleV5 ABI — wager state on-chain + per-player solo result + check-in
+// + per-account bomb inventory.
 export const seaBattleAbi = [
   // ─── V4: per-player result fix (free bot + friend modes) ───
   {
@@ -97,13 +110,20 @@ export const seaBattleAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
-  // ─── Bomb ───
+  // ─── V5: bomb inventory (per-account) ───
   {
     type: "function",
     name: "buyBomb",
-    inputs: [{ type: "uint256", name: "gameId" }],
+    inputs: [],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "BOMB_PRICE",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
   },
   // ─── Views ───
   {
@@ -123,12 +143,16 @@ export const seaBattleAbi = [
   },
   {
     type: "function",
-    name: "playerHasBomb",
-    inputs: [
-      { type: "uint256", name: "gameId" },
-      { type: "address", name: "player" },
-    ],
-    outputs: [{ type: "bool", name: "" }],
+    name: "playerBombs",
+    inputs: [{ type: "address", name: "player" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "bombs",
+    inputs: [{ type: "address", name: "" }],
+    outputs: [{ type: "uint256", name: "" }],
     stateMutability: "view",
   },
   {
@@ -175,8 +199,8 @@ export const seaBattleAbi = [
     type: "event",
     name: "BombPurchased",
     inputs: [
-      { type: "uint256", name: "gameId", indexed: true },
-      { type: "address", name: "player", indexed: false },
+      { type: "address", name: "player", indexed: true },
+      { type: "uint256", name: "newBalance", indexed: false },
     ],
   },
   {

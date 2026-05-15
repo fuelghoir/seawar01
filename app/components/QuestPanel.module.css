@@ -1,16 +1,16 @@
 .questSection {
   width: 100%;
-  background: rgba(6, 20, 34, 0.78);
+  background: rgba(var(--bg-panel-solid-rgb), 0.78);
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  border: 1px solid rgba(168, 85, 247, 0.45);
+  border: 1px solid rgba(var(--accent-2-rgb), 0.45);
   border-radius: 12px;
   overflow: hidden;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.05) inset,
     0 6px 18px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 0 24px rgba(168, 85, 247, 0.18);
+    0 0 24px rgba(var(--accent-2-rgb), 0.18);
   animation: fadeIn 0.4s ease-out;
 }
 
@@ -32,7 +32,7 @@
 }
 
 .questHeader:hover {
-  background: rgba(168, 85, 247, 0.08);
+  background: rgba(var(--accent-2-rgb), 0.08);
 }
 
 .questHeaderLeft {
@@ -46,14 +46,14 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: #d8b4fe;
+  color: var(--accent-bright);
 }
 
 .questWeek {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
-  color: #a78bfa;
+  color: var(--accent);
   letter-spacing: 0.04em;
 }
 
@@ -76,6 +76,19 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+.questRerollCount {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.34);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
@@ -83,13 +96,13 @@
 
 .questChevron {
   font-size: 14px;
-  color: #a78bfa;
+  color: var(--accent);
   transition: transform 0.2s ease;
 }
 
 .questBody {
   padding: 0 12px 14px;
-  border-top: 1px solid rgba(168, 85, 247, 0.25);
+  border-top: 1px solid rgba(var(--accent-2-rgb), 0.25);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -98,7 +111,7 @@
 .questLoadingText {
   text-align: center;
   font-size: 12px;
-  color: #a78bfa;
+  color: var(--accent);
   padding: 16px 0;
   font-weight: 600;
 }
@@ -107,7 +120,7 @@
   position: relative;
   padding: 12px;
   background: rgba(10, 10, 24, 0.55);
-  border: 1px solid rgba(168, 85, 247, 0.22);
+  border: 1px solid rgba(var(--accent-2-rgb), 0.22);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -117,9 +130,9 @@
 }
 
 .questCardComplete {
-  border-color: rgba(168, 85, 247, 0.6);
-  background: rgba(88, 28, 135, 0.18);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.2);
+  border-color: rgba(var(--accent-2-rgb), 0.6);
+  background: rgba(var(--accent-2-rgb), 0.18);
+  box-shadow: 0 0 16px rgba(var(--accent-2-rgb), 0.2);
 }
 
 .questCardClaimed {
@@ -146,14 +159,14 @@
 .questCardName {
   font-size: 13px;
   font-weight: 800;
-  color: #e9d5ff;
+  color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
 .questCardDesc {
   font-size: 11px;
   font-weight: 500;
-  color: #a78bfa;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -176,29 +189,29 @@
 .questProgressBar {
   flex: 1;
   height: 6px;
-  background: rgba(168, 85, 247, 0.18);
+  background: rgba(var(--accent-2-rgb), 0.18);
   border-radius: 3px;
   overflow: hidden;
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(var(--accent-2-rgb), 0.2);
 }
 
 .questProgressFill {
   height: 100%;
-  background: linear-gradient(90deg, #7c3aed, #a855f7, #d8b4fe);
+  background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-bright));
   border-radius: 3px;
   transition: width 0.4s ease;
 }
 
 .questCardComplete .questProgressFill {
-  background: linear-gradient(90deg, #7c3aed, #c084fc, #fde68a);
-  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+  background: linear-gradient(90deg, var(--accent-2), var(--accent-bright), #fde68a);
+  box-shadow: 0 0 8px rgba(var(--accent-2-rgb), 0.5);
 }
 
 .questProgressLabel {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
-  color: #c4b5fd;
+  color: var(--accent-bright);
   min-width: 36px;
   text-align: right;
   letter-spacing: 0.02em;
@@ -211,7 +224,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--accent-2) 0%, var(--accent) 50%, var(--accent-2) 100%);
   background-size: 200% auto;
   border: none;
   border-radius: 8px;
@@ -220,8 +233,8 @@
   transition: background-position 0.3s ease, transform 0.18s ease, box-shadow 0.2s ease;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 4px 14px rgba(124, 58, 237, 0.45),
-    0 0 22px rgba(168, 85, 247, 0.35);
+    0 4px 14px rgba(var(--accent-2-rgb), 0.45),
+    0 0 22px rgba(var(--accent-rgb), 0.35);
 }
 
 .questClaimBtn:hover:not(:disabled) {
@@ -229,8 +242,8 @@
   transform: translateY(-1px);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 6px 20px rgba(124, 58, 237, 0.6),
-    0 0 30px rgba(168, 85, 247, 0.5);
+    0 6px 20px rgba(var(--accent-2-rgb), 0.6),
+    0 0 30px rgba(var(--accent-rgb), 0.5);
 }
 
 .questClaimBtn:active:not(:disabled) {
@@ -241,6 +254,37 @@
   opacity: 0.55;
   cursor: not-allowed;
   filter: saturate(0.6);
+}
+
+.questActions {
+  display: flex;
+  gap: 8px;
+}
+
+.questRerollBtn {
+  width: 100%;
+  padding: 8px 14px;
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-bright);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.questRerollBtn:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.58);
+  background: rgba(var(--accent-rgb), 0.14);
+  transform: translateY(-1px);
+}
+
+.questRerollBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .questClaimedBadge {

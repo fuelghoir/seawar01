@@ -1,0 +1,102 @@
+.card {
+  --accent: #00dcb4;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(5, 18, 28, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+  animation: cardIn 0.4s ease both;
+  color: #fff;
+}
+
+.cardClickable {
+  cursor: pointer;
+}
+
+.card:hover,
+.cardActive {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+    rgba(5, 18, 28, 0.95) 100%
+  );
+  border-color: var(--accent);
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.iconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    color-mix(in srgb, var(--accent) 28%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.badge {
+  background: var(--accent);
+  color: #050d14;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  color: var(--accent);
+  opacity: 0.7;
+  flex-shrink: 0;
+  display: flex;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

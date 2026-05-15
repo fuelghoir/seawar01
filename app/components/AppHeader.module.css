@@ -1,0 +1,224 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  z-index: 50;
+  background: rgba(var(--bg-abyss-rgb), 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Right padding leaves room for the floating SettingsPanel gear (40px wide). */
+  padding: 0 64px 0 24px;
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.right {
+  position: relative;
+}
+
+.resource {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resourceValue {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.iconPurple { color: var(--accent-2); display: flex; }
+.iconTeal { color: var(--accent); display: flex; }
+
+.resourceUnit {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-left: 1px;
+}
+
+.title {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.36em;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%);
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: titleShimmer 4s linear infinite;
+  text-transform: uppercase;
+}
+
+@keyframes titleShimmer {
+  to { background-position: 200% center; }
+}
+
+.address {
+  font-size: 11px;
+  font-family: var(--font-mono-raw), monospace;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.address:hover {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #04101c;
+  box-shadow: 0 0 14px var(--accent-dim);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(var(--accent-rgb), 0.12);
+  padding: 10px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: menuIn 0.18s ease-out;
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.menuLabel {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  color: rgba(var(--accent-rgb), 0.66);
+  padding: 4px 8px 0;
+}
+
+.menuAddress {
+  font-family: var(--font-mono-raw), monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  border-radius: 8px;
+  padding: 8px 10px;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+.menuItem {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.menuItem:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  color: #fff;
+}
+
+.menuDanger {
+  color: rgba(239, 68, 68, 0.85);
+}
+.menuDanger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ff8888;
+}
+
+@media (max-width: 720px) {
+  .header {
+    height: 48px;
+    padding: 0 56px 0 14px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(var(--bg-abyss-rgb), 0.98);
+  }
+  .title {
+    font-size: 14px;
+    letter-spacing: 0.28em;
+    animation: none;
+  }
+  .address {
+    display: none;
+  }
+  .left,
+  .right {
+    gap: 10px;
+  }
+  .resourceValue {
+    font-size: 12px;
+  }
+  .avatar {
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 460px) {
+  .title {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+  }
+  .header {
+    padding: 0 52px 0 10px;
+  }
+  .resourceUnit {
+    display: none;
+  }
+}

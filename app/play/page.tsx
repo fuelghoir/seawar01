@@ -1,0 +1,1462 @@
+﻿"use client";
+
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useSwitchChain,
+  useConfig,
+} from "wagmi";
+import {
+  readContract,
+  simulateContract,
+  waitForTransactionReceipt as waitForReceipt,
+} from "@wagmi/core";
+import { base } from "wagmi/chains";
+import { decodeEventLog } from "viem";
+import {
+  seaBattleAbi,
+  erc20Abi,
+  SEABATTLE_CONTRACT_ADDRESS,
+  USDC_ADDRESS,
+} from "../contracts/seaBattleAbi";
+import {
+  AnchorIcon,
+  ChevronRightIcon,
+  DollarIcon,
+  SwordIcon,
+  UsersIcon,
+} from "../components/Icons";
+import { BUILDER_CODE_SUFFIX } from "../providers";
+import {
+  createOffchainGame,
+  joinOffchainGame,
+  getAvailableGames,
+  getGameOnchainId,
+  getGameJoinInfo,
+  getUnclaimedWins,
+  markPrizeClaimed,
+  autoCloseStaleGames,
+  getRefundableGames,
+  markGameCancelled,
+  UnclaimedWin,
+  RefundableGame,
+} from "../lib/offchainGame";
+import { WalletName } from "../components/WalletName";
+import PushPrompt from "../components/PushPrompt";
+import { SettingsPanel } from "../components/SettingsPanel";
+import { useSettings, TR } from "../lib/settings";
+import baseStyles from "../page.module.css";
+import localStyles from "./page.module.css";
+
+const styles = { ...baseStyles, ...localStyles };
+
+const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+const CONTRACT_NOT_SET = SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR;
+
+function formatRevert(msg: string, lang: string = "en"): string {
+  const ru = lang === "ru";
+  const lower = msg.toLowerCase();
+  if (lower.includes("user rejected") || lower.includes("user denied"))
+    return ru ? "РўСЂР°РЅР·Р°РєС†РёСЏ РѕС‚РєР»РѕРЅРµРЅР°. РџРѕРїСЂРѕР±СѓР№ РµС‰Рµ СЂР°Р·." : "Transaction rejected. Try again.";
+  if (lower.includes("transfer amount exceeds balance"))
+    return ru
+      ? "РџСЂРёР·РѕРІРѕР№ РїСѓР» РїСѓСЃС‚ вЂ” РїРѕС…РѕР¶Рµ, СЃРѕРїРµСЂРЅРёРє РЅРµ РІРЅРµСЃ СЃС‚Р°РІРєСѓ. РќР°РїРёС€Рё Р°РґРјРёРЅСѓ РёР»Рё СЃРєСЂРѕР№ С‡РµСЂРµР· Г—."
+      : "Prize pool is empty вЂ” opponent likely didn't stake. Contact admin or hide with Г—.";
+  if (lower.includes("429") || lower.includes("rate limit"))
+    return ru ? "RPC РІСЂРµРјРµРЅРЅРѕ РѕРіСЂР°РЅРёС‡РµРЅ. РџРѕРІС‚РѕСЂРё С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ." : "RPC rate-limited. Retry in a few seconds.";
+  const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/i);
+  if (reasonMatch) return reasonMatch[1].trim();
+  const revertMatch = msg.match(/revert(?:ed)?(?: with reason string)?\s*['"]?([^'"\n]+?)['"]?(?:\n|$)/i);
+  if (revertMatch) return revertMatch[1].trim();
+  return msg.slice(0, 140);
+}
+
+type GameMode = "bot" | "friend" | "wager";
+
+const WAGER_OPTIONS = [
+  { label: "1 USDC", value: 1_000_000 },
+  { label: "5 USDC", value: 5_000_000 },
+  { label: "10 USDC", value: 10_000_000 },
+];
+
+function dismissedRefundsKey(wallet: string) {
+  return `seabattle_dismissed_refunds_${wallet.toLowerCase()}`;
+}
+
+const PLAY_COPY = {
+  en: {
+    botKicker: "Solo drill",
+    friendKicker: "Friend room",
+    wagerKicker: "Wager ops",
+    createKicker: "Create battle",
+    joinKicker: "Join battle",
+    lockWager: "Lock stake and deploy",
+    openRoom: "Open a room",
+    free: "FREE",
+    entry: "Entry",
+    stake: "Stake",
+    network: "Network",
+    prizePool: "Prize",
+    publicHint: "Visible in open rooms",
+    privateHint: "Only captains with ID can join",
+    walletKicker: "Wallet required",
+    walletHint: "Connect your wallet on the main screen, then return to deploy your fleet.",
+    approveUsdc: "Approve USDC...",
+    sendUsdc: "Send USDC",
+    confirmWallet: "Confirm in wallet...",
+    confirming: "Confirming...",
+    creating: "Creating...",
+    finalizing: "Finalizing...",
+    checking: "Checking...",
+    refunding: "Refunding...",
+    confirmFirst: "Confirm 1/2...",
+    confirmSecond: "Confirm 2/2...",
+    claiming: "Claiming...",
+    gameLabel: "Game",
+    hideRecord: "Hide this record",
+    hideClaimedRecord: "Hide this record (if already claimed)",
+    contractWarning: "Contract not deployed yet. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env",
+    wagerAmount: "Wager amount",
+    validGameId: "Enter a valid game ID",
+    offchainCreateFailed: "Failed to create offchain game",
+    onchainIdMissing: "Onchain game ID not found",
+    gameNotFound: "Game not found",
+    notWagerGame: "This is not a wager game",
+    ownGame: "Cannot join your own game",
+    gameHasPlayer: "Game already has another player",
+    gameFinished: "Game already finished onchain",
+    readGameFailed: "Failed to read game state",
+    cannotFinalize: "Cannot finalize: ",
+    cannotClaim: "Cannot claim: ",
+    alreadyClaimedOnchain: "Already claimed onchain. Use Г— to hide this record.",
+  },
+  ru: {
+    botKicker: "РўСЂРµРЅРёСЂРѕРІРєР° СЃРѕР»Рѕ",
+    friendKicker: "РљРѕРјРЅР°С‚Р° РґСЂСѓРіР°",
+    wagerKicker: "Р‘РѕР№ СЃРѕ СЃС‚Р°РІРєРѕР№",
+    createKicker: "РЎРѕР·РґР°С‚СЊ Р±РѕР№",
+    joinKicker: "Р’РѕР№С‚Рё РІ Р±РѕР№",
+    lockWager: "Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ СЃС‚Р°РІРєСѓ",
+    openRoom: "РћС‚РєСЂС‹С‚СЊ РєРѕРјРЅР°С‚Сѓ",
+    free: "Р‘Р•РЎРџР›РђРўРќРћ",
+    entry: "Р’С…РѕРґ",
+    stake: "РЎС‚Р°РІРєР°",
+    network: "РЎРµС‚СЊ",
+    prizePool: "РџСЂРёР·",
+    publicHint: "Р’РёРґРЅРѕ РІ РѕС‚РєСЂС‹С‚С‹С… РєРѕРјРЅР°С‚Р°С…",
+    privateHint: "Р’С…РѕРґ С‚РѕР»СЊРєРѕ РїРѕ ID",
+    walletKicker: "РќСѓР¶РµРЅ РєРѕС€РµР»РµРє",
+    walletHint: "РџРѕРґРєР»СЋС‡Рё РєРѕС€РµР»РµРє РЅР° РіР»Р°РІРЅРѕРј СЌРєСЂР°РЅРµ, РїРѕС‚РѕРј РІРѕР·РІСЂР°С‰Р°Р№СЃСЏ СЂР°Р·РІРµСЂРЅСѓС‚СЊ С„Р»РѕС‚.",
+    approveUsdc: "РћРґРѕР±СЂСЏРµРј USDC...",
+    sendUsdc: "РћС‚РїСЂР°РІРёС‚СЊ USDC",
+    confirmWallet: "РџРѕРґС‚РІРµСЂРґРё РІ РєРѕС€РµР»СЊРєРµ...",
+    confirming: "РџРѕРґС‚РІРµСЂР¶РґР°РµРј...",
+    creating: "РЎРѕР·РґР°РµРј...",
+    finalizing: "Р¤РёРЅР°Р»РёР·РёСЂСѓРµРј...",
+    checking: "РџСЂРѕРІРµСЂСЏРµРј...",
+    refunding: "Р’РѕР·РІСЂР°С‰Р°РµРј...",
+    confirmFirst: "РџРѕРґС‚РІРµСЂРґРё 1/2...",
+    confirmSecond: "РџРѕРґС‚РІРµСЂРґРё 2/2...",
+    claiming: "РџРѕР»СѓС‡Р°РµРј...",
+    gameLabel: "РРіСЂР°",
+    hideRecord: "РЎРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ",
+    hideClaimedRecord: "РЎРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ (РµСЃР»Рё СѓР¶Рµ РїРѕР»СѓС‡РµРЅРѕ)",
+    contractWarning: "РљРѕРЅС‚СЂР°РєС‚ РµС‰Рµ РЅРµ Р·Р°РґРµРїР»РѕРµРЅ. РЈРєР°Р¶Рё NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS РІ .env",
+    wagerAmount: "Р Р°Р·РјРµСЂ СЃС‚Р°РІРєРё",
+    validGameId: "Р’РІРµРґРё РєРѕСЂСЂРµРєС‚РЅС‹Р№ ID РёРіСЂС‹",
+    offchainCreateFailed: "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ offchain-РёРіСЂСѓ",
+    onchainIdMissing: "Onchain ID РёРіСЂС‹ РЅРµ РЅР°Р№РґРµРЅ",
+    gameNotFound: "РРіСЂР° РЅРµ РЅР°Р№РґРµРЅР°",
+    notWagerGame: "Р­С‚Рѕ РЅРµ РёРіСЂР° СЃРѕ СЃС‚Р°РІРєРѕР№",
+    ownGame: "РќРµР»СЊР·СЏ РІРѕР№С‚Рё РІ СЃРІРѕСЋ РёРіСЂСѓ",
+    gameHasPlayer: "Р’ РёРіСЂРµ СѓР¶Рµ РµСЃС‚СЊ РґСЂСѓРіРѕР№ РёРіСЂРѕРє",
+    gameFinished: "РРіСЂР° СѓР¶Рµ Р·Р°РІРµСЂС€РµРЅР° onchain",
+    readGameFailed: "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ СЃРѕСЃС‚РѕСЏРЅРёРµ РёРіСЂС‹",
+    cannotFinalize: "РќРµ СѓРґР°Р»РѕСЃСЊ С„РёРЅР°Р»РёР·РёСЂРѕРІР°С‚СЊ: ",
+    cannotClaim: "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ: ",
+    alreadyClaimedOnchain: "РЈР¶Рµ РїРѕР»СѓС‡РµРЅРѕ onchain. РќР°Р¶РјРё Г—, С‡С‚РѕР±С‹ СЃРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ.",
+  },
+};
+
+export default function PlayPage() {
+  return (
+    <Suspense fallback={<div className={styles.container} />}>
+      <PlayPageInner />
+    </Suspense>
+  );
+}
+
+function PlayPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = (() => {
+    const m = searchParams.get("mode");
+    return m === "friend" || m === "wager" || m === "bot" ? m : "bot";
+  })();
+  const { address, isConnected, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+  const { lang } = useSettings();
+  const tr = TR[lang];
+  const playCopy = PLAY_COPY[lang === "ru" ? "ru" : "en"];
+  const wagmiConfig = useConfig();
+
+  const [joinGameId, setJoinGameId] = useState("");
+  const [error, setError] = useState("");
+  const [action, setAction] = useState<"create" | "join" | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const mode = initialMode;
+  const [offchainLoading, setOffchainLoading] = useState(false);
+  const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string; game_mode: string; wager_amount: number }[]>([]);
+  const [wagerAmount, setWagerAmount] = useState(WAGER_OPTIONS[0].value);
+  const [unclaimedWins, setUnclaimedWins] = useState<UnclaimedWin[]>([]);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
+  const [claimErr, setClaimErr] = useState("");
+  const [refundableGames, setRefundableGames] = useState<RefundableGame[]>([]);
+  const [dismissedRefundIds, setDismissedRefundIds] = useState<Set<number>>(() => new Set());
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelErr, setCancelErr] = useState("");
+
+  // Auto-switch chain
+  useEffect(() => {
+    if (isConnected && chainId && chainId !== base.id) {
+      switchChain({ chainId: base.id });
+    }
+  }, [isConnected, chainId, switchChain]);
+
+  // в”Ђв”Ђв”Ђ Onchain write (wager) в”Ђв”Ђв”Ђ
+  const {
+    data: txHash,
+    isPending,
+    writeContract,
+    error: writeError,
+    reset: resetWagerWrite,
+  } = useWriteContract();
+  const { isLoading: isConfirming, data: receipt } =
+    useWaitForTransactionReceipt({ hash: txHash });
+  const [wagerReceiptFallback, setWagerReceiptFallback] = useState<typeof receipt | null>(null);
+  const wagerReceipt = receipt ?? wagerReceiptFallback;
+
+  // в”Ђв”Ђв”Ђ USDC approve for wager в”Ђв”Ђв”Ђ
+  const {
+    data: approveTxHash,
+    isPending: approvePending,
+    writeContract: writeApprove,
+    error: approveError,
+    reset: resetApprove,
+  } = useWriteContract();
+  const { data: approveReceipt } = useWaitForTransactionReceipt({
+    hash: approveTxHash,
+  });
+  const [approveFallbackMined, setApproveFallbackMined] = useState(false);
+  const approveSuccess = approveReceipt?.status === "success" || approveFallbackMined;
+
+  useEffect(() => {
+    setWagerReceiptFallback(null);
+    if (!txHash) return;
+    let cancelled = false;
+    waitForReceipt(wagmiConfig, { hash: txHash })
+      .then((nextReceipt) => {
+        if (!cancelled) setWagerReceiptFallback(nextReceipt as typeof receipt);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [txHash, wagmiConfig]);
+
+  useEffect(() => {
+    setApproveFallbackMined(false);
+    if (!approveTxHash) return;
+    let cancelled = false;
+    waitForReceipt(wagmiConfig, { hash: approveTxHash })
+      .then((nextReceipt) => {
+        if (!cancelled && nextReceipt.status === "success") setApproveFallbackMined(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [approveTxHash, wagmiConfig]);
+
+  // в”Ђв”Ђв”Ђ Claim prize в”Ђв”Ђв”Ђ
+  const {
+    data: claimTxHash,
+    writeContract: writeClaim,
+    isPending: claimPending,
+    error: claimWriteError,
+    reset: resetClaim,
+  } = useWriteContract();
+  const { data: claimReceipt } = useWaitForTransactionReceipt({
+    hash: claimTxHash,
+  });
+  const claimConfirmed = claimReceipt?.status === "success";
+
+  // в”Ђв”Ђв”Ђ Record result в”Ђв”Ђв”Ђ
+  const {
+    data: recordTxHash,
+    writeContract: writeRecord,
+    isPending: recordPending,
+    error: recordWriteError,
+    reset: resetRecord,
+  } = useWriteContract();
+  const { data: recordReceipt } = useWaitForTransactionReceipt({
+    hash: recordTxHash,
+  });
+  const recordConfirmed = recordReceipt?.status === "success";
+
+  // в”Ђв”Ђв”Ђ Cancel wager в”Ђв”Ђв”Ђ
+  const {
+    data: cancelTxHash,
+    writeContract: writeCancel,
+    isPending: cancelPending,
+    error: cancelWriteError,
+    reset: resetCancel,
+  } = useWriteContract();
+  const { data: cancelReceipt } = useWaitForTransactionReceipt({
+    hash: cancelTxHash,
+  });
+  const cancelConfirmed = cancelReceipt?.status === "success";
+
+  // в”Ђв”Ђв”Ђ Pending action routing в”Ђв”Ђв”Ђ
+  const wagerActionRef = useRef<{
+    action: "create" | "join";
+    amount: number;
+    joinId?: string;
+  } | null>(null);
+  const wagerWriteSubmittedRef = useRef(false);
+  const wagerExpectedOnchainIdRef = useRef<bigint | null>(null);
+  const wagerCompletionStartedRef = useRef(false);
+  const [wagerRecoveryNonce, setWagerRecoveryNonce] = useState(0);
+  const [wagerSecondStepReady, setWagerSecondStepReady] = useState(false);
+
+  const pendingAction = useRef<{
+    action: "create" | "join";
+    mode: GameMode;
+    joinId?: string;
+    wager?: number;
+  } | null>(null);
+
+  const finishWagerAction = useCallback(async (
+    pa: {
+      action: "create" | "join";
+      mode: GameMode;
+      joinId?: string;
+      wager?: number;
+    },
+    onchainId?: bigint
+  ) => {
+    if (wagerCompletionStartedRef.current) return;
+    wagerCompletionStartedRef.current = true;
+    pendingAction.current = null;
+    wagerActionRef.current = null;
+    wagerWriteSubmittedRef.current = false;
+    setWagerSecondStepReady(false);
+
+    if (pa.action === "create") {
+      const finalOnchainId = onchainId ?? wagerExpectedOnchainIdRef.current;
+      if (finalOnchainId == null) {
+        wagerCompletionStartedRef.current = false;
+        setError(playCopy.onchainIdMissing);
+        return;
+      }
+
+      try {
+        const offId = await createOffchainGame(address!, isPrivate, {
+          game_mode: "wager",
+          onchain_game_id: Number(finalOnchainId),
+          wager_amount: pa.wager,
+        });
+        router.push(`/game?id=${offId}&mode=wager&oid=${finalOnchainId.toString()}`);
+      } catch {
+        setError(playCopy.offchainCreateFailed);
+      }
+      return;
+    }
+
+    const gid = Number(pa.joinId);
+    joinOffchainGame(gid, address!)
+      .catch(() => {})
+      .finally(() => {
+        const finalOnchainId = onchainId ?? wagerExpectedOnchainIdRef.current;
+        if (finalOnchainId != null) {
+          router.push(`/game?id=${pa.joinId}&mode=wager&oid=${finalOnchainId.toString()}`);
+          return;
+        }
+        getGameOnchainId(gid).then((oid) => {
+          router.push(`/game?id=${pa.joinId}&mode=wager&oid=${oid || pa.joinId}`);
+        });
+      });
+  }, [
+    address,
+    isPrivate,
+    playCopy.offchainCreateFailed,
+    playCopy.onchainIdMissing,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (!approveTxHash || !address || approveSuccess) return;
+    let cancelled = false;
+
+    const checkAllowance = async () => {
+      const pendingWager = wagerActionRef.current;
+      if (!pendingWager) return;
+
+      try {
+        const allowance = await readContract(wagmiConfig, {
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, SEABATTLE_CONTRACT_ADDRESS],
+          chainId: base.id,
+        });
+        if (!cancelled && allowance >= BigInt(pendingWager.amount)) {
+          setApproveFallbackMined(true);
+        }
+      } catch {
+        // Mobile wallet receipt polling can lag; keep polling allowance quietly.
+      }
+    };
+
+    checkAllowance();
+    const interval = window.setInterval(checkAllowance, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [approveTxHash, address, approveSuccess, wagmiConfig]);
+
+  useEffect(() => {
+    if (writeError) {
+      const msg = writeError.message || "Transaction failed";
+      const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/);
+      setError(reasonMatch ? reasonMatch[1] : msg.slice(0, 150));
+      if (pendingAction.current?.mode === "wager") {
+        pendingAction.current = null;
+        wagerWriteSubmittedRef.current = false;
+        wagerExpectedOnchainIdRef.current = null;
+        wagerCompletionStartedRef.current = false;
+        setWagerSecondStepReady(!!wagerActionRef.current && approveSuccess);
+      }
+    }
+  }, [writeError, approveSuccess]);
+
+  useEffect(() => {
+    if (
+      !wagerReceipt ||
+      wagerReceipt.status !== "success" ||
+      !pendingAction.current ||
+      wagerCompletionStartedRef.current
+    ) return;
+    const pa = pendingAction.current;
+
+    if (pa.mode === "wager") {
+      if (pa.action === "create") {
+        for (const log of wagerReceipt.logs) {
+          try {
+            const decoded = decodeEventLog({
+              abi: seaBattleAbi,
+              data: log.data,
+              topics: log.topics,
+            });
+            if (decoded.eventName === "GameCreated") {
+              const onchainId = (decoded.args as { gameId: bigint }).gameId;
+              finishWagerAction(pa, onchainId);
+              return;
+            }
+          } catch { /* not our event */ }
+        }
+        if (wagerExpectedOnchainIdRef.current != null) {
+          finishWagerAction(pa, wagerExpectedOnchainIdRef.current);
+        }
+      } else if (pa.action === "join") {
+        finishWagerAction(pa, wagerExpectedOnchainIdRef.current ?? undefined);
+      }
+      return;
+    }
+  }, [wagerReceipt, finishWagerAction]);
+
+  useEffect(() => {
+    if (!wagerReceipt || wagerReceipt.status !== "reverted" || pendingAction.current?.mode !== "wager") return;
+    pendingAction.current = null;
+    wagerWriteSubmittedRef.current = false;
+    wagerExpectedOnchainIdRef.current = null;
+    wagerCompletionStartedRef.current = false;
+    setWagerSecondStepReady(!!wagerActionRef.current && approveSuccess);
+    setError("Transaction reverted");
+  }, [wagerReceipt, approveSuccess]);
+
+  useEffect(() => {
+    if (!address || !wagerWriteSubmittedRef.current || wagerCompletionStartedRef.current) return;
+    let cancelled = false;
+    const me = address.toLowerCase();
+
+    const checkOnchainWagerState = async () => {
+      const pa = pendingAction.current;
+      if (!pa || pa.mode !== "wager" || wagerCompletionStartedRef.current) return;
+
+      try {
+        if (pa.action === "create") {
+          const expectedId = wagerExpectedOnchainIdRef.current;
+          if (expectedId == null) return;
+
+          const onchainGame = await readContract(wagmiConfig, {
+            address: SEABATTLE_CONTRACT_ADDRESS,
+            abi: seaBattleAbi,
+            functionName: "getGame",
+            args: [expectedId],
+            chainId: base.id,
+          }) as readonly [
+            `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`, boolean
+          ];
+          const [player1, , gameType, wagerAmountOnchain] = onchainGame;
+
+          if (
+            !cancelled &&
+            gameType === 2 &&
+            player1.toLowerCase() === me &&
+            wagerAmountOnchain === BigInt(pa.wager ?? 0)
+          ) {
+            finishWagerAction(pa, expectedId);
+          }
+          return;
+        }
+
+        const expectedId =
+          wagerExpectedOnchainIdRef.current ??
+          (pa.joinId ? BigInt(await getGameOnchainId(Number(pa.joinId)) || 0) : BigInt(0));
+        if (expectedId === BigInt(0)) return;
+
+        const onchainGame = await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getGame",
+          args: [expectedId],
+          chainId: base.id,
+        }) as readonly [
+          `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`, boolean
+        ];
+        const player2 = onchainGame[1];
+
+        if (!cancelled && player2.toLowerCase() === me) {
+          finishWagerAction(pa, expectedId);
+        }
+      } catch {
+        // Keep polling; mobile wallet receipt delivery can lag behind chain state.
+      }
+    };
+
+    checkOnchainWagerState();
+    const interval = window.setInterval(checkOnchainWagerState, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [address, finishWagerAction, wagerRecoveryNonce, wagmiConfig]);
+
+  const submitWagerWrite = useCallback(async () => {
+    const wa = wagerActionRef.current;
+    if (!wa || wagerWriteSubmittedRef.current) return;
+
+    setError("");
+    setWagerSecondStepReady(false);
+    wagerWriteSubmittedRef.current = true;
+    wagerCompletionStartedRef.current = false;
+    wagerExpectedOnchainIdRef.current = null;
+    resetWagerWrite();
+    setWagerReceiptFallback(null);
+
+    try {
+      if (wa.action === "create") {
+        try {
+          wagerExpectedOnchainIdRef.current = await readContract(wagmiConfig, {
+            address: SEABATTLE_CONTRACT_ADDRESS,
+            abi: seaBattleAbi,
+            functionName: "nextGameId",
+            chainId: base.id,
+          }) as bigint;
+        } catch {
+          // Receipt handling can still finish the flow if this read is unavailable.
+        }
+        pendingAction.current = { action: "create", mode: "wager", wager: wa.amount };
+        setWagerRecoveryNonce((nonce) => nonce + 1);
+        writeContract({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "createWagerGame",
+          args: [BigInt(wa.amount)],
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+        return;
+      }
+
+      const oid = await getGameOnchainId(Number(wa.joinId!));
+      if (!oid) {
+        pendingAction.current = null;
+        wagerWriteSubmittedRef.current = false;
+        wagerExpectedOnchainIdRef.current = null;
+        wagerCompletionStartedRef.current = false;
+        setWagerSecondStepReady(true);
+        setError(playCopy.onchainIdMissing);
+        return;
+      }
+
+      wagerExpectedOnchainIdRef.current = BigInt(oid);
+      pendingAction.current = { action: "join", mode: "wager", joinId: wa.joinId };
+      setWagerRecoveryNonce((nonce) => nonce + 1);
+      writeContract({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "joinWagerGame",
+        args: [BigInt(oid)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+    } catch (e: unknown) {
+      pendingAction.current = null;
+      wagerWriteSubmittedRef.current = false;
+      wagerExpectedOnchainIdRef.current = null;
+      wagerCompletionStartedRef.current = false;
+      setWagerSecondStepReady(true);
+      setError((e as Error).message?.slice(0, 150) || "Transaction failed");
+    }
+  }, [playCopy.onchainIdMissing, resetWagerWrite, wagmiConfig, writeContract]);
+
+  useEffect(() => {
+    if (!approveSuccess || !wagerActionRef.current || wagerWriteSubmittedRef.current) return;
+    setWagerSecondStepReady(true);
+  }, [approveSuccess]);
+
+  useEffect(() => {
+    if (!approveError || !wagerActionRef.current) return;
+    setError(formatRevert(approveError.message || "Approval failed", lang));
+    wagerActionRef.current = null;
+    wagerWriteSubmittedRef.current = false;
+    setWagerSecondStepReady(false);
+  }, [approveError, lang]);
+
+  useEffect(() => {
+    if (!approveReceipt || approveReceipt.status !== "reverted" || !wagerActionRef.current) return;
+    setError("Approval failed");
+    wagerActionRef.current = null;
+    wagerWriteSubmittedRef.current = false;
+    setWagerSecondStepReady(false);
+  }, [approveReceipt]);
+
+  // в”Ђв”Ђв”Ђ Unclaimed wins в”Ђв”Ђв”Ђ
+  const loadUnclaimedWins = useCallback(async () => {
+    if (!address) return;
+    const wins = await getUnclaimedWins(address);
+    setUnclaimedWins(wins);
+  }, [address]);
+
+  const hideUnclaimedWin = useCallback(async (gameId: number) => {
+    setUnclaimedWins((wins) => wins.filter((w) => w.id !== gameId));
+    await markPrizeClaimed(gameId).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (address) loadUnclaimedWins();
+  }, [address, loadUnclaimedWins]);
+
+  // в”Ђв”Ђв”Ђ Refundable games в”Ђв”Ђв”Ђ
+  useEffect(() => {
+    if (!address || typeof window === "undefined") {
+      setDismissedRefundIds(new Set());
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(dismissedRefundsKey(address));
+      const ids = raw ? JSON.parse(raw) : [];
+      setDismissedRefundIds(
+        new Set(Array.isArray(ids) ? ids.filter((id) => Number.isFinite(id)) : [])
+      );
+    } catch {
+      setDismissedRefundIds(new Set());
+    }
+  }, [address]);
+
+  const rememberDismissedRefund = useCallback((gameId: number) => {
+    setDismissedRefundIds((prev) => {
+      const next = new Set(prev);
+      next.add(gameId);
+      if (address && typeof window !== "undefined") {
+        localStorage.setItem(dismissedRefundsKey(address), JSON.stringify([...next]));
+      }
+      return next;
+    });
+    setRefundableGames((games) => games.filter((g) => g.id !== gameId));
+  }, [address]);
+
+  const loadRefundable = useCallback(async () => {
+    if (!address || mode !== "wager") {
+      setRefundableGames([]);
+      return;
+    }
+    const games = await getRefundableGames(address);
+    setRefundableGames(games);
+  }, [address, mode]);
+
+  useEffect(() => {
+    autoCloseStaleGames().catch(() => {});
+    loadRefundable();
+  }, [loadRefundable]);
+
+  useEffect(() => {
+    if (cancelConfirmed && cancellingId !== null) {
+      rememberDismissedRefund(cancellingId);
+      markGameCancelled(cancellingId).catch(() => {});
+      setCancellingId(null);
+      setCancelErr("");
+      resetCancel();
+      loadRefundable();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelConfirmed, cancellingId]);
+
+  useEffect(() => {
+    if (cancelWriteError && cancellingId !== null) {
+      const msg = cancelWriteError.message || "Refund failed";
+      setCancelErr(formatRevert(msg, lang));
+      setCancellingId(null);
+    }
+  }, [cancelWriteError, cancellingId, lang]);
+
+  const handleRefund = useCallback((g: RefundableGame) => {
+    if (g.onchain_game_id === null) return;
+    setCancelErr("");
+    resetCancel();
+    setCancellingId(g.id);
+    writeCancel({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "cancelWagerGame",
+      args: [BigInt(g.onchain_game_id)],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [writeCancel, resetCancel]);
+
+  const handleDismissRefund = useCallback(async (gameId: number) => {
+    rememberDismissedRefund(gameId);
+    await markGameCancelled(gameId).catch(() => {});
+  }, [rememberDismissedRefund]);
+
+  const claimingOidRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (recordConfirmed && claimStep === "recording" && claimingOidRef.current !== null) {
+      setClaimStep("claiming");
+      writeClaim({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "claimPrize",
+        args: [BigInt(claimingOidRef.current)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+    }
+  }, [recordConfirmed, claimStep, writeClaim]);
+
+  useEffect(() => {
+    if (claimConfirmed && claimingId !== null) {
+      const claimedGameId = claimingId;
+      hideUnclaimedWin(claimedGameId).then(loadUnclaimedWins).catch(() => {});
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+      setClaimErr("");
+      resetClaim();
+      resetRecord();
+    }
+  }, [
+    claimConfirmed,
+    claimingId,
+    hideUnclaimedWin,
+    loadUnclaimedWins,
+    resetClaim,
+    resetRecord,
+  ]);
+
+  useEffect(() => {
+    if (claimWriteError && claimingId !== null) {
+      const msg = claimWriteError.message || tr.shop_claim_failed;
+      setClaimErr(formatRevert(msg, lang));
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+    }
+  }, [claimWriteError, claimingId, lang, tr.shop_claim_failed]);
+
+  useEffect(() => {
+    if (recordWriteError && claimingId !== null) {
+      const msg = recordWriteError.message || playCopy.cannotFinalize;
+      setClaimErr(formatRevert(msg, lang));
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+    }
+  }, [recordWriteError, claimingId, lang, playCopy.cannotFinalize]);
+
+  const handleClaimWin = async (win: UnclaimedWin) => {
+    if (!win.onchain_game_id || !address || claimPending || recordPending) return;
+    setClaimErr("");
+    resetClaim();
+    resetRecord();
+    setClaimingId(win.id);
+    claimingOidRef.current = win.onchain_game_id;
+
+    try {
+      const info = await readContract(wagmiConfig, {
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "getGame",
+        args: [BigInt(win.onchain_game_id)],
+        chainId: base.id,
+      });
+      const [, , , wagerAmountOnchain, finished, onchainWinner] = info as readonly [
+        `0x${string}`,
+        `0x${string}`,
+        number,
+        bigint,
+        boolean,
+        `0x${string}`,
+        boolean
+      ];
+
+      const required = (wagerAmountOnchain * BigInt(18)) / BigInt(10);
+      const balance = await readContract(wagmiConfig, {
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [SEABATTLE_CONTRACT_ADDRESS],
+        chainId: base.id,
+      }) as bigint;
+      if (balance < required) {
+        await hideUnclaimedWin(win.id);
+        setClaimErr("");
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
+        return;
+      }
+
+      if (!finished) {
+        try {
+          await simulateContract(wagmiConfig, {
+            address: SEABATTLE_CONTRACT_ADDRESS,
+            abi: seaBattleAbi,
+            functionName: "recordResult",
+            args: [BigInt(win.onchain_game_id), address as `0x${string}`],
+            chainId: base.id,
+            account: address as `0x${string}`,
+          });
+        } catch (simErr: unknown) {
+          setClaimErr(playCopy.cannotFinalize + formatRevert((simErr as Error).message || "", lang));
+          setClaimingId(null);
+          claimingOidRef.current = null;
+          setClaimStep("idle");
+          return;
+        }
+        setClaimStep("recording");
+        writeRecord({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "recordResult",
+          args: [BigInt(win.onchain_game_id), address as `0x${string}`],
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+        return;
+      }
+
+      if (onchainWinner.toLowerCase() !== address.toLowerCase()) {
+        await hideUnclaimedWin(win.id);
+        setClaimErr("");
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
+        return;
+      }
+
+      try {
+        await simulateContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "claimPrize",
+          args: [BigInt(win.onchain_game_id)],
+          chainId: base.id,
+          account: address as `0x${string}`,
+        });
+      } catch (simErr: unknown) {
+        const reason = formatRevert((simErr as Error).message || "", lang);
+        if (/already|claimed/i.test(reason)) {
+          await hideUnclaimedWin(win.id);
+          setClaimErr("");
+        } else {
+          setClaimErr(playCopy.cannotClaim + reason);
+        }
+        setClaimingId(null);
+        claimingOidRef.current = null;
+        setClaimStep("idle");
+        return;
+      }
+
+      setClaimStep("claiming");
+      writeClaim({
+        address: SEABATTLE_CONTRACT_ADDRESS,
+        abi: seaBattleAbi,
+        functionName: "claimPrize",
+        args: [BigInt(win.onchain_game_id)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+    } catch (e: unknown) {
+      setClaimErr((e as Error).message?.slice(0, 140) || playCopy.readGameFailed);
+      setClaimingId(null);
+      claimingOidRef.current = null;
+      setClaimStep("idle");
+    }
+  };
+
+  const handleDismissWin = async (winId: number) => {
+    await hideUnclaimedWin(winId);
+    loadUnclaimedWins();
+  };
+
+  // в”Ђв”Ђв”Ђ Open games list в”Ђв”Ђв”Ђ
+  const loadOffchainGames = useCallback(async () => {
+    if (mode === "bot") { setOffchainGames([]); return; }
+    const games = await getAvailableGames(address, mode);
+    setOffchainGames(games);
+  }, [address, mode]);
+
+  useEffect(() => {
+    if (mode === "bot") return;
+    loadOffchainGames();
+    const interval = setInterval(loadOffchainGames, 5000);
+    return () => clearInterval(interval);
+  }, [mode, loadOffchainGames]);
+
+  // в”Ђв”Ђв”Ђ Handlers в”Ђв”Ђв”Ђ
+  const handleCreate = async () => {
+    setError("");
+    setAction("create");
+    wagerWriteSubmittedRef.current = false;
+
+    if (mode === "bot") {
+      router.push(`/game?id=0&mode=bot`);
+      return;
+    }
+
+    if (mode === "friend") {
+      if (!address) return;
+      setOffchainLoading(true);
+      try {
+        const gameId = await createOffchainGame(address, isPrivate);
+        router.push(`/game?id=${gameId}&mode=friend`);
+      } catch (e: unknown) {
+        setError((e as Error).message);
+      } finally {
+        setOffchainLoading(false);
+      }
+      return;
+    }
+
+    if (mode === "wager") {
+      if (CONTRACT_NOT_SET) { setError(tr.contract_not_deployed); return; }
+      if (wagerSecondStepReady && wagerActionRef.current?.action === "create") {
+        submitWagerWrite();
+        return;
+      }
+      wagerActionRef.current = { action: "create", amount: wagerAmount };
+      wagerExpectedOnchainIdRef.current = null;
+      wagerCompletionStartedRef.current = false;
+      resetApprove();
+      resetWagerWrite();
+      setApproveFallbackMined(false);
+      setWagerSecondStepReady(false);
+      pendingAction.current = null;
+      writeApprove({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+      return;
+    }
+  };
+
+  const handleJoin = async (id?: string) => {
+    const gid = id || joinGameId;
+    if (!gid || isNaN(Number(gid))) { setError(playCopy.validGameId); return; }
+    if (!address) return;
+    setError("");
+    setAction("join");
+    setJoinGameId(gid);
+
+    if (mode === "friend") {
+      setOffchainLoading(true);
+      try {
+        await joinOffchainGame(Number(gid), address);
+        router.push(`/game?id=${gid}&mode=friend`);
+      } catch (e: unknown) {
+        setError((e as Error).message);
+      } finally {
+        setOffchainLoading(false);
+      }
+      return;
+    }
+
+    if (mode === "wager") {
+      if (CONTRACT_NOT_SET) { setError(tr.contract_not_deployed); return; }
+      if (
+        wagerSecondStepReady &&
+        wagerActionRef.current?.action === "join" &&
+        wagerActionRef.current.joinId === gid
+      ) {
+        submitWagerWrite();
+        return;
+      }
+      setOffchainLoading(true);
+      try {
+        const info = await getGameJoinInfo(Number(gid));
+        if (!info) { setError(playCopy.gameNotFound); setOffchainLoading(false); return; }
+        if (info.game_mode !== "wager" || !info.wager_amount || !info.onchain_game_id) {
+          setError(playCopy.notWagerGame); setOffchainLoading(false); return;
+        }
+        if (info.player1.toLowerCase() === address.toLowerCase()) {
+          setError(playCopy.ownGame); setOffchainLoading(false); return;
+        }
+        if (info.player2 && info.player2.toLowerCase() !== address.toLowerCase()) {
+          setError(playCopy.gameHasPlayer); setOffchainLoading(false); return;
+        }
+
+        const onchainGame = await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getGame",
+          args: [BigInt(info.onchain_game_id)],
+          chainId: base.id,
+        }) as readonly [
+          `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`, boolean
+        ];
+        const onchainP2 = onchainGame[1];
+        const onchainFinished = onchainGame[4];
+        if (onchainFinished) {
+          setError(playCopy.gameFinished); setOffchainLoading(false); return;
+        }
+        const alreadyJoinedOnchain =
+          onchainP2 !== ZERO_ADDR &&
+          onchainP2.toLowerCase() === address.toLowerCase();
+
+        const actualAmount = info.wager_amount;
+        setOffchainLoading(false);
+
+        if (alreadyJoinedOnchain) {
+          try { await joinOffchainGame(Number(gid), address); } catch {}
+          router.push(`/game?id=${gid}&mode=wager&oid=${info.onchain_game_id}`);
+          return;
+        }
+
+        wagerActionRef.current = { action: "join", amount: actualAmount, joinId: gid };
+        wagerWriteSubmittedRef.current = false;
+        wagerExpectedOnchainIdRef.current = null;
+        wagerCompletionStartedRef.current = false;
+        resetApprove();
+        resetWagerWrite();
+        setApproveFallbackMined(false);
+        setWagerSecondStepReady(false);
+        pendingAction.current = null;
+        writeApprove({
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(actualAmount)],
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+      } catch (e: unknown) {
+        setError((e as Error).message);
+        setOffchainLoading(false);
+      }
+      return;
+    }
+  };
+
+  const approveConfirming =
+    mode === "wager" && !!approveTxHash && !approveSuccess && !!wagerActionRef.current;
+  const wagerConfirming = isConfirming && !wagerReceipt;
+  const wagerWriteSubmitting =
+    mode === "wager" && wagerWriteSubmittedRef.current && !txHash && !writeError;
+  const createSecondStepReady =
+    mode === "wager" &&
+    action === "create" &&
+    wagerSecondStepReady &&
+    wagerActionRef.current?.action === "create";
+  const joinSecondStepReady =
+    mode === "wager" &&
+    action === "join" &&
+    wagerSecondStepReady &&
+    wagerActionRef.current?.action === "join" &&
+    wagerActionRef.current.joinId === joinGameId;
+
+  const loading =
+    mode === "bot" || mode === "friend"
+      ? offchainLoading
+      : isPending || wagerConfirming || approvePending || approveConfirming || wagerWriteSubmitting || offchainLoading;
+
+  const modeSubtitle: Record<GameMode, string> = {
+    bot: tr.subtitle_bot,
+    friend: tr.subtitle_friend,
+    wager: tr.subtitle_wager,
+  };
+  const ModeIcon = mode === "wager" ? DollarIcon : mode === "friend" ? UsersIcon : SwordIcon;
+  const modeLabel =
+    mode === "wager"
+      ? tr.home_play_wager
+      : mode === "friend"
+        ? tr.home_play_friend
+        : tr.play_bot;
+  const modeKicker =
+    mode === "wager"
+      ? playCopy.wagerKicker
+      : mode === "friend"
+        ? playCopy.friendKicker
+        : playCopy.botKicker;
+  const modeClass = mode === "wager" ? styles.wagerMode : styles.friendMode;
+  const selectedWager = WAGER_OPTIONS.find((opt) => opt.value === wagerAmount);
+  const createButtonLabel =
+    createSecondStepReady
+      ? playCopy.sendUsdc
+      : loading && action === "create"
+      ? approvePending
+        ? playCopy.approveUsdc
+        : approveConfirming
+          ? playCopy.confirming
+          : isPending || wagerWriteSubmitting
+          ? playCopy.confirmWallet
+          : wagerConfirming
+            ? playCopy.confirming
+            : playCopy.creating
+      : mode === "bot"
+        ? tr.play_bot
+        : tr.create_game;
+  const joinButtonLabel =
+    joinSecondStepReady
+      ? playCopy.sendUsdc
+      : loading && action === "join"
+        ? approvePending
+          ? playCopy.approveUsdc
+          : approveConfirming
+            ? playCopy.confirming
+            : isPending || wagerWriteSubmitting
+              ? playCopy.confirmWallet
+              : wagerConfirming
+                ? playCopy.confirming
+                : tr.joining
+        : tr.join;
+  const visibleRefundableGames =
+    mode === "wager"
+      ? refundableGames.filter(
+          (g) =>
+            !dismissedRefundIds.has(g.id) &&
+            g.onchain_game_id !== null &&
+            g.wager_amount > 0
+        )
+      : [];
+
+  return (
+    <div className={`${styles.container} ${modeClass}`}>
+      <SettingsPanel />
+
+      <header className={styles.header}>
+        <button className={styles.back} onClick={() => router.push("/")} type="button">
+          {tr.back}
+        </button>
+        <h1 className={styles.title}>{modeLabel}</h1>
+        <p className={styles.subtitle}>{modeSubtitle[mode]}</p>
+      </header>
+
+      <main className={styles.main}>
+        {!isConnected ? (
+          <section className={styles.playPanel}>
+            <div className={styles.panelHeader}>
+              <span className={styles.panelKicker}>{playCopy.walletKicker}</span>
+              <h2>{tr.connect}</h2>
+            </div>
+            <p className={styles.empty}>{playCopy.walletHint}</p>
+          </section>
+        ) : (
+          <>
+            <section className={styles.modeHero}>
+              <div className={styles.modeOrb} aria-hidden="true">
+                <ModeIcon size={30} />
+              </div>
+              <div className={styles.modeHeroCopy}>
+                <span>{modeKicker}</span>
+                <h2>{modeLabel}</h2>
+                <p>{modeSubtitle[mode]}</p>
+              </div>
+              <div className={styles.modeTelemetry}>
+                <div>
+                  <b>{mode === "wager" ? selectedWager?.label : playCopy.free}</b>
+                  <small>{mode === "wager" ? playCopy.stake : playCopy.entry}</small>
+                </div>
+                <div>
+                  <b>BASE</b>
+                  <small>{playCopy.network}</small>
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.playPanel}>
+              <div className={styles.panelHeader}>
+                <span className={styles.panelKicker}>{playCopy.createKicker}</span>
+                <h2>{mode === "wager" ? playCopy.lockWager : playCopy.openRoom}</h2>
+              </div>
+
+              {mode === "wager" && CONTRACT_NOT_SET && (
+                <div className={styles.contractWarning}>
+                  {playCopy.contractWarning}
+                </div>
+              )}
+
+              {mode === "wager" && (
+                <div className={styles.wagerSelector} aria-label={playCopy.wagerAmount}>
+                  {WAGER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      className={`${styles.wagerOption} ${wagerAmount === opt.value ? styles.wagerActive : ""}`}
+                      onClick={() => setWagerAmount(opt.value)}
+                      disabled={loading || createSecondStepReady}
+                      type="button"
+                    >
+                      <span>{opt.label}</span>
+                      <small>{playCopy.prizePool} {(opt.value * 2 * 0.9 / 1_000_000).toFixed(1)}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mode !== "bot" && (
+                <label className={`${styles.privateToggle} ${isPrivate ? styles.toggleActive : ""}`}>
+                  <span className={styles.toggleText}>
+                    <b>{tr.private_game}</b>
+                    <small>{isPrivate ? playCopy.privateHint : playCopy.publicHint}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                  />
+                  <span className={`${styles.toggleSwitch} ${isPrivate ? styles.toggleOn : ""}`} />
+                </label>
+              )}
+
+              <button
+                className={styles.primaryButton}
+                onClick={handleCreate}
+                disabled={loading || (mode === "wager" && CONTRACT_NOT_SET)}
+                type="button"
+              >
+                <SwordIcon size={18} />
+                <span>{createButtonLabel}</span>
+                <ChevronRightIcon size={16} />
+              </button>
+            </section>
+
+            {mode !== "bot" && (
+              <section className={`${styles.playPanel} ${styles.joinPanel}`}>
+                <div className={styles.panelHeader}>
+                  <span className={styles.panelKicker}>{playCopy.joinKicker}</span>
+                  <h2>{tr.join_by_id}</h2>
+                </div>
+                <div className={styles.joinSection}>
+                  <div className={styles.inputWrap}>
+                    <AnchorIcon size={17} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={tr.game_id}
+                      value={joinGameId}
+                      onChange={(e) => setJoinGameId(e.target.value)}
+                      className={styles.input}
+                    />
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    onClick={() => handleJoin()}
+                    disabled={loading || !joinGameId || (mode === "wager" && CONTRACT_NOT_SET)}
+                    type="button"
+                  >
+                    {joinButtonLabel}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {error && <p className={styles.error}>{error}</p>}
+
+            {mode !== "bot" && offchainGames.length > 0 && (
+              <div className={styles.gameList}>
+                <h3 className={styles.gameListTitle}>
+                  {tr.open_games} ({offchainGames.length})
+                </h3>
+                {offchainGames.map((g) => {
+                  const gameJoinSecondStepReady =
+                    mode === "wager" &&
+                    action === "join" &&
+                    wagerSecondStepReady &&
+                    wagerActionRef.current?.action === "join" &&
+                    wagerActionRef.current.joinId === g.id.toString();
+                  return (
+                    <div key={g.id} className={styles.gameItem}>
+                      <div className={styles.gameItemInfo}>
+                        <span className={styles.gameItemId}>#{g.id}</span>
+                        <WalletName address={g.player1} className={styles.gameItemPlayer} />
+                        {g.wager_amount > 0 && (
+                          <span className={styles.gameItemWager}>
+                            {g.wager_amount / 1_000_000} USDC
+                          </span>
+                        )}
+                        {g.game_mode !== "free" && g.wager_amount === 0 && (
+                          <span className={styles.gameItemMode}>{g.game_mode}</span>
+                        )}
+                      </div>
+                      <button
+                        className={styles.gameItemJoin}
+                        onClick={() => handleJoin(g.id.toString())}
+                        disabled={loading}
+                      >
+                        {gameJoinSecondStepReady ? playCopy.sendUsdc : tr.join}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {mode !== "bot" && offchainGames.length === 0 && (
+              <p className={styles.noGames}>{tr.no_open_games}</p>
+            )}
+
+            {unclaimedWins.length > 0 && (
+              <div className={styles.unclaimedSection}>
+                <h3 className={styles.unclaimedTitle}>
+                  {tr.unclaimed} ({unclaimedWins.length})
+                </h3>
+                {unclaimedWins.map((w) => {
+                  const isActive = claimingId === w.id;
+                  const amount = (w.wager_amount * 2 * 0.9) / 1_000_000;
+                  const btnLabel = !isActive
+                    ? tr.claim
+                    : claimStep === "recording"
+                      ? recordPending
+                        ? playCopy.confirmFirst
+                        : playCopy.finalizing
+                      : claimStep === "claiming"
+                        ? claimPending
+                          ? playCopy.confirmSecond
+                          : playCopy.claiming
+                        : playCopy.checking;
+                  return (
+                    <div key={w.id} className={styles.unclaimedItem}>
+                      <div className={styles.unclaimedInfo}>
+                        <span className={styles.unclaimedGameId}>{playCopy.gameLabel} #{w.id}</span>
+                        <span className={styles.unclaimedAmount}>
+                          {amount.toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <div className={styles.unclaimedActions}>
+                        <button
+                          className={styles.unclaimedClaimBtn}
+                          onClick={() => handleClaimWin(w)}
+                          disabled={
+                            !w.onchain_game_id ||
+                            claimPending ||
+                            recordPending ||
+                            (claimingId !== null && claimingId !== w.id)
+                          }
+                        >
+                          {btnLabel}
+                        </button>
+                        <button
+                          className={styles.unclaimedDismissBtn}
+                          onClick={() => handleDismissWin(w.id)}
+                          disabled={isActive}
+                          title={playCopy.hideClaimedRecord}
+                        >
+                          Г—
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {claimErr && <p className={styles.unclaimedError}>{claimErr}</p>}
+              </div>
+            )}
+
+            {visibleRefundableGames.length > 0 && (
+              <div className={`${styles.unclaimedSection} ${styles.refundSection}`}>
+                <h3 className={`${styles.unclaimedTitle} ${styles.refundTitle}`}>
+                  {tr.refundable} ({visibleRefundableGames.length})
+                </h3>
+                {visibleRefundableGames.map((g) => {
+                  const isActive = cancellingId === g.id;
+                  const amount = g.wager_amount / 1_000_000;
+                  const btnLabel = !isActive
+                    ? tr.refund
+                    : cancelPending
+                      ? playCopy.confirmWallet
+                      : playCopy.refunding;
+                  return (
+                    <div key={g.id} className={styles.unclaimedItem}>
+                      <div className={styles.unclaimedInfo}>
+                        <span className={styles.unclaimedGameId}>{playCopy.gameLabel} #{g.id}</span>
+                        <span className={styles.unclaimedAmount}>
+                          {amount.toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <div className={styles.unclaimedActions}>
+                        <button
+                          className={`${styles.unclaimedClaimBtn} ${styles.refundBtn}`}
+                          onClick={() => handleRefund(g)}
+                          disabled={
+                            g.onchain_game_id === null ||
+                            cancelPending ||
+                            (cancellingId !== null && cancellingId !== g.id)
+                          }
+                        >
+                          {btnLabel}
+                        </button>
+                        <button
+                          className={styles.unclaimedDismissBtn}
+                          onClick={() => handleDismissRefund(g.id)}
+                          disabled={isActive}
+                          title={playCopy.hideRecord}
+                        >
+                          Г—
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {cancelErr && <p className={styles.unclaimedError}>{cancelErr}</p>}
+              </div>
+            )}
+
+            {address && <PushPrompt address={address} />}
+          </>
+        )}
+      </main>
+    </div>
+  );
+}

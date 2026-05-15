@@ -1,18 +1,27 @@
+/* ── Ship Placement (new design) ── */
+
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
   width: 100%;
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
   animation: fadeIn 0.4s ease-out;
 }
 
 .title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #00D4FF;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--accent);
   text-align: center;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .shipList {
@@ -28,25 +37,29 @@
   align-items: center;
   gap: 6px;
   padding: 7px 10px;
-  background: rgba(10, 22, 40, 0.8);
-  border: 1px solid #1a3a5c;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 8px;
-  color: #8ab4d4;
-  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .shipButton:hover {
-  border-color: #00D4FF;
-  background: rgba(0, 212, 255, 0.05);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.06);
+  color: #fff;
 }
 
 .shipButton.selected {
-  border-color: #00D4FF;
-  background: rgba(0, 212, 255, 0.12);
-  color: #00D4FF;
-  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.25);
 }
 
 .shipBlocks {
@@ -57,18 +70,19 @@
 .shipBlock {
   width: 12px;
   height: 12px;
-  background: #4a6a8a;
+  background: #3a5a7a;
   border-radius: 2px;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .selected .shipBlock {
-  background: #00D4FF;
-  box-shadow: 0 0 4px rgba(0, 212, 255, 0.4);
+  background: var(--accent);
+  box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.5);
 }
 
 .shipName {
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .controls {
@@ -78,22 +92,23 @@
 
 .controlButton {
   padding: 8px 16px;
-  font-size: 12px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
   font-weight: 700;
-  background: rgba(10, 22, 40, 0.8);
-  border: 1px solid #1a3a5c;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  color: #8ab4d4;
+  color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
   transition: all 0.2s ease;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.16em;
 }
 
 .controlButton:hover:not(:disabled) {
-  border-color: #00D4FF;
-  color: #00D4FF;
-  background: rgba(0, 212, 255, 0.05);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .controlButton:disabled {
@@ -105,22 +120,27 @@
   width: 100%;
   max-width: 360px;
   padding: 14px 24px;
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 13px;
+  font-weight: 900;
   border: none;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #00D4FF, #0088cc);
-  color: #0A1628;
-  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+  letter-spacing: 0.22em;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
+  color: var(--bg-abyss);
+  box-shadow:
+    0 0 28px rgba(var(--accent-rgb), 0.45),
+    0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 .confirmButton:not(:disabled):hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 212, 255, 0.45);
+  box-shadow:
+    0 0 40px rgba(var(--accent-rgb), 0.65),
+    0 10px 24px rgba(0, 0, 0, 0.5);
 }
 
 .confirmButton:not(:disabled):active {

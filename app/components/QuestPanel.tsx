@@ -15,10 +15,13 @@ import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   getUserQuestsWithProgress,
   claimUserQuest,
+  rerollUserQuest,
+  validateUserQuestClaim,
   questSentinelAddress,
   getWeekKey,
   UserQuestState,
 } from "../lib/quests";
+import { getItemQuantity } from "../lib/season";
 import { QUESTS_RU } from "../lib/questsRu";
 import { useSettings, TR } from "../lib/settings";
 import styles from "./QuestPanel.module.css";
@@ -28,15 +31,32 @@ const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 interface QuestPanelProps {
   address: string;
   onPointsChanged?: () => void;
+  hideHeader?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
-export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps) {
+export default function QuestPanel({
+  address,
+  onPointsChanged,
+  hideHeader = false,
+  expanded: controlledExpanded,
+  onToggleExpand,
+}: QuestPanelProps) {
   const { lang } = useSettings();
   const tr = TR[lang];
-  const [expanded, setExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const expanded = controlledExpanded ?? internalExpanded;
+  const toggle = () => {
+    if (onToggleExpand) onToggleExpand();
+    else setInternalExpanded(v => !v);
+  };
   const [quests, setQuests] = useState<UserQuestState[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [rerollingId, setRerollingId] = useState<number | null>(null);
+  const [rerolls, setRerolls] = useState(0);
   const [msgs, setMsgs] = useState<Record<number, string>>({});
   const weekKey = getWeekKey();
 
@@ -55,7 +75,8 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
     error: claimTxError,
     reset: resetClaimTx,
   } = useWriteContract();
-  const { isSuccess: claimTxSuccess } = useWaitForTransactionReceipt({ hash: claimTxHash });
+  const { data: claimTxReceipt } = useWaitForTransactionReceipt({ hash: claimTxHash });
+  const claimTxSuccess = claimTxReceipt?.status === "success";
 
   // Smart wallet path
   const {
@@ -79,11 +100,17 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
   const loadQuests = useCallback(async () => {
     if (!address) return;
     setLoading(true);
+    setLoadError("");
     try {
-      const data = await getUserQuestsWithProgress(address);
+      const [data, rerollQty] = await Promise.all([
+        getUserQuestsWithProgress(address),
+        getItemQuantity(address, "quest_reroll").catch(() => 0),
+      ]);
       setQuests(data);
-    } catch {
-      // ignore
+      setRerolls(rerollQty);
+    } catch (err) {
+      setQuests([]);
+      setLoadError(err instanceof Error ? err.message : "Could not load quests");
     } finally {
       setLoading(false);
     }
@@ -103,14 +130,16 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
 
     claimUserQuest(address, questId)
       .then(({ reward }) => {
-        setMsgs(prev => ({ ...prev, [questId]: `+${reward.toLocaleString()} pts!` }));
+        setMsgs(prev => ({ ...prev, [questId]: `+${reward.toLocaleString()} ${tr.shop_pts}!` }));
         setQuests(prev =>
           prev.map(q => q.definition.id === questId ? { ...q, claimed: true } : q)
         );
         onPointsChanged?.();
+        loadQuests();
       })
       .catch(err => {
-        setMsgs(prev => ({ ...prev, [questId]: err.message || "Claim failed" }));
+        setMsgs(prev => ({ ...prev, [questId]: err.message || tr.shop_claim_failed }));
+        loadQuests();
       })
       .finally(() => setClaimingId(null));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,23 +148,38 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
   // On tx error
   useEffect(() => {
     if (!claimTxError || claimingId === null) return;
-    const raw = claimTxError.message || "Transaction failed";
+    const raw = claimTxError.message || tr.shop_claim_failed;
     const short = raw.includes("User rejected") || raw.includes("user rejected")
-      ? "Rejected"
+      ? tr.tx_rejected
       : raw.slice(0, 80);
     setMsgs(prev => ({ ...prev, [claimingId]: short }));
     setClaimingId(null);
     claimingQuestIdRef.current = null;
-  }, [claimTxError, claimingId]);
+  }, [claimTxError, claimingId, tr.shop_claim_failed, tr.tx_rejected]);
 
-  const handleClaim = (questId: number) => {
+  const handleClaim = async (questId: number) => {
     if (claimingId !== null || claimPending) return;
     setClaimingId(questId);
-    claimingQuestIdRef.current = questId;
-    claimHandledRef.current = false;
     setMsgs(prev => ({ ...prev, [questId]: "" }));
     resetClaimTx();
 
+    try {
+      await validateUserQuestClaim(address, questId);
+      await loadQuests();
+    } catch (err) {
+      setMsgs(prev => ({
+        ...prev,
+        [questId]: err instanceof Error ? err.message : tr.quest_not_ready,
+      }));
+      setClaimingId(null);
+      claimingQuestIdRef.current = null;
+      claimHandledRef.current = true;
+      loadQuests();
+      return;
+    }
+
+    claimingQuestIdRef.current = questId;
+    claimHandledRef.current = false;
     const sentinel = questSentinelAddress(questId);
 
     if (paymasterSupported && PAYMASTER_URL) {
@@ -163,37 +207,65 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
     });
   };
 
+  const handleReroll = async (questId: number) => {
+    if (rerollingId !== null || claimingId !== null || claimPending || rerolls <= 0) return;
+    setRerollingId(questId);
+    setMsgs(prev => ({ ...prev, [questId]: "" }));
+
+    try {
+      const { definition } = await rerollUserQuest(address, questId);
+      const name = lang === "ru" ? (QUESTS_RU[definition.id]?.name ?? definition.name) : definition.name;
+      setMsgs(prev => ({ ...prev, [questId]: `${tr.quest_rerolled_into} ${name}` }));
+      await loadQuests();
+    } catch (err) {
+      setMsgs(prev => ({
+        ...prev,
+        [questId]: err instanceof Error ? err.message : tr.quest_reroll_failed,
+      }));
+    } finally {
+      setRerollingId(null);
+    }
+  };
+
   const completedCount = quests.filter(q => q.completed && !q.claimed).length;
   const claimedCount = quests.filter(q => q.claimed).length;
 
   return (
     <div className={styles.questSection}>
-      <button
-        className={styles.questHeader}
-        onClick={() => setExpanded(v => !v)}
-        type="button"
-      >
-        <div className={styles.questHeaderLeft}>
-          <span className={styles.questLabel}>{tr.weekly_quests}</span>
-          <span className={styles.questWeek}>{weekKey}</span>
-        </div>
-        <div className={styles.questHeaderRight}>
-          {completedCount > 0 && (
-            <span className={styles.questBadge}>{completedCount} {tr.quests_ready}</span>
-          )}
-          <span className={styles.questChevron}>{expanded ? "▾" : "▸"}</span>
-        </div>
-      </button>
+      {!hideHeader && (
+        <button
+          className={styles.questHeader}
+          onClick={toggle}
+          type="button"
+        >
+          <div className={styles.questHeaderLeft}>
+            <span className={styles.questLabel}>{tr.weekly_quests}</span>
+            <span className={styles.questWeek}>{weekKey}</span>
+          </div>
+          <div className={styles.questHeaderRight}>
+            {rerolls > 0 && (
+              <span className={styles.questRerollCount}>{rerolls} {tr.quest_reroll_one}</span>
+            )}
+            {completedCount > 0 && (
+              <span className={styles.questBadge}>{completedCount} {tr.quests_ready}</span>
+            )}
+            <span className={styles.questChevron}>{expanded ? "▾" : "▸"}</span>
+          </div>
+        </button>
+      )}
 
       {expanded && (
         <div className={styles.questBody}>
           {loading ? (
             <p className={styles.questLoadingText}>{tr.quests_loading}</p>
+          ) : loadError ? (
+            <p className={styles.questLoadingText}>{loadError}</p>
           ) : (
             quests.map(q => {
               const { definition: def, progress, completed, claimed } = q;
               const pct = Math.min(100, (progress / def.goal) * 100);
               const isActive = claimingId === def.id;
+              const isRerolling = rerollingId === def.id;
               const msg = msgs[def.id];
 
               return (
@@ -213,7 +285,7 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
                       </span>
                     </div>
                     <span className={styles.questCardReward}>
-                      +{def.reward.toLocaleString()} pts
+                      +{def.reward.toLocaleString()} {tr.shop_pts}
                     </span>
                   </div>
 
@@ -232,19 +304,32 @@ export default function QuestPanel({ address, onPointsChanged }: QuestPanelProps
                   {claimed ? (
                     <span className={styles.questClaimedBadge}>{tr.quest_claimed}</span>
                   ) : completed ? (
-                    <button
-                      className={styles.questClaimBtn}
-                      onClick={() => handleClaim(def.id)}
-                      disabled={isActive || (claimPending && claimingId !== def.id)}
-                    >
-                      {isActive
-                        ? claimPending
-                          ? "Confirm in wallet..."
-                          : tr.quest_processing
-                        : paymasterSupported
-                          ? tr.quest_claim_free
-                          : tr.quest_claim_tx}
-                    </button>
+                    <div className={styles.questActions}>
+                      <button
+                        className={styles.questClaimBtn}
+                        onClick={() => handleClaim(def.id)}
+                        disabled={isActive || (claimPending && claimingId !== def.id)}
+                      >
+                        {isActive
+                          ? claimPending
+                            ? tr.shop_bomb_pending
+                            : tr.quest_processing
+                          : paymasterSupported
+                            ? tr.quest_claim_free
+                            : tr.quest_claim_tx}
+                      </button>
+                    </div>
+                  ) : rerolls > 0 ? (
+                    <div className={styles.questActions}>
+                      <button
+                        className={styles.questRerollBtn}
+                        onClick={() => handleReroll(def.id)}
+                        disabled={rerolls <= 0 || isRerolling || rerollingId !== null}
+                        type="button"
+                      >
+                        {isRerolling ? tr.quest_rerolling : tr.quest_reroll_one}
+                      </button>
+                    </div>
                   ) : null}
 
                   {msg && (

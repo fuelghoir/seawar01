@@ -5,11 +5,16 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { getLeaderboard, LeaderboardEntry } from "../lib/offchainGame";
 import { WalletName } from "../components/WalletName";
+import { SettingsPanel } from "../components/SettingsPanel";
+import { useSettings, TR } from "../lib/settings";
 import styles from "./page.module.css";
 
 export default function LeaderboardPage() {
   const router = useRouter();
   const { address } = useAccount();
+  const { lang } = useSettings();
+  const tr = TR[lang];
+
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
@@ -24,15 +29,17 @@ export default function LeaderboardPage() {
 
   return (
     <div className={styles.container}>
+      <SettingsPanel />
       <div className={styles.content}>
         <div className={styles.header}>
           <button className={styles.backBtn} onClick={() => router.push("/")}>
-            &larr; Back
+            ← {tr.back}
           </button>
-          <h1 className={styles.title}>Leaderboard</h1>
+          <h1 className={styles.title}>{tr.leaderboard}</h1>
           <button
             className={styles.helpBtn}
             onClick={() => setShowHelp(!showHelp)}
+            aria-label="How points work"
           >
             ?
           </button>
@@ -40,33 +47,33 @@ export default function LeaderboardPage() {
 
         {showHelp && (
           <div className={styles.helpBox}>
-            <p className={styles.helpTitle}>How points work</p>
+            <p className={styles.helpTitle}>{tr.lb_help_title}</p>
             <ul className={styles.helpList}>
-              <li><strong>+50 pts</strong> — for winning a game</li>
-              <li><strong>+1 pt</strong> — for each hit on enemy ship</li>
-              <li><strong>+5 pts</strong> — daily check-in (base reward)</li>
-              <li><strong>Streak bonus</strong> — every 5 consecutive days, reward increases by +5</li>
+              <li><strong>+50 pts</strong> — {tr.lb_help_win}</li>
+              <li><strong>+1 pt</strong> — {tr.lb_help_hit}</li>
+              <li><strong>+5 pts</strong> — {tr.lb_help_checkin}</li>
+              <li><strong>{tr.lb_help_streak_label}</strong> — {tr.lb_help_streak}</li>
             </ul>
-            <p className={styles.helpNote}>Check-in resets daily at 00:00 UTC.</p>
+            <p className={styles.helpNote}>{tr.lb_help_note}</p>
           </div>
         )}
 
-        <div className={styles.subtitle}>Top players by points</div>
+        <div className={styles.subtitle}>{tr.lb_subtitle}</div>
 
         {loading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
           </div>
         ) : entries.length === 0 ? (
-          <p className={styles.empty}>No players yet. Be the first!</p>
+          <p className={styles.empty}>{tr.lb_empty}</p>
         ) : (
           <div className={styles.table}>
             <div className={styles.tableHeader}>
               <span className={styles.colRank}>#</span>
-              <span className={styles.colWallet}>Player</span>
-              <span className={styles.colStat}>Wins</span>
-              <span className={styles.colStat}>Streak</span>
-              <span className={styles.colPoints}>Points</span>
+              <span className={styles.colWallet}>{tr.lb_player}</span>
+              <span className={styles.colStat}>{tr.wins}</span>
+              <span className={styles.colStat}>{tr.streak}</span>
+              <span className={styles.colPoints}>{tr.lb_points}</span>
             </div>
 
             {entries.map((entry, i) => {
@@ -76,13 +83,14 @@ export default function LeaderboardPage() {
                 <div
                   key={entry.wallet}
                   className={`${styles.row} ${isMe ? styles.rowMe : ""} ${i < 3 ? styles.rowTop : ""}`}
+                  style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                 >
                   <span className={`${styles.colRank} ${i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : ""}`}>
                     {i + 1}
                   </span>
                   <span className={styles.colWallet}>
-                    <WalletName address={entry.wallet} />
-                    {isMe && <span className={styles.youBadge}>you</span>}
+                    <WalletName address={entry.wallet} className={styles.walletText} />
+                    {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
                   </span>
                   <span className={styles.colStat}>
                     {entry.wins}

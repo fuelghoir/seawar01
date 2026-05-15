@@ -1,0 +1,454 @@
+/* ── Battle Grid (labels OUTSIDE panel for true symmetric grid) ── */
+
+.outer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+  user-select: none;
+  --cell: 32px;
+  --label-w: 22px;
+  --gap: 4px;
+}
+
+/* ── Stats header ── */
+.statsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 440px;
+  gap: 14px;
+}
+
+.brand {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stats { display: flex; gap: 12px; }
+.stat { text-align: center; }
+.statValue {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.statLabel {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+
+/* ── Frame: holds column letters above + (row labels | panel) below ── */
+.frame {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+/* Column letters — offset to start above the first cell column inside panel.
+   Offset = row-labels width + their gap to panel + panel padding-left. */
+.colHeader {
+  display: flex;
+  margin-left: calc(var(--label-w) + var(--gap) + 8px);
+  margin-bottom: 4px;
+}
+
+.headerCell {
+  width: var(--cell);
+  margin-right: 2px;
+  text-align: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(var(--accent-rgb), 0.58);
+  letter-spacing: 0.04em;
+}
+.colHeader .headerCell:last-child { margin-right: 0; }
+
+/* Row labels + panel sit side-by-side */
+.body {
+  display: flex;
+  align-items: stretch;
+  gap: var(--gap);
+}
+
+/* Row numbers — column outside panel */
+.rowLabels {
+  display: flex;
+  flex-direction: column;
+  width: var(--label-w);
+  flex-shrink: 0;
+  /* Top padding mirrors panel padding-top so first row label aligns with first row */
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.rowLabel {
+  height: var(--cell);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(var(--accent-rgb), 0.58);
+}
+.rowLabels > .rowLabel:last-child { margin-bottom: 0; }
+
+/* ── Grid panel (symmetric padding now that labels are outside) ── */
+.panel {
+  position: relative;
+  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow:
+    0 0 50px rgba(var(--accent-rgb), 0.08),
+    inset 0 0 60px rgba(var(--accent-rgb), 0.03);
+  overflow: hidden;
+  display: inline-block;
+}
+
+.bgGridLines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+  pointer-events: none;
+}
+
+.bgGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 50%,
+    rgba(var(--accent-rgb), 0.07) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.row {
+  display: flex;
+  margin-bottom: 2px;
+  position: relative;
+  z-index: 1;
+}
+.panel > .row:last-of-type { margin-bottom: 0; }
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  margin-right: 2px;
+  border: 1px solid rgba(var(--accent-rgb), 0.09);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  position: relative;
+  flex-shrink: 0;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s,
+    border-color 0.18s;
+}
+.row > .cell:last-child { margin-right: 0; }
+
+.cellFlash { animation: flashCell 0.25s ease; }
+@keyframes flashCell {
+  0% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* Cursor crosshair */
+.crosshairH {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  right: 4px;
+  height: 1px;
+  background: rgba(var(--accent-rgb), 0.72);
+  transform: translateY(-50%);
+  animation: cursorPulse 0.7s ease-in-out infinite;
+}
+.crosshairV {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: rgba(var(--accent-rgb), 0.72);
+  transform: translateX(-50%);
+  animation: cursorPulse 0.7s ease-in-out infinite;
+}
+.crosshairDot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  z-index: 1;
+}
+@keyframes cursorPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Hit / miss glyphs */
+.glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+.glyphPop { animation: heroPopIn 0.25s ease; }
+@keyframes heroPopIn {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.glyphSunk {
+  font-size: 16px;
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9));
+}
+.glyphPartial {
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.9));
+}
+
+.missDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(100, 150, 255, 0.55);
+  box-shadow: 0 0 6px rgba(100, 150, 255, 0.4);
+}
+.missDotIn { animation: dotFadeIn 0.3s ease; }
+@keyframes dotFadeIn {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Victory flash ── */
+.victory {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.35) 0%, rgba(var(--bg-abyss-rgb), 0.92) 75%);
+  z-index: 5;
+  animation: victoryIn 0.3s ease;
+  gap: 6px;
+}
+
+.victoryText {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0.32em;
+  color: var(--accent);
+  text-shadow:
+    0 0 24px rgba(var(--accent-rgb), 0.9),
+    0 0 60px var(--accent-glow);
+  animation: victoryPulse 1.2s ease-in-out infinite;
+}
+
+.victorySub {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+@keyframes victoryIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes victoryPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legendItem { display: flex; align-items: center; gap: 6px; }
+.legendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+.legendLabel {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.12em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .outer {
+    --cell: 28px;
+    --label-w: 18px;
+    --gap: 3px;
+  }
+  .glyph { font-size: 12px; }
+  .glyphSunk { font-size: 14px; }
+  .missDot { width: 7px; height: 7px; }
+  .brand { font-size: 13px; letter-spacing: 0.2em; }
+  .statValue { font-size: 14px; }
+  .victoryText { font-size: 28px; letter-spacing: 0.24em; }
+}
+
+@media (max-width: 460px) {
+  .outer {
+    --cell: 24px;
+    --label-w: 16px;
+    --gap: 2px;
+  }
+  .panel { padding: 6px; }
+  .glyph { font-size: 10px; }
+  .glyphSunk { font-size: 12px; }
+  .missDot { width: 6px; height: 6px; }
+  .legend { gap: 10px; }
+  .legendLabel { font-size: 8px; }
+  .victoryText { font-size: 22px; letter-spacing: 0.18em; }
+}
+
+/* Compact preview used by the Base App mobile home. It keeps the same battle
+   simulation as desktop, only trims chrome and scales the board down. */
+.compact {
+  --cell: clamp(18px, 6.6vw, 23px);
+  --label-w: 14px;
+  --gap: 2px;
+  gap: 5px;
+}
+
+.compact .statsRow,
+.compact .legend {
+  display: none;
+}
+
+.compact .colHeader {
+  margin-left: calc(var(--label-w) + var(--gap) + 5px);
+  margin-bottom: 2px;
+}
+
+.compact .headerCell,
+.compact .rowLabel {
+  font-size: 7px;
+  color: rgba(var(--accent-rgb), 0.5);
+}
+
+.compact .rowLabels {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.compact .panel {
+  padding: 5px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.84) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border-color: rgba(var(--accent-rgb), 0.22);
+  box-shadow:
+    0 0 34px rgba(var(--accent-rgb), 0.1),
+    inset 0 0 34px rgba(var(--accent-rgb), 0.04);
+}
+
+.compact .cell {
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.compact .glyph {
+  font-size: 10px;
+}
+
+.compact .glyphSunk {
+  font-size: 11px;
+}
+
+.compact .missDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .crosshairH {
+  left: 3px;
+  right: 3px;
+}
+
+.compact .crosshairV {
+  top: 3px;
+  bottom: 3px;
+}
+
+.compact .crosshairDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .victoryText {
+  font-size: 18px;
+  letter-spacing: 0.16em;
+}
+
+.compact .victorySub {
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 720px) {
+  .compact .panel {
+    box-shadow: none;
+  }
+
+  .compact .bgGlow {
+    display: none;
+  }
+
+  .compact .cell {
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .compact .cellFlash {
+    animation-duration: 0.16s;
+  }
+
+  .compact .glyphSunk,
+  .compact .glyphPartial {
+    filter: none;
+  }
+
+  .compact .missDot,
+  .compact .crosshairDot {
+    box-shadow: none;
+  }
+
+  .compact .victoryText {
+    animation: none;
+    text-shadow: 0 0 12px var(--accent-glow);
+  }
+}

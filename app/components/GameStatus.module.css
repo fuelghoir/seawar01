@@ -37,10 +37,10 @@
 }
 
 .bannerYou {
-  background: linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(0, 136, 204, 0.18));
-  border-color: #00D4FF;
-  color: #00D4FF;
-  box-shadow: 0 6px 28px rgba(0, 212, 255, 0.35);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--accent-2-rgb), 0.18));
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 6px 28px rgba(var(--accent-rgb), 0.35);
   animation: youTurnPulse 1.6s ease-in-out infinite;
 }
 
@@ -69,8 +69,8 @@
   align-items: center;
   gap: 24px;
   padding: 10px 20px;
-  background: rgba(10, 22, 40, 0.6);
-  border: 1px solid #1a3a5c;
+  background: rgba(var(--bg-primary-rgb), 0.6);
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 
@@ -84,7 +84,7 @@
 .scoreLabel {
   font-size: 10px;
   font-weight: 700;
-  color: #4a6a8a;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
@@ -99,12 +99,12 @@
 .divider {
   width: 1px;
   height: 30px;
-  background: linear-gradient(180deg, transparent, #1a3a5c, transparent);
+  background: linear-gradient(180deg, transparent, var(--border), transparent);
 }
 
 @keyframes youTurnPulse {
-  0%, 100% { box-shadow: 0 6px 28px rgba(0, 212, 255, 0.35); transform: scale(1); }
-  50% { box-shadow: 0 8px 36px rgba(0, 212, 255, 0.55); transform: scale(1.01); }
+  0%, 100% { box-shadow: 0 6px 28px rgba(var(--accent-rgb), 0.35); transform: scale(1); }
+  50% { box-shadow: 0 8px 36px rgba(var(--accent-rgb), 0.55); transform: scale(1.01); }
 }
 
 @keyframes pendingPulse {

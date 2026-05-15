@@ -29,6 +29,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+*.err.log
+
+# local tools / generated caches
+.tools/
+__pycache__/
+*.pyc
 
 # env files (can opt-in for committing if needed)
 .env*

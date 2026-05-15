@@ -28,6 +28,8 @@ export interface OffchainGame {
   wager_amount: number | null;
   prize_claimed: boolean;
   bomb_shots_remaining: number | null;
+  bomb_used_p1: boolean;
+  bomb_used_p2: boolean;
   created_at: string;
 }
 

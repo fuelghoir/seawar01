@@ -35,9 +35,12 @@ export default function GamePage() {
       fallback={
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "center",
-          minHeight: "100vh", background: "#0A1628", color: "#8ab4d4",
+          minHeight: "100vh", background: "transparent",
+          color: "rgba(var(--accent-rgb), 0.75)",
+          fontFamily: "var(--font-orbitron), Orbitron, monospace",
+          fontSize: 12, letterSpacing: "0.24em", textTransform: "uppercase",
         }}>
-          Loading...
+          Loading…
         </div>
       }
     >

@@ -12,16 +12,35 @@ function formatDate(iso: string, lang: string): string {
 }
 
 function modeLabel(mode: string, lang: string): string {
-  if (mode === "wager") return lang === "ru" ? "Ставка" : "Wager";
-  if (mode === "bot" || mode === "solo") return "Bot";
-  return "PvP";
+  const tr = TR[lang === "ru" ? "ru" : "en"];
+  if (mode === "wager") return tr.wager_upper;
+  if (mode === "bot" || mode === "solo") return tr.bot_upper;
+  return tr.pvp;
 }
 
-export default function GameHistory({ address }: { address: string }) {
+interface GameHistoryProps {
+  address: string;
+  hideHeader?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
+}
+
+export default function GameHistory({
+  address,
+  hideHeader = false,
+  expanded: controlledExpanded,
+  onToggleExpand,
+}: GameHistoryProps) {
   const { lang } = useSettings();
   const tr = TR[lang];
 
-  const [expanded, setExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const expanded = controlledExpanded ?? internalExpanded;
+  const toggle = () => {
+    if (onToggleExpand) onToggleExpand();
+    else setInternalExpanded(v => !v);
+  };
+
   const [history, setHistory] = useState<GameHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -39,15 +58,17 @@ export default function GameHistory({ address }: { address: string }) {
 
   return (
     <div className={styles.section}>
-      <button className={styles.header} onClick={() => setExpanded(v => !v)} type="button">
-        <div className={styles.headerLeft}>
-          <span className={styles.label}>{tr.recent_games}</span>
-          {history.length > 0 && (
-            <span className={styles.summary}>{wins}W · {losses}L</span>
-          )}
-        </div>
-        <span className={styles.chevron}>{expanded ? "▾" : "▸"}</span>
-      </button>
+      {!hideHeader && (
+        <button className={styles.header} onClick={toggle} type="button">
+          <div className={styles.headerLeft}>
+            <span className={styles.label}>{tr.recent_games}</span>
+            {history.length > 0 && (
+              <span className={styles.summary}>{wins}W · {losses}L</span>
+            )}
+          </div>
+          <span className={styles.chevron}>{expanded ? "▾" : "▸"}</span>
+        </button>
+      )}
 
       {expanded && (
         <div className={styles.body}>
@@ -63,7 +84,7 @@ export default function GameHistory({ address }: { address: string }) {
               >
                 <div className={styles.rowLeft}>
                   <span className={`${styles.badge} ${g.result === "win" ? styles.badgeWin : styles.badgeLoss}`}>
-                    {g.result === "win" ? "WIN" : "LOSS"}
+                    {g.result === "win" ? tr.win_short.toUpperCase() : tr.loss_short.toUpperCase()}
                   </span>
                   <span className={styles.mode}>{modeLabel(g.mode, lang)}</span>
                   {g.wager > 0 && (
@@ -73,7 +94,7 @@ export default function GameHistory({ address }: { address: string }) {
                 <div className={styles.rowRight}>
                   {g.opponent
                     ? <WalletName address={g.opponent} className={styles.opponent} />
-                    : <span className={styles.opponent}>Bot</span>
+                    : <span className={styles.opponent}>{tr.bot_upper}</span>
                   }
                   <span className={styles.date}>{formatDate(g.date, lang)}</span>
                 </div>

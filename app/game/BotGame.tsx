@@ -19,15 +19,29 @@ import {
 } from "../lib/botAI";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
 import { addPoints, recordGameResult } from "../lib/offchainGame";
+import { consumeItem, getItemQuantity } from "../lib/season";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
 import { CellState } from "../components/Cell";
 import { ShipPlacement } from "../components/ShipPlacement";
+import { GameTopBar } from "./components/GameTopBar";
+import { GameResult } from "./components/GameResult";
+import { useSettings, TR } from "../lib/settings";
 import styles from "./page.module.css";
 
 const BOT_DELAY = 800;
 type GamePhase = "placing" | "playing" | "finished";
+type TacticalDirection = "up" | "right" | "down" | "left";
 const BOT_OPPONENT = "0x0000000000000000000000000000000000000001" as const;
+const BOT_RESULT_SAVE_KEY = "sbt_bot_result_saved";
+
+const TORPEDO_LENGTH = 3;
+const TACTICAL_DIRS: Record<TacticalDirection, { dx: number; dy: number; label: string }> = {
+  up: { dx: 0, dy: -1, label: "^" },
+  right: { dx: 1, dy: 0, label: ">" },
+  down: { dx: 0, dy: 1, label: "v" },
+  left: { dx: -1, dy: 0, label: "<" },
+};
 
 // ─── localStorage persistence ───
 
@@ -91,7 +105,33 @@ function loadSave(): SavedBotGame | null {
 }
 
 function deleteSave() {
-  if (typeof window !== "undefined") localStorage.removeItem(SAVE_KEY);
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(BOT_RESULT_SAVE_KEY);
+  }
+}
+
+function formatCellLabel(cell: { x: number; y: number }, lang: "en" | "ru") {
+  const col = lang === "ru"
+    ? String.fromCharCode(1040 + cell.x)
+    : String.fromCharCode(65 + cell.x);
+  return `${col}${cell.y + 1}`;
+}
+
+function buildTorpedoLine(
+  start: { x: number; y: number },
+  direction: TacticalDirection
+): { x: number; y: number; idx: number }[] {
+  const dir = TACTICAL_DIRS[direction];
+  const cells: { x: number; y: number; idx: number }[] = [];
+  for (let i = 0; i < TORPEDO_LENGTH; i++) {
+    const x = start.x + dir.dx * i;
+    const y = start.y + dir.dy * i;
+    if (x >= 0 && x < 10 && y >= 0 && y < 10) {
+      cells.push({ x, y, idx: y * 10 + x });
+    }
+  }
+  return cells;
 }
 
 // ─── Component ───
@@ -100,6 +140,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   void _gameIdStr;
   const router = useRouter();
   const { address } = useAccount();
+  const { lang } = useSettings();
+  const tr = TR[lang];
 
   // Load saved game once on mount
   const [save] = useState(loadSave);
@@ -120,6 +162,16 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   );
   const [botProcessing, setBotProcessing] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
+  const [radarQty, setRadarQty] = useState(0);
+  const [torpedoQty, setTorpedoQty] = useState(0);
+  const [radarHints, setRadarHints] = useState<Set<number>>(() => new Set());
+  const [torpedoActive, setTorpedoActive] = useState(false);
+  const [torpedoDir, setTorpedoDir] = useState<TacticalDirection>("right");
+  const [itemBusy, setItemBusy] = useState(false);
+  const [itemHint, setItemHint] = useState("");
+  const [resultSaved, setResultSaved] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem(BOT_RESULT_SAVE_KEY) === "1"
+  );
 
   // Restore bot AI state from save
   const botState = useRef<BotState>(
@@ -175,7 +227,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     writeContract,
     isPending: resultPending,
   } = useWriteContract();
-  const { isSuccess: resultConfirmed } = useWaitForTransactionReceipt({ hash: resultTxHash });
+  const { data: resultReceipt } = useWaitForTransactionReceipt({ hash: resultTxHash });
+  const resultConfirmed = resultReceipt?.status === "success";
 
   const handleSaveResult = useCallback(() => {
     if (!winner || !address) return;
@@ -189,19 +242,50 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     });
   }, [winner, address, writeContract]);
 
+  useEffect(() => {
+    if (!resultConfirmed) return;
+    setResultSaved(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(BOT_RESULT_SAVE_KEY, "1");
+    }
+  }, [resultConfirmed]);
+
   // Award local points + DB stats when game ends
   useEffect(() => {
     if (winner && address && !pointsRecorded.current) {
       pointsRecorded.current = true;
       const didWin = winner === "me";
-      addPoints(address, myHits + (didWin ? 50 : 0))
+      addPoints(address, myHits + (didWin ? 50 : 0), myHits)
         .then(() => recordGameResult(address, didWin))
         .catch(() => {});
     }
   }, [winner, address, myHits]);
 
+  const refreshTacticalItems = useCallback(async () => {
+    if (!address) {
+      setRadarQty(0);
+      setTorpedoQty(0);
+      return;
+    }
+    const [radar, torpedo] = await Promise.all([
+      getItemQuantity(address, "radar_scan").catch(() => 0),
+      getItemQuantity(address, "torpedo").catch(() => 0),
+    ]);
+    setRadarQty(radar);
+    setTorpedoQty(torpedo);
+  }, [address]);
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    refreshTacticalItems().catch(() => {});
+  }, [phase, refreshTacticalItems]);
+
   // ─── Ship placement ───
   const handleConfirmBoard = useCallback((boardLayout: number[]) => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(BOT_RESULT_SAVE_KEY);
+    }
+    setResultSaved(false);
     setMyBoard(boardLayout);
     const botBoardLayout = generateRandomBoard();
     setBotBoard(botBoardLayout);
@@ -254,6 +338,150 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap]);
+
+  const handleUseRadar = useCallback(async () => {
+    if (!address) {
+      setItemHint(lang === "ru" ? "Подключи кошелек для предметов" : "Connect wallet to use items");
+      return;
+    }
+    if (!isMyTurn || phase !== "playing" || botProcessing || itemBusy) return;
+    if (radarQty <= 0) {
+      setItemHint(lang === "ru" ? "Радара нет в инвентаре" : "No radar scans in inventory");
+      return;
+    }
+
+    const candidates = botBoard
+      .map((value, idx) => ({ value, idx }))
+      .filter(({ value, idx }) => value === 1 && !myShotsMap.has(idx) && !radarHints.has(idx));
+
+    if (candidates.length === 0) {
+      setItemHint(lang === "ru" ? "Радар не нашел новых целей" : "Radar found no new targets");
+      return;
+    }
+
+    setItemBusy(true);
+    try {
+      await consumeItem(address, "radar_scan", 1);
+      const hit = candidates[Math.floor(Math.random() * candidates.length)].idx;
+      setRadarHints((prev) => {
+        const next = new Set(prev);
+        next.add(hit);
+        return next;
+      });
+      setRadarQty((qty) => Math.max(0, qty - 1));
+      setItemHint(
+        lang === "ru"
+          ? `Радар подсветил ${formatCellLabel({ x: hit % 10, y: Math.floor(hit / 10) }, lang)}`
+          : `Radar ping: ${formatCellLabel({ x: hit % 10, y: Math.floor(hit / 10) }, lang)}`
+      );
+    } catch (err) {
+      setItemHint(err instanceof Error ? err.message : "Radar failed");
+      refreshTacticalItems().catch(() => {});
+    } finally {
+      setItemBusy(false);
+    }
+  }, [
+    address,
+    botBoard,
+    botProcessing,
+    isMyTurn,
+    itemBusy,
+    lang,
+    myShotsMap,
+    phase,
+    radarHints,
+    radarQty,
+    refreshTacticalItems,
+  ]);
+
+  const handleUseTorpedo = useCallback(async () => {
+    if (!address) {
+      setItemHint(lang === "ru" ? "Подключи кошелек для предметов" : "Connect wallet to use items");
+      return;
+    }
+    if (!selectedCell || !isMyTurn || phase !== "playing" || botProcessing || itemBusy) return;
+    if (torpedoQty <= 0) {
+      setItemHint(lang === "ru" ? "Торпеды нет в инвентаре" : "No torpedoes in inventory");
+      return;
+    }
+
+    const line = buildTorpedoLine(selectedCell, torpedoDir)
+      .filter(({ idx }) => !myShotsMap.has(idx));
+    if (line.length === 0) {
+      setItemHint(lang === "ru" ? "Выбери линию с новыми клетками" : "Pick a line with unshot cells");
+      return;
+    }
+
+    setItemBusy(true);
+    try {
+      await consumeItem(address, "torpedo", 1);
+      setTorpedoQty((qty) => Math.max(0, qty - 1));
+      setTorpedoActive(false);
+      gameSounds.playShot();
+
+      const nextShots = new Map(myShotsMap);
+      let hitsAdded = 0;
+      for (const { idx } of line) {
+        const isHit = botBoard[idx] === 1;
+        nextShots.set(idx, isHit);
+        if (isHit) hitsAdded += 1;
+      }
+
+      setMyShotsMap(nextShots);
+      setSelectedCell(null);
+
+      if (hitsAdded > 0) {
+        const newHits = myHits + hitsAdded;
+        setMyHits(newHits);
+        setTimeout(() => gameSounds.playHit(), 180);
+
+        const ships = findShips(botBoard);
+        const hitCells = new Set<number>();
+        nextShots.forEach((hit, idx) => { if (hit) hitCells.add(idx); });
+        const sunkByLine = ships.some((ship) =>
+          isShipSunk(ship, hitCells) && ship.some((idx) => line.some((cell) => cell.idx === idx))
+        );
+        if (sunkByLine) {
+          setTimeout(() => gameSounds.playSunk(), 360);
+        }
+
+        if (newHits >= 20) {
+          setWinner("me");
+          setPhase("finished");
+        }
+      } else {
+        setTimeout(() => gameSounds.playMiss(), 180);
+        setIsMyTurn(false);
+        setBotProcessing(true);
+        setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
+      }
+
+      setItemHint(
+        lang === "ru"
+          ? `Торпеда: ${line.length} кл.`
+          : `Torpedo fired ${line.length} cells`
+      );
+    } catch (err) {
+      setItemHint(err instanceof Error ? err.message : "Torpedo failed");
+      refreshTacticalItems().catch(() => {});
+    } finally {
+      setItemBusy(false);
+    }
+  }, [
+    address,
+    botBoard,
+    botProcessing,
+    isMyTurn,
+    itemBusy,
+    lang,
+    myHits,
+    myShotsMap,
+    phase,
+    refreshTacticalItems,
+    selectedCell,
+    torpedoDir,
+    torpedoQty,
+  ]);
 
   // ─── Bot turn ───
   doBotTurnRef.current = useCallback(() => {
@@ -376,13 +604,29 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     }
   }
 
-  if (selectedCell && enemyBoardCells[selectedCell.y][selectedCell.x] === "empty") {
+  for (const idx of radarHints) {
+    const x = idx % 10;
+    const y = Math.floor(idx / 10);
+    if (enemyBoardCells[y][x] === "empty") {
+      enemyBoardCells[y][x] = "radar";
+    }
+  }
+
+  if (
+    selectedCell &&
+    (enemyBoardCells[selectedCell.y][selectedCell.x] === "empty" ||
+      enemyBoardCells[selectedCell.y][selectedCell.x] === "radar")
+  ) {
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }
 
   const handleEnemyCellClick = (x: number, y: number) => {
     if (!isMyTurn || phase !== "playing" || botProcessing) return;
-    if (enemyBoardCells[y][x] !== "empty" && enemyBoardCells[y][x] !== "pending") return;
+    if (
+      enemyBoardCells[y][x] !== "empty" &&
+      enemyBoardCells[y][x] !== "pending" &&
+      enemyBoardCells[y][x] !== "radar"
+    ) return;
     setSelectedCell({ x, y });
   };
 
@@ -390,16 +634,20 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
   if (phase === "placing") {
     return (
-      <div className={styles.container}>
-        <div className={styles.scrollContent}>
-          <ShipPlacement onConfirm={handleConfirmBoard} isPending={false} isConfirming={false} />
+      <>
+        <GameTopBar mode="bot" phase="placement" />
+        <div className={styles.container}>
+          <div className={styles.scrollContent}>
+            <ShipPlacement onConfirm={handleConfirmBoard} isPending={false} isConfirming={false} />
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (phase === "finished") {
     const didWin = winner === "me";
+    const resultSaving = resultPending || (!!resultTxHash && !resultReceipt);
 
     // Revealed bot board: if player won, all ships are sunk; otherwise show partial state
     const revealedBotBoard: CellState[][] = Array.from({ length: 10 }, () =>
@@ -432,61 +680,78 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           if (myBoard[y * 10 + x] === 1) myBoardFinal[y][x] = "sunk";
     }
 
+    const message = didWin
+      ? resultSaved
+        ? tr.bot_msg_saved
+        : resultSaving
+          ? tr.confirming
+        : tr.bot_msg_win
+      : tr.bot_msg_lose;
+
+    const secondaryHandler =
+      !resultSaved && !resultSaving && address ? handleSaveResult : undefined;
+    const secondaryLabel = secondaryHandler
+      ? resultPending
+        ? tr.confirming
+        : `💾 ${tr.save_result_tx}`
+      : undefined;
+
     return (
-      <div className={styles.container}>
-        <div className={styles.scrollContent}>
-          <div className={styles.resultSection}>
-            <h2 className={`${styles.resultTitle} ${didWin ? styles.winTitle : styles.loseTitle}`}>
-              {didWin ? "VICTORY!" : "DEFEAT"}
-            </h2>
-            <p className={styles.resultSubtitle}>
-              {didWin ? "You sank all bot ships!" : "The bot destroyed your fleet."}
-            </p>
-            <div className={styles.resultScores}>
-              <span>You: {myHits}/20</span>
-              <span>Bot: {botHits}/20</span>
-            </div>
-            <div className={styles.resultBoards}>
-              <Board cells={myBoardFinal} isInteractive={false} label="Your Board" />
-              <Board cells={revealedBotBoard} isInteractive={false} label="Bot Fleet (revealed)" />
-            </div>
-            <div className={styles.resultActions}>
-              {!resultConfirmed ? (
-                <button
-                  className={styles.saveResultButton}
-                  onClick={handleSaveResult}
-                  disabled={resultPending || !address}
-                >
-                  {resultPending ? "Confirming..." : "Save Result (1 tx)"}
-                </button>
-              ) : (
-                <p className={styles.hint}>Saved onchain ✓</p>
-              )}
-              <button
-                className={styles.backButton}
-                onClick={() => { deleteSave(); router.push("/"); }}
-              >
-                New Game
-              </button>
-            </div>
+      <>
+        <GameTopBar mode="bot" phase="result" />
+        <GameResult
+          didWin={didWin}
+          mode="bot"
+          myHits={myHits}
+          enemyHits={botHits}
+          message={message}
+          onPrimary={() => {
+            deleteSave();
+            router.push("/");
+          }}
+          primaryLabel={`← ${tr.main_menu}`}
+          onSecondary={secondaryHandler}
+          secondaryLabel={secondaryLabel}
+        >
+          <div className={styles.resultBoards}>
+            <Board cells={myBoardFinal} isInteractive={false} label={tr.your_board} />
+            <Board cells={revealedBotBoard} isInteractive={false} label={tr.bot_fleet} />
           </div>
-        </div>
-      </div>
+        </GameResult>
+      </>
     );
   }
 
-  const canFire = isMyTurn && !botProcessing && !!selectedCell;
+  const canUseTactical = isMyTurn && !botProcessing && phase === "playing" && !itemBusy;
+  const canFire = canUseTactical && !!selectedCell && !torpedoActive;
+  const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0;
+  const yourShipsAlive = Math.max(0, 20 - botHits);
+  const enemyShipsAlive = Math.max(0, 20 - myHits);
+  const turnLabel = botProcessing
+    ? tr.turn_bot_thinking
+    : isMyTurn
+      ? tr.turn_your
+      : tr.turn_bot;
+  const turnAccent = isMyTurn ? "var(--accent)" : "#ef4444";
 
   return (
     <div className={styles.gameShell}>
+      <GameTopBar
+        mode="bot"
+        phase="battle"
+        turnLabel={turnLabel}
+        turnAccent={turnAccent}
+        yourShips={yourShipsAlive}
+        enemyShips={enemyShipsAlive}
+      />
       <div className={styles.gameScroll}>
         <div className={styles.botStatus}>
           <div className={styles.turnIndicator}>
-            {botProcessing ? "Bot is thinking..." : isMyTurn ? "Your Turn" : ""}
+            {botProcessing ? tr.bot_thinking : isMyTurn ? tr.your_turn : ""}
           </div>
           <div className={styles.hitCounters}>
-            <span>You: {myHits}/20</span>
-            <span>Bot: {botHits}/20</span>
+            <span>{tr.you_short}: {myHits}/20</span>
+            <span>{tr.bot_short}: {botHits}/20</span>
           </div>
         </div>
 
@@ -495,25 +760,75 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
             cells={enemyBoardCells}
             onCellClick={handleEnemyCellClick}
             isInteractive={isMyTurn && !botProcessing}
-            label="Bot Waters"
+            label={tr.bot_waters}
           />
-          <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
+          <Board cells={myBoardCells} isInteractive={false} label={tr.your_fleet} />
         </div>
       </div>
 
       <div className={styles.stickyFire}>
+        <div className={styles.tacticalSection}>
+          <div className={styles.tacticalButtons}>
+            <button
+              type="button"
+              className={`${styles.tacticalBtn} ${styles.radarBtn}`}
+              onClick={handleUseRadar}
+              disabled={!canUseTactical || radarQty <= 0}
+            >
+              Radar · {radarQty}
+            </button>
+            <button
+              type="button"
+              className={`${styles.tacticalBtn} ${styles.torpedoBtn} ${torpedoActive ? styles.tacticalActive : ""}`}
+              onClick={() => setTorpedoActive((active) => !active)}
+              disabled={!canUseTactical || torpedoQty <= 0}
+            >
+              Torpedo · {torpedoQty}
+            </button>
+          </div>
+          {torpedoActive && (
+            <>
+              <div className={styles.directionPanel}>
+                {(Object.keys(TACTICAL_DIRS) as TacticalDirection[]).map((direction) => (
+                  <button
+                    type="button"
+                    key={direction}
+                    className={`${styles.directionBtn} ${torpedoDir === direction ? styles.directionActive : ""}`}
+                    onClick={() => setTorpedoDir(direction)}
+                    disabled={!canUseTactical}
+                  >
+                    {TACTICAL_DIRS[direction].label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={styles.torpedoFireBtn}
+                onClick={handleUseTorpedo}
+                disabled={!canFireTorpedo}
+              >
+                {selectedCell
+                  ? `Fire Line ${formatCellLabel(selectedCell, lang)}`
+                  : "Select Torpedo Start"}
+              </button>
+            </>
+          )}
+          <div className={styles.itemHint}>{itemHint}</div>
+        </div>
         <button
           className={styles.fireButton}
           onClick={handleShoot}
           disabled={!canFire}
         >
           {canFire
-            ? `Fire at ${String.fromCharCode(1040 + selectedCell!.x)}${selectedCell!.y + 1}`
+            ? `${tr.fire_at} ${formatCellLabel(selectedCell!, lang)}`
             : botProcessing
-              ? "Bot is thinking..."
+              ? tr.bot_thinking
+              : torpedoActive
+                ? "Use torpedo controls"
               : isMyTurn
-                ? "Select a cell to fire"
-                : "Waiting..."}
+                ? tr.select_cell
+                : tr.waiting}
         </button>
       </div>
     </div>

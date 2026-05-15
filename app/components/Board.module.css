@@ -1,64 +1,101 @@
+/* ── Battle board (matches HeroBattleGrid aesthetic) ── */
+
 .boardWrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
   animation: fadeIn 0.4s ease-out;
+  --cell: 30px;
+  --label-w: 20px;
+  --gap: 2px;
+  --panel-pad: 8px;
 }
 
 .label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #8ab4d4;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(var(--accent-rgb), 0.85);
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.28em;
+  margin: 0;
+}
+
+.frame {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.colHeader {
+  display: flex;
+  gap: var(--gap);
+  margin-left: calc(var(--label-w) + var(--gap) + var(--panel-pad));
+  margin-bottom: 4px;
+}
+
+.body {
+  display: flex;
+  align-items: stretch;
+  gap: var(--gap);
+}
+
+.rowLabels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: var(--label-w);
+  padding-top: var(--panel-pad);
+  padding-bottom: var(--panel-pad);
+  flex-shrink: 0;
 }
 
 .board {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
-  gap: 2px;
-  background: linear-gradient(135deg, #081220, #0a1628);
-  padding: 4px;
-  border-radius: 10px;
-  border: 1px solid #1a3a5c;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  gap: var(--gap);
+  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
+  padding: var(--panel-pad);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  box-shadow:
+    0 0 50px rgba(var(--accent-rgb), 0.08),
+    inset 0 0 60px rgba(var(--accent-rgb), 0.03),
+    0 4px 24px rgba(0, 0, 0, 0.45);
 }
 
 .row {
   display: flex;
-  gap: 2px;
-}
-
-.cornerCell {
-  width: 20px;
-  height: 18px;
-  flex-shrink: 0;
+  gap: var(--gap);
 }
 
 /* Column header cells (letters at top) */
 .headerCell {
-  width: 30px;
-  height: 18px;
+  width: var(--cell);
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
   font-weight: 700;
-  color: #3a5a7a;
+  color: rgba(var(--accent-rgb), 0.55);
+  letter-spacing: 0.04em;
   flex-shrink: 0;
 }
 
-/* Row header cells (numbers on left) — first child of data rows */
+/* Row header cells (numbers on left) */
 .rowHeader {
-  width: 20px;
-  height: 30px;
+  width: var(--label-w);
+  height: var(--cell);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
   font-weight: 700;
-  color: #3a5a7a;
+  color: rgba(var(--accent-rgb), 0.55);
   flex-shrink: 0;
 }
 
@@ -68,18 +105,12 @@
 }
 
 @media (max-width: 400px) {
-  .headerCell {
-    width: 27px;
-    height: 16px;
-    font-size: 9px;
+  .boardWrapper {
+    --cell: 27px;
+    --label-w: 18px;
+    --panel-pad: 8px;
   }
-  .rowHeader {
-    width: 18px;
-    height: 27px;
-    font-size: 9px;
-  }
-  .cornerCell {
-    width: 18px;
-    height: 16px;
-  }
+  .headerCell,
+  .rowHeader { font-size: 9px; }
+  .label { font-size: 10px; letter-spacing: 0.22em; }
 }
