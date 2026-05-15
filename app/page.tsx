@@ -1,5 +1,41 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { farcasterConfig } from "../farcaster.config";
 import HomeClient from "./HomeClient";
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: SearchParams;
+}): Promise<Metadata> {
+  const params = searchParams ? await searchParams : {};
+  const ref = normalizeMetadataRef(firstParam(params.ref));
+  const launchUrl = ref
+    ? withReferralParam(farcasterConfig.miniapp.homeUrl, ref)
+    : farcasterConfig.miniapp.homeUrl;
+  const miniAppEmbed = {
+    version: farcasterConfig.miniapp.version,
+    imageUrl: farcasterConfig.miniapp.heroImageUrl,
+    button: {
+      title: "Play Sea Battle",
+      action: {
+        name: "Sea Battle",
+        type: "launch_frame",
+        url: launchUrl,
+      },
+    },
+  };
+
+  return {
+    other: {
+      "base:app_id": "69dbfc9ded56423f0cd3e692",
+      "fc:frame": JSON.stringify(miniAppEmbed),
+      "fc:miniapp": JSON.stringify(miniAppEmbed),
+    },
+  };
+}
 
 function getInitialIsNarrowScreen(headersList: Headers) {
   const ua = headersList.get("user-agent") ?? "";
@@ -24,4 +60,20 @@ export default async function Page() {
       initialIsNarrowScreen={getInitialIsNarrowScreen(headersList)}
     />
   );
+}
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeMetadataRef(ref: string | undefined): string | null {
+  const normalized = ref?.trim().toLowerCase();
+  if (!normalized) return null;
+  return /^0x[a-f0-9]{40}$/.test(normalized) ? normalized : null;
+}
+
+function withReferralParam(baseUrl: string, ref: string): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set("ref", ref);
+  return url.toString();
 }

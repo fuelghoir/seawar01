@@ -102,13 +102,13 @@ export default function ReferralPanel({
   };
 
   const handleShare = async () => {
-    const url = baseLink || link;
+    const url = link || baseLink;
     if (!url) return;
     setShareMenuOpen((open) => !open);
   };
 
   const handleNativeShare = async () => {
-    const url = baseLink || link;
+    const url = link || baseLink;
     if (!url) return;
     setShareMenuOpen(false);
 
@@ -141,7 +141,7 @@ export default function ReferralPanel({
   };
 
   const handleFarcasterShare = async () => {
-    const url = baseLink || link;
+    const url = link || baseLink;
     if (!url) return;
     setShareMenuOpen(false);
 
@@ -161,7 +161,7 @@ export default function ReferralPanel({
   };
 
   const handleTwitterShare = () => {
-    const url = baseLink || link;
+    const url = link || baseLink;
     if (!url) return;
     setShareMenuOpen(false);
     openExternal(getTwitterShareUrl(url, copy.shareText));

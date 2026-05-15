@@ -7,22 +7,26 @@ import { SettingsProvider } from "./lib/settings";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const miniAppEmbed = {
+    version: farcasterConfig.miniapp.version,
+    imageUrl: farcasterConfig.miniapp.heroImageUrl,
+    button: {
+      title: "Play Sea Battle",
+      action: {
+        name: "Sea Battle",
+        type: "launch_frame",
+        url: farcasterConfig.miniapp.homeUrl,
+      },
+    },
+  };
+
   return {
     title: farcasterConfig.miniapp.name,
     description: farcasterConfig.miniapp.description,
     other: {
       "base:app_id": "69dbfc9ded56423f0cd3e692",
-      "fc:frame": JSON.stringify({
-        version: farcasterConfig.miniapp.version,
-        imageUrl: farcasterConfig.miniapp.heroImageUrl,
-        button: {
-          title: "Play Sea Battle",
-          action: {
-            name: "Launch Sea Battle",
-            type: "launch_frame",
-          },
-        },
-      }),
+      "fc:frame": JSON.stringify(miniAppEmbed),
+      "fc:miniapp": JSON.stringify(miniAppEmbed),
     },
   };
 }

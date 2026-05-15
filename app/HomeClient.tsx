@@ -25,7 +25,12 @@ import {
   type ShopItemSlug,
 } from "./lib/season";
 import { ItemArt, type ItemArtKind } from "./components/ItemArt";
-import { recordReferral } from "./lib/referrals";
+import {
+  extractReferralRefFromCurrentUrl,
+  extractReferralRefFromMiniAppContext,
+  normalizeReferralRef,
+  recordReferral,
+} from "./lib/referrals";
 import QuestPanel from "./components/QuestPanel";
 import ReferralPanel from "./components/ReferralPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -96,7 +101,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const toggleSection = (s: NonNullable<typeof openSection>) =>
     setOpenSection((prev) => (prev === s ? null : s));
 
-  // Capture ?ref=, register SW
+  // Capture referral params from the browser URL and Mini App launch context.
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -104,15 +109,15 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRef = normalizeReferralRef(params.get("ref"));
+    const urlRef = extractReferralRefFromCurrentUrl();
+    const contextRef = extractReferralRefFromMiniAppContext(context);
     const storedRef = safeGetReferralRef();
-    const ref = urlRef ?? storedRef;
+    const ref = urlRef ?? contextRef ?? storedRef;
 
     if (!ref) return;
-    setIncomingRef(ref);
+    setIncomingRef((current) => (current === ref ? current : ref));
     safeSetReferralRef(ref);
-  }, []);
+  }, [context]);
 
   useEffect(() => {
     if (!address || !incomingRef) return;
@@ -940,12 +945,6 @@ function createEmptyProfile(wallet: string): PlayerProfile {
     onchainWinRate: 0,
     earningsUsdc: 0,
   };
-}
-
-function normalizeReferralRef(ref: string | null): string | null {
-  const normalized = ref?.trim().toLowerCase();
-  if (!normalized) return null;
-  return /^0x[a-f0-9]{40}$/.test(normalized) ? normalized : null;
 }
 
 function safeGetReferralRef(): string | null {
