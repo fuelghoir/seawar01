@@ -24,6 +24,11 @@ import {
   type SeasonState,
   type ShopItemSlug,
 } from "./lib/season";
+import {
+  LIMITED_SBT_MAX_SUPPLY,
+  LIMITED_SBT_REQUIRED_WINS,
+  LIMITED_SBT_WEEKLY_POINTS,
+} from "./lib/limitedSbt";
 import { ItemArt, type ItemArtKind } from "./components/ItemArt";
 import {
   extractReferralRefFromCurrentUrl,
@@ -255,6 +260,11 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     () => profile ?? createEmptyProfile(address ?? ""),
     [profile, address]
   );
+  const sbtWinsLeft = Math.max(0, LIMITED_SBT_REQUIRED_WINS - profileView.totalWins);
+  const sbtProgressPct = Math.min(100, (profileView.totalWins / LIMITED_SBT_REQUIRED_WINS) * 100);
+  const openCaptainSbt = useCallback(() => {
+    router.push("/shop#captain-sbt");
+  }, [router]);
   const pcWalletConnectors = useMemo(() => {
     const baseConnectors = connectors.filter(isBaseAccountConnector);
     const otherConnectors = connectors.filter((connector) => !isBaseAccountConnector(connector));
@@ -406,6 +416,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             </span>
             <span className={styles.playNowShimmer} aria-hidden="true" />
           </button>
+
+          <SecretSbtCard
+            wins={profileView.totalWins}
+            winsLeft={sbtWinsLeft}
+            progressPct={sbtProgressPct}
+            lang={lang}
+            onOpen={openCaptainSbt}
+          />
 
           <SeasonRoadmap
             season={season}
@@ -642,6 +660,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               </div>
             </div>
           )}
+
+          <SecretSbtCard
+            wins={profileView.totalWins}
+            winsLeft={sbtWinsLeft}
+            progressPct={sbtProgressPct}
+            lang={lang}
+            onOpen={openCaptainSbt}
+          />
 
           <HomeCard
             Icon={UsersIcon}
@@ -999,6 +1025,59 @@ function SectionHeader({ label, accent }: { label: string; accent: string }) {
         {label}
       </span>
     </div>
+  );
+}
+
+function SecretSbtCard({
+  wins,
+  winsLeft,
+  progressPct,
+  lang,
+  onOpen,
+}: {
+  wins: number;
+  winsLeft: number;
+  progressPct: number;
+  lang: string;
+  onOpen: () => void;
+}) {
+  const ru = lang === "ru";
+  const unlocked = winsLeft === 0;
+  return (
+    <button className={styles.secretSbtCard} onClick={onOpen} type="button">
+      <span className={styles.secretSbtScan} aria-hidden="true" />
+      <span className={styles.secretSbtIcon} aria-hidden="true">
+        ?
+      </span>
+      <span className={styles.secretSbtBody}>
+        <span className={styles.secretSbtTopline}>
+          <span className={styles.secretSbtKicker}>SECRET ITEM????</span>
+          <span className={styles.secretSbtBadge}>
+            {unlocked ? (ru ? "ДОСТУПНО" : "READY") : `${wins}/${LIMITED_SBT_REQUIRED_WINS}`}
+          </span>
+        </span>
+        <span className={styles.secretSbtTitle}>
+          {ru ? "Captain SBT" : "Captain SBT"}
+        </span>
+        <span className={styles.secretSbtDesc}>
+          {unlocked
+            ? ru
+              ? "Минт открыт. Только 20 soulbound-пропусков."
+              : "Mint unlocked. Only 20 soulbound passes."
+            : ru
+              ? `${winsLeft} побед до on-chain SBT · ${LIMITED_SBT_WEEKLY_POINTS.toLocaleString()} pts/нед.`
+              : `${winsLeft} wins left · ${LIMITED_SBT_WEEKLY_POINTS.toLocaleString()} pts/week`}
+        </span>
+        <span className={styles.secretSbtProgress}>
+          <span style={{ width: `${progressPct}%` }} />
+        </span>
+        <span className={styles.secretSbtMeta}>
+          <span>{LIMITED_SBT_MAX_SUPPLY} TOTAL</span>
+          <span>{ru ? "SOULBOUND" : "SOULBOUND"}</span>
+        </span>
+      </span>
+      <ChevronRightIcon size={16} />
+    </button>
   );
 }
 

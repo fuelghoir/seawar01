@@ -5,6 +5,8 @@ export const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x$
 export const COMMISSION_WALLET = "0xA4Df87d8940ac70aC8A33DB79bb1057238B490e4" as `0x${string}`;
 export const SHOP_TREASURY_ADDRESS = (process.env
   .NEXT_PUBLIC_SHOP_TREASURY_ADDRESS || COMMISSION_WALLET) as `0x${string}`;
+export const CAPTAIN_SBT_CONTRACT_ADDRESS = (process.env
+  .NEXT_PUBLIC_CAPTAIN_SBT_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
 // Minimal ERC-20 ABI for USDC approve/allowance/balanceOf
 export const erc20Abi = [
@@ -238,6 +240,78 @@ export const seaBattleAbi = [
     inputs: [
       { type: "address", name: "player", indexed: true },
       { type: "uint256", name: "timestamp", indexed: false },
+    ],
+  },
+] as const;
+
+export const captainSbtAbi = [
+  {
+    type: "function",
+    name: "mint",
+    inputs: [
+      { type: "uint256", name: "deadline" },
+      { type: "bytes", name: "signature" },
+    ],
+    outputs: [{ type: "uint256", name: "tokenId" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ type: "address", name: "owner" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "tokenOfOwner",
+    inputs: [{ type: "address", name: "" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nonces",
+    inputs: [{ type: "address", name: "" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "MAX_SUPPLY",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "signer",
+    inputs: [],
+    outputs: [{ type: "address", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "SoulboundMinted",
+    inputs: [
+      { type: "address", name: "to", indexed: true },
+      { type: "uint256", name: "tokenId", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { type: "address", name: "from", indexed: true },
+      { type: "address", name: "to", indexed: true },
+      { type: "uint256", name: "tokenId", indexed: true },
     ],
   },
 ] as const;

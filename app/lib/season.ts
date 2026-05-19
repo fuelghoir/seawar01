@@ -722,14 +722,39 @@ export async function claimSeasonLevel(
   wallet: string,
   level: number
 ): Promise<SeasonReward> {
+  const rewards = await claimSeasonLevels(wallet, [level]);
+  return rewards[0];
+}
+
+function normalizeSeasonClaimLevels(levels: number[]): number[] {
+  return Array.from(new Set(levels.filter(Number.isInteger))).sort((a, b) => a - b);
+}
+
+function getSeasonClaimTargets(state: SeasonState, levels: number[]): SeasonLevel[] {
+  const requestedLevels = normalizeSeasonClaimLevels(levels);
+  if (requestedLevels.length === 0) throw new Error("No rewards ready");
+
+  return requestedLevels.map((level) => {
+    const target = SEASON_LEVELS.find((entry) => entry.level === level);
+    if (!target) throw new Error("Unknown season level");
+    if (state.xp < target.xpRequired) throw new Error("Level is not ready");
+    if (state.claimedLevels.includes(level)) throw new Error("Already claimed");
+    return target;
+  });
+}
+
+export async function claimSeasonLevels(
+  wallet: string,
+  levels: number[]
+): Promise<SeasonReward[]> {
   const addr = normalizeWallet(wallet);
   const state = await getSeasonState(addr);
-  const target = SEASON_LEVELS.find((entry) => entry.level === level);
-  if (!target) throw new Error("Unknown season level");
-  if (state.xp < target.xpRequired) throw new Error("Level is not ready");
-  if (state.claimedLevels.includes(level)) throw new Error("Already claimed");
+  const targets = getSeasonClaimTargets(state, levels);
 
-  const nextClaimed = [...state.claimedLevels, level].sort((a, b) => a - b);
+  const nextClaimed = Array.from(new Set([
+    ...state.claimedLevels,
+    ...targets.map((target) => target.level),
+  ])).sort((a, b) => a - b);
   const { error } = await supabase
     .from("season_progress")
     .upsert(
@@ -745,13 +770,24 @@ export async function claimSeasonLevel(
 
   if (error) throw new Error(error.message);
 
-  if (target.reward.kind === "points") {
-    await grantRawPoints(addr, target.reward.amount);
-  } else {
-    await grantItem(addr, target.reward.slug, target.reward.quantity);
+  const points = targets.reduce(
+    (sum, target) => sum + (target.reward.kind === "points" ? target.reward.amount : 0),
+    0
+  );
+  if (points > 0) await grantRawPoints(addr, points);
+
+  const items = targets.reduce((acc, target) => {
+    if (target.reward.kind === "item") {
+      acc[target.reward.slug] = (acc[target.reward.slug] ?? 0) + target.reward.quantity;
+    }
+    return acc;
+  }, {} as Partial<Record<ShopItemSlug, number>>);
+
+  for (const [slug, quantity] of Object.entries(items) as Array<[ShopItemSlug, number]>) {
+    await grantItem(addr, slug, quantity);
   }
 
-  return target.reward;
+  return targets.map((target) => target.reward);
 }
 
 export async function validateSeasonLevelClaim(
@@ -764,4 +800,12 @@ export async function validateSeasonLevelClaim(
   if (state.xp < target.xpRequired) throw new Error("Level is not ready");
   if (state.claimedLevels.includes(level)) throw new Error("Already claimed");
   return target.reward;
+}
+
+export async function validateSeasonLevelClaims(
+  wallet: string,
+  levels: number[]
+): Promise<SeasonReward[]> {
+  const state = await getSeasonState(wallet);
+  return getSeasonClaimTargets(state, levels).map((target) => target.reward);
 }
