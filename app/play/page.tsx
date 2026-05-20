@@ -60,13 +60,13 @@ function formatRevert(msg: string, lang: string = "en"): string {
   const ru = lang === "ru";
   const lower = msg.toLowerCase();
   if (lower.includes("user rejected") || lower.includes("user denied"))
-    return ru ? "РўСЂР°РЅР·Р°РєС†РёСЏ РѕС‚РєР»РѕРЅРµРЅР°. РџРѕРїСЂРѕР±СѓР№ РµС‰Рµ СЂР°Р·." : "Transaction rejected. Try again.";
+    return ru ? "Транзакция отклонена. Попробуй ещё раз." : "Transaction rejected. Try again.";
   if (lower.includes("transfer amount exceeds balance"))
     return ru
-      ? "РџСЂРёР·РѕРІРѕР№ РїСѓР» РїСѓСЃС‚ вЂ” РїРѕС…РѕР¶Рµ, СЃРѕРїРµСЂРЅРёРє РЅРµ РІРЅРµСЃ СЃС‚Р°РІРєСѓ. РќР°РїРёС€Рё Р°РґРјРёРЅСѓ РёР»Рё СЃРєСЂРѕР№ С‡РµСЂРµР· Г—."
-      : "Prize pool is empty вЂ” opponent likely didn't stake. Contact admin or hide with Г—.";
+      ? "Призовой пул пуст — похоже, соперник не внёс ставку. Напиши админу или скрой через ×."
+      : "Prize pool is empty — opponent likely didn't stake. Contact admin or hide with ×.";
   if (lower.includes("429") || lower.includes("rate limit"))
-    return ru ? "RPC РІСЂРµРјРµРЅРЅРѕ РѕРіСЂР°РЅРёС‡РµРЅ. РџРѕРІС‚РѕСЂРё С‡РµСЂРµР· РЅРµСЃРєРѕР»СЊРєРѕ СЃРµРєСѓРЅРґ." : "RPC rate-limited. Retry in a few seconds.";
+    return ru ? "RPC временно ограничен. Повтори через несколько секунд." : "RPC rate-limited. Retry in a few seconds.";
   const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/i);
   if (reasonMatch) return reasonMatch[1].trim();
   const revertMatch = msg.match(/revert(?:ed)?(?: with reason string)?\s*['"]?([^'"\n]+?)['"]?(?:\n|$)/i);
@@ -131,53 +131,53 @@ const PLAY_COPY = {
     readGameFailed: "Failed to read game state",
     cannotFinalize: "Cannot finalize: ",
     cannotClaim: "Cannot claim: ",
-    alreadyClaimedOnchain: "Already claimed onchain. Use Г— to hide this record.",
+    alreadyClaimedOnchain: "Already claimed onchain. Use × to hide this record.",
   },
   ru: {
-    botKicker: "РўСЂРµРЅРёСЂРѕРІРєР° СЃРѕР»Рѕ",
-    friendKicker: "РљРѕРјРЅР°С‚Р° РґСЂСѓРіР°",
-    wagerKicker: "Р‘РѕР№ СЃРѕ СЃС‚Р°РІРєРѕР№",
-    createKicker: "РЎРѕР·РґР°С‚СЊ Р±РѕР№",
-    joinKicker: "Р’РѕР№С‚Рё РІ Р±РѕР№",
-    lockWager: "Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ СЃС‚Р°РІРєСѓ",
-    openRoom: "РћС‚РєСЂС‹С‚СЊ РєРѕРјРЅР°С‚Сѓ",
-    free: "Р‘Р•РЎРџР›РђРўРќРћ",
-    entry: "Р’С…РѕРґ",
-    stake: "РЎС‚Р°РІРєР°",
-    network: "РЎРµС‚СЊ",
-    prizePool: "РџСЂРёР·",
-    publicHint: "Р’РёРґРЅРѕ РІ РѕС‚РєСЂС‹С‚С‹С… РєРѕРјРЅР°С‚Р°С…",
-    privateHint: "Р’С…РѕРґ С‚РѕР»СЊРєРѕ РїРѕ ID",
-    walletKicker: "РќСѓР¶РµРЅ РєРѕС€РµР»РµРє",
-    walletHint: "РџРѕРґРєР»СЋС‡Рё РєРѕС€РµР»РµРє РЅР° РіР»Р°РІРЅРѕРј СЌРєСЂР°РЅРµ, РїРѕС‚РѕРј РІРѕР·РІСЂР°С‰Р°Р№СЃСЏ СЂР°Р·РІРµСЂРЅСѓС‚СЊ С„Р»РѕС‚.",
-    approveUsdc: "РћРґРѕР±СЂСЏРµРј USDC...",
-    sendUsdc: "РћС‚РїСЂР°РІРёС‚СЊ USDC",
-    confirmWallet: "РџРѕРґС‚РІРµСЂРґРё РІ РєРѕС€РµР»СЊРєРµ...",
-    confirming: "РџРѕРґС‚РІРµСЂР¶РґР°РµРј...",
-    creating: "РЎРѕР·РґР°РµРј...",
-    finalizing: "Р¤РёРЅР°Р»РёР·РёСЂСѓРµРј...",
-    checking: "РџСЂРѕРІРµСЂСЏРµРј...",
-    refunding: "Р’РѕР·РІСЂР°С‰Р°РµРј...",
-    confirmFirst: "РџРѕРґС‚РІРµСЂРґРё 1/2...",
-    confirmSecond: "РџРѕРґС‚РІРµСЂРґРё 2/2...",
-    claiming: "РџРѕР»СѓС‡Р°РµРј...",
-    gameLabel: "РРіСЂР°",
-    hideRecord: "РЎРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ",
-    hideClaimedRecord: "РЎРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ (РµСЃР»Рё СѓР¶Рµ РїРѕР»СѓС‡РµРЅРѕ)",
-    contractWarning: "РљРѕРЅС‚СЂР°РєС‚ РµС‰Рµ РЅРµ Р·Р°РґРµРїР»РѕРµРЅ. РЈРєР°Р¶Рё NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS РІ .env",
-    wagerAmount: "Р Р°Р·РјРµСЂ СЃС‚Р°РІРєРё",
-    validGameId: "Р’РІРµРґРё РєРѕСЂСЂРµРєС‚РЅС‹Р№ ID РёРіСЂС‹",
-    offchainCreateFailed: "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ offchain-РёРіСЂСѓ",
-    onchainIdMissing: "Onchain ID РёРіСЂС‹ РЅРµ РЅР°Р№РґРµРЅ",
-    gameNotFound: "РРіСЂР° РЅРµ РЅР°Р№РґРµРЅР°",
-    notWagerGame: "Р­С‚Рѕ РЅРµ РёРіСЂР° СЃРѕ СЃС‚Р°РІРєРѕР№",
-    ownGame: "РќРµР»СЊР·СЏ РІРѕР№С‚Рё РІ СЃРІРѕСЋ РёРіСЂСѓ",
-    gameHasPlayer: "Р’ РёРіСЂРµ СѓР¶Рµ РµСЃС‚СЊ РґСЂСѓРіРѕР№ РёРіСЂРѕРє",
-    gameFinished: "РРіСЂР° СѓР¶Рµ Р·Р°РІРµСЂС€РµРЅР° onchain",
-    readGameFailed: "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ СЃРѕСЃС‚РѕСЏРЅРёРµ РёРіСЂС‹",
-    cannotFinalize: "РќРµ СѓРґР°Р»РѕСЃСЊ С„РёРЅР°Р»РёР·РёСЂРѕРІР°С‚СЊ: ",
-    cannotClaim: "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ: ",
-    alreadyClaimedOnchain: "РЈР¶Рµ РїРѕР»СѓС‡РµРЅРѕ onchain. РќР°Р¶РјРё Г—, С‡С‚РѕР±С‹ СЃРєСЂС‹С‚СЊ Р·Р°РїРёСЃСЊ.",
+    botKicker: "Тренировка соло",
+    friendKicker: "Комната друга",
+    wagerKicker: "Бой со ставкой",
+    createKicker: "Создать бой",
+    joinKicker: "Войти в бой",
+    lockWager: "Зафиксировать ставку",
+    openRoom: "Открыть комнату",
+    free: "БЕСПЛАТНО",
+    entry: "Вход",
+    stake: "Ставка",
+    network: "Сеть",
+    prizePool: "Приз",
+    publicHint: "Видно в открытых комнатах",
+    privateHint: "Вход только по ID",
+    walletKicker: "Нужен кошелёк",
+    walletHint: "Подключи кошелёк на главном экране, затем возвращайся развернуть флот.",
+    approveUsdc: "Одобряем USDC...",
+    sendUsdc: "Отправить USDC",
+    confirmWallet: "Подтверди в кошельке...",
+    confirming: "Подтверждаем...",
+    creating: "Создаём...",
+    finalizing: "Финализируем...",
+    checking: "Проверяем...",
+    refunding: "Возвращаем...",
+    confirmFirst: "Подтверди 1/2...",
+    confirmSecond: "Подтверди 2/2...",
+    claiming: "Получаем...",
+    gameLabel: "Игра",
+    hideRecord: "Скрыть запись",
+    hideClaimedRecord: "Скрыть запись (если уже получено)",
+    contractWarning: "Контракт ещё не задеплоен. Укажи NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS в .env",
+    wagerAmount: "Размер ставки",
+    validGameId: "Введи корректный ID игры",
+    offchainCreateFailed: "Не удалось создать offchain-игру",
+    onchainIdMissing: "Onchain ID игры не найден",
+    gameNotFound: "Игра не найдена",
+    notWagerGame: "Это не игра со ставкой",
+    ownGame: "Нельзя войти в свою игру",
+    gameHasPlayer: "В игре уже есть другой игрок",
+    gameFinished: "Игра уже завершена onchain",
+    readGameFailed: "Не удалось прочитать состояние игры",
+    cannotFinalize: "Не удалось финализировать: ",
+    cannotClaim: "Не удалось получить: ",
+    alreadyClaimedOnchain: "Уже получено onchain. Нажми ×, чтобы скрыть запись.",
   },
 };
 
@@ -227,7 +227,7 @@ function PlayPageInner() {
     }
   }, [isConnected, chainId, switchChain]);
 
-  // в”Ђв”Ђв”Ђ Onchain write (wager) в”Ђв”Ђв”Ђ
+  // Onchain write (wager)
   const {
     data: txHash,
     isPending,
@@ -240,7 +240,7 @@ function PlayPageInner() {
   const [wagerReceiptFallback, setWagerReceiptFallback] = useState<typeof receipt | null>(null);
   const wagerReceipt = receipt ?? wagerReceiptFallback;
 
-  // в”Ђв”Ђв”Ђ USDC approve for wager в”Ђв”Ђв”Ђ
+  // USDC approve for wager
   const {
     data: approveTxHash,
     isPending: approvePending,
@@ -282,7 +282,7 @@ function PlayPageInner() {
     };
   }, [approveTxHash, wagmiConfig]);
 
-  // в”Ђв”Ђв”Ђ Claim prize в”Ђв”Ђв”Ђ
+  // Claim prize
   const {
     data: claimTxHash,
     writeContract: writeClaim,
@@ -295,7 +295,7 @@ function PlayPageInner() {
   });
   const claimConfirmed = claimReceipt?.status === "success";
 
-  // в”Ђв”Ђв”Ђ Record result в”Ђв”Ђв”Ђ
+  // Record result
   const {
     data: recordTxHash,
     writeContract: writeRecord,
@@ -308,7 +308,7 @@ function PlayPageInner() {
   });
   const recordConfirmed = recordReceipt?.status === "success";
 
-  // в”Ђв”Ђв”Ђ Cancel wager в”Ђв”Ђв”Ђ
+  // Cancel wager
   const {
     data: cancelTxHash,
     writeContract: writeCancel,
@@ -321,7 +321,7 @@ function PlayPageInner() {
   });
   const cancelConfirmed = cancelReceipt?.status === "success";
 
-  // в”Ђв”Ђв”Ђ Pending action routing в”Ђв”Ђв”Ђ
+  // Pending action routing
   const wagerActionRef = useRef<{
     action: "create" | "join";
     amount: number;
@@ -648,7 +648,7 @@ function PlayPageInner() {
     setWagerSecondStepReady(false);
   }, [approveReceipt]);
 
-  // в”Ђв”Ђв”Ђ Unclaimed wins в”Ђв”Ђв”Ђ
+  // Unclaimed wins
   const loadUnclaimedWins = useCallback(async () => {
     if (!address) return;
     const wins = await getUnclaimedWins(address);
@@ -664,7 +664,7 @@ function PlayPageInner() {
     if (address) loadUnclaimedWins();
   }, [address, loadUnclaimedWins]);
 
-  // в”Ђв”Ђв”Ђ Refundable games в”Ђв”Ђв”Ђ
+  // Refundable games
   useEffect(() => {
     if (!address || typeof window === "undefined") {
       setDismissedRefundIds(new Set());
@@ -929,7 +929,7 @@ function PlayPageInner() {
     loadUnclaimedWins();
   };
 
-  // в”Ђв”Ђв”Ђ Open games list в”Ђв”Ђв”Ђ
+  // Open games list
   const loadOffchainGames = useCallback(async () => {
     if (mode === "bot") { setOffchainGames([]); return; }
     const games = await getAvailableGames(address, mode);
@@ -943,7 +943,7 @@ function PlayPageInner() {
     return () => clearInterval(interval);
   }, [mode, loadOffchainGames]);
 
-  // в”Ђв”Ђв”Ђ Handlers в”Ђв”Ђв”Ђ
+  // Handlers
   const handleCreate = async () => {
     setError("");
     setAction("create");
@@ -1394,7 +1394,7 @@ function PlayPageInner() {
                           disabled={isActive}
                           title={playCopy.hideClaimedRecord}
                         >
-                          Г—
+                          ×
                         </button>
                       </div>
                     </div>
@@ -1443,7 +1443,7 @@ function PlayPageInner() {
                           disabled={isActive}
                           title={playCopy.hideRecord}
                         >
-                          Г—
+                          ×
                         </button>
                       </div>
                     </div>
