@@ -5,6 +5,9 @@ import HomeClient from "./HomeClient";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
+const TALENTAPP_PROJECT_VERIFICATION =
+  "3c54274f5cae630fe5ba64279d90f064dbde544a89378cbc57aaa12325e2ae248d50baa1e60add397d0e9cc296346513abf365388f398662810b7b84d955b59b";
+
 export async function generateMetadata({
   searchParams,
 }: {
@@ -33,6 +36,7 @@ export async function generateMetadata({
       "base:app_id": "69dbfc9ded56423f0cd3e692",
       "fc:frame": JSON.stringify(miniAppEmbed),
       "fc:miniapp": JSON.stringify(miniAppEmbed),
+      "talentapp:project_verification": TALENTAPP_PROJECT_VERIFICATION,
     },
   };
 }
