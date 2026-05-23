@@ -30,6 +30,9 @@ const EMPTY_STATS: ReferralStats = {
   count: 0,
   activeCount: 0,
   pendingCount: 0,
+  paidCount: 0,
+  unpaidActiveCount: 0,
+  firstGameBonusPoints: 0,
 };
 
 export default function ReferralPanel({
@@ -52,7 +55,7 @@ export default function ReferralPanel({
   const [link, setLink] = useState("");
   const [baseLink, setBaseLink] = useState("");
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
-  const activeBonus = stats.activeCount * 1000;
+  const activeBonus = stats.firstGameBonusPoints;
 
   const toggle = () => {
     if (onToggleExpand) onToggleExpand();

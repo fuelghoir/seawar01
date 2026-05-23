@@ -354,6 +354,96 @@
   text-shadow: 0 0 10px var(--accent-glow);
 }
 
+/* ───── Pagination ───── */
+
+.pagination {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pageNumbers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pageNavBtn,
+.pageNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.pageNavBtn {
+  width: 34px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.pageNavBtn:hover:not(:disabled),
+.pageNum:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.18);
+}
+
+.pageNavBtn:disabled,
+.pageNum:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.pageNumActive,
+.pageNumActive:disabled {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(var(--accent-rgb), 0.1));
+  color: #fbbf24;
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.16);
+}
+
+.pageGap {
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.pageSummary {
+  flex-basis: 100%;
+  text-align: center;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.38);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ───── Animations ───── */
 
 @keyframes spin {
@@ -392,4 +482,19 @@
   .colRank { font-size: 13px; }
   .colWallet { font-size: 11px; gap: 6px; }
   .youBadge { font-size: 8px; padding: 2px 5px; }
+  .pagination { gap: 6px; }
+  .pageNumbers { gap: 4px; }
+  .pageNavBtn,
+  .pageNum {
+    height: 32px;
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .pageNavBtn {
+    width: 32px;
+    padding: 0;
+    font-size: 17px;
+  }
+  .pageSummary { font-size: 9px; }
 }

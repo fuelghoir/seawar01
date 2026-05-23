@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { addSeasonXp, consumeItem, getGamePointMultiplier, getItemQuantity } from "./season";
+import { awardFirstGameReferralBonus } from "./referrals";
 
 // ─── Offchain game CRUD ───
 
@@ -659,16 +660,17 @@ export async function recordGameResult(
   won: boolean
 ): Promise<void> {
   const addr = wallet.toLowerCase();
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("player_stats")
     .select("*")
     .eq("wallet", addr)
-    .single();
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
 
   const isFirstGame = !existing || existing.games_played === 0;
 
   if (existing) {
-    await supabase
+    const { error } = await supabase
       .from("player_stats")
       .update({
         games_played: existing.games_played + 1,
@@ -676,34 +678,19 @@ export async function recordGameResult(
         updated_at: new Date().toISOString(),
       })
       .eq("wallet", addr);
+    if (error) throw new Error(error.message);
   } else {
-    await supabase.from("player_stats").insert({
+    const { error } = await supabase.from("player_stats").insert({
       wallet: addr,
       games_played: 1,
       wins: won ? 1 : 0,
     });
+    if (error) throw new Error(error.message);
   }
 
   // On first game ever: award 1000 pts referral bonus to whoever invited this player
   if (isFirstGame) {
-    Promise.resolve(
-      supabase.from("referrals").select("referrer").eq("referee", addr).single()
-    ).then(({ data: ref }) => {
-      if (!ref?.referrer) return;
-      const referrer = ref.referrer as string;
-      return Promise.resolve(
-        supabase.from("player_stats").select("points").eq("wallet", referrer).single()
-      ).then(({ data: rs }) => {
-        if (rs) {
-          return supabase.from("player_stats").update({
-            points: rs.points + 1000,
-            updated_at: new Date().toISOString(),
-          }).eq("wallet", referrer);
-        } else {
-          return supabase.from("player_stats").insert({ wallet: referrer, points: 1000 });
-        }
-      });
-    }).catch(() => {});
+    await awardFirstGameReferralBonus(addr);
   }
 }
 
@@ -851,15 +838,41 @@ export interface LeaderboardEntry {
   checkin_streak: number;
 }
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  const { data } = await supabase
+export const LEADERBOARD_PAGE_SIZE = 50;
+
+export interface LeaderboardPage {
+  entries: LeaderboardEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function getLeaderboard(
+  page = 1,
+  pageSize = LEADERBOARD_PAGE_SIZE
+): Promise<LeaderboardPage> {
+  const safePage = Math.max(1, Math.floor(page));
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+
+  const { data, count } = await supabase
     .from("player_stats")
-    .select("wallet, points, wins, games_played, total_hits, checkin_streak")
+    .select("wallet, points, wins, games_played, total_hits, checkin_streak", { count: "exact" })
     .gt("points", 0)
     .order("points", { ascending: false })
-    .limit(50);
+    .range(from, to);
 
-  return (data as LeaderboardEntry[]) || [];
+  const total = count ?? 0;
+
+  return {
+    entries: (data as LeaderboardEntry[]) || [],
+    total,
+    page: safePage,
+    pageSize: safePageSize,
+    totalPages: Math.max(1, Math.ceil(total / safePageSize)),
+  };
 }
 
 // ─── Player profile ───
