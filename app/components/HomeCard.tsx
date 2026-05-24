@@ -6,6 +6,7 @@ import styles from "./HomeCard.module.css";
 
 interface HomeCardProps {
   Icon?: ComponentType<{ size?: number }>;
+  media?: ReactNode;
   title: string;
   subtitle?: string;
   badge?: string;
@@ -17,6 +18,7 @@ interface HomeCardProps {
 
 export function HomeCard({
   Icon,
+  media,
   title,
   subtitle,
   badge,
@@ -49,7 +51,11 @@ export function HomeCard({
           : undefined
       }
     >
-      {Icon && (
+      {media ? (
+        <div className={styles.mediaWrap}>
+          {media}
+        </div>
+      ) : Icon && (
         <div className={styles.iconWrap}>
           <Icon size={20} />
         </div>

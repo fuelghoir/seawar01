@@ -65,7 +65,6 @@ import {
   YoutubeIcon,
   ChevronRightIcon,
   AnchorIcon,
-  ExternalLinkIcon,
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
 import styles from "./home.module.css";
@@ -466,7 +465,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           {showTurboQuestCard && (
             <HomeCard
-              Icon={ExternalLinkIcon}
+              media={<TurboGumCardLogo />}
               title={turboCopy.title}
               subtitle={turboCopy.cardSubtitle}
               badge={`+${TURBO_GUM_QUEST.reward.toLocaleString()} PTS`}
@@ -637,7 +636,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           {showTurboQuestCard && (
             <HomeCard
-              Icon={ExternalLinkIcon}
+              media={<TurboGumCardLogo />}
               title={turboCopy.title}
               subtitle={turboCopy.cardSubtitle}
               badge={`+${TURBO_GUM_QUEST.reward.toLocaleString()} PTS`}
@@ -1025,6 +1024,10 @@ function InitialLoader() {
       </div>
     </main>
   );
+}
+
+function TurboGumCardLogo() {
+  return <span className={styles.turboGumCardLogo} aria-hidden="true" />;
 }
 
 function createEmptyProfile(wallet: string): PlayerProfile {

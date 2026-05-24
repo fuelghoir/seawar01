@@ -142,8 +142,8 @@ export function TurboGumQuestPrompt({
           x
         </button>
 
-        <div className={styles.icon} aria-hidden="true">
-          <ExternalLinkIcon size={28} />
+        <div className={styles.logoShell} aria-hidden="true">
+          <span className={styles.logo} />
         </div>
         <h2 className={styles.title}>{copy.title}</h2>
         <p className={styles.sub}>{copy.subtitle}</p>
