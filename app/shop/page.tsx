@@ -49,6 +49,7 @@ import {
   type ShopItemSlug,
   SEASON_MAX_LEVEL,
   QUEST_REROLL_USDC_PRICE,
+  MAX_SHOP_PURCHASE_QUANTITY,
   activateDoublePoints,
   buyPointItem,
   claimSeasonLevels,
@@ -61,6 +62,7 @@ import {
   rewardLabel,
   seasonClaimSentinelAddress,
   shopItemText,
+  normalizeShopPurchaseQuantity,
   validatePointItemPurchase,
   validateSeasonLevelClaims,
 } from "../lib/season";
@@ -84,6 +86,16 @@ const BOMB_PRICE = BigInt(2_000_000); // 2 USDC
 
 function pendingPaidQrKey(wallet: string) {
   return `sbt_pending_paid_qr_${wallet.toLowerCase()}`;
+}
+
+function pendingPaidQrQtyKey(wallet: string) {
+  return `sbt_pending_paid_qr_qty_${wallet.toLowerCase()}`;
+}
+
+function formatUsdcMicro(amountMicro: number) {
+  return `${(amountMicro / 1_000_000).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })} USDC`;
 }
 
 type ShopTier = "legendary" | "epic" | "rare" | "locked";
@@ -199,8 +211,13 @@ export default function ShopPage() {
   const [sbtMsg, setSbtMsg] = useState("");
   const [shopMsg, setShopMsg] = useState("");
   const [shopBusy, setShopBusy] = useState<string | null>(null);
+  const [itemPurchaseQuantities, setItemPurchaseQuantities] = useState<
+    Partial<Record<ShopItemSlug, number>>
+  >({});
   const [claimingSeasonLevels, setClaimingSeasonLevels] = useState<number[]>([]);
   const [showMobileBack, setShowMobileBack] = useState(false);
+  const [bombQuantity, setBombQuantity] = useState(1);
+  const [bombBoughtQty, setBombBoughtQty] = useState(0);
 
   const refreshSeasonShop = useCallback(async () => {
     if (!address) return;
@@ -247,7 +264,20 @@ export default function ShopPage() {
     };
   }, []);
 
+  const getItemPurchaseQty = (slug: ShopItemSlug, allowMany = true) => {
+    const qty = normalizeShopPurchaseQuantity(itemPurchaseQuantities[slug] ?? 1);
+    return allowMany ? qty : 1;
+  };
+
+  const setItemPurchaseQty = (slug: ShopItemSlug, quantity: number) => {
+    setItemPurchaseQuantities((current) => ({
+      ...current,
+      [slug]: normalizeShopPurchaseQuantity(quantity),
+    }));
+  };
+
   const pointPurchaseSlugRef = useRef<ShopItemSlug | null>(null);
+  const pointPurchaseQtyRef = useRef(1);
   const pointPurchaseHandledRef = useRef(false);
   const [pointPurchaseFallbackMined, setPointPurchaseFallbackMined] = useState(false);
   const {
@@ -263,17 +293,19 @@ export default function ShopPage() {
   const pointPurchaseMined =
     pointPurchaseReceipt?.status === "success" || pointPurchaseFallbackMined;
 
-  const handleBuyPointItem = async (slug: ShopItemSlug) => {
+  const handleBuyPointItem = async (slug: ShopItemSlug, quantity = 1) => {
     if (!address || shopBusy) return;
+    const qty = slug === "quest_reroll" ? 1 : normalizeShopPurchaseQuantity(quantity);
     setShopBusy(slug);
     setShopMsg("");
     setPointPurchaseFallbackMined(false);
     pointPurchaseSlugRef.current = null;
+    pointPurchaseQtyRef.current = qty;
     pointPurchaseHandledRef.current = false;
     resetPointPurchaseTx();
 
     try {
-      await validatePointItemPurchase(address, slug);
+      await validatePointItemPurchase(address, slug, qty);
       pointPurchaseSlugRef.current = slug;
       writePointPurchaseTx({
         address: SEABATTLE_CONTRACT_ADDRESS,
@@ -286,6 +318,7 @@ export default function ShopPage() {
     } catch (err) {
       setShopMsg(err instanceof Error ? err.message : tr.shop_purchase_failed);
       pointPurchaseSlugRef.current = null;
+      pointPurchaseQtyRef.current = 1;
       setShopBusy(null);
     }
   };
@@ -335,9 +368,10 @@ export default function ShopPage() {
     ) return;
 
     const slug = pointPurchaseSlugRef.current;
+    const qty = pointPurchaseQtyRef.current;
     pointPurchaseHandledRef.current = true;
 
-    buyPointItem(address, slug)
+    buyPointItem(address, slug, qty)
       .then(async () => {
         if (slug === "quest_reroll") setQuestRerollPointUsed(true);
         setShopMsg(tr.shop_item_added);
@@ -349,6 +383,7 @@ export default function ShopPage() {
       })
       .finally(() => {
         pointPurchaseSlugRef.current = null;
+        pointPurchaseQtyRef.current = 1;
         setShopBusy(null);
       });
   }, [
@@ -368,6 +403,7 @@ export default function ShopPage() {
 
     setShopMsg(tr.shop_purchase_failed);
     pointPurchaseSlugRef.current = null;
+    pointPurchaseQtyRef.current = 1;
     pointPurchaseHandledRef.current = false;
     setShopBusy(null);
   }, [pointPurchaseReceipt, tr.shop_purchase_failed]);
@@ -380,6 +416,7 @@ export default function ShopPage() {
       : raw.slice(0, 100);
     setShopMsg(short);
     pointPurchaseSlugRef.current = null;
+    pointPurchaseQtyRef.current = 1;
     pointPurchaseHandledRef.current = false;
     setShopBusy(null);
   }, [pointPurchaseError, tr.shop_purchase_failed, tr.tx_rejected]);
@@ -388,6 +425,7 @@ export default function ShopPage() {
   const [buyMsg, setBuyMsg] = useState("");
   const buyingRef = useRef(false);
   const buySubmittedRef = useRef(false);
+  const bombTargetQtyRef = useRef(1);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [buyFallbackMined, setBuyFallbackMined] = useState(false);
 
@@ -415,6 +453,17 @@ export default function ShopPage() {
   });
   const buyMined = buyReceipt?.status === "success" || buyFallbackMined;
 
+  const submitBombPurchase = useCallback(() => {
+    buySubmittedRef.current = true;
+    writeBuy({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "buyBomb",
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [writeBuy]);
+
   useEffect(() => {
     setApproveFallbackMined(false);
     if (!approveTxHash) return;
@@ -441,15 +490,8 @@ export default function ShopPage() {
 
   useEffect(() => {
     if (!approveMined || !buyingRef.current || buySubmittedRef.current) return;
-    buySubmittedRef.current = true;
-    writeBuy({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "buyBomb",
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
-  }, [approveMined, writeBuy]);
+    submitBombPurchase();
+  }, [approveMined, submitBombPurchase]);
 
   useEffect(() => {
     if (!approveReceipt || approveReceipt.status !== "reverted" || !buyingRef.current) return;
@@ -461,12 +503,34 @@ export default function ShopPage() {
 
   useEffect(() => {
     if (!buyMined || !buyingRef.current) return;
-    setBuyMsg(tr.shop_item_added);
+    const nextBought = Math.min(bombTargetQtyRef.current, bombBoughtQty + 1);
+    setBombBoughtQty(nextBought);
+    refetchBombs();
+
+    if (nextBought < bombTargetQtyRef.current) {
+      buySubmittedRef.current = false;
+      resetBuy();
+      setBuyFallbackMined(false);
+      window.setTimeout(submitBombPurchase, 0);
+      return;
+    }
+
+    setBuyMsg(
+      bombTargetQtyRef.current > 1
+        ? `${tr.shop_item_added} x${bombTargetQtyRef.current}`
+        : tr.shop_item_added
+    );
     setBuying(false);
     buyingRef.current = false;
     buySubmittedRef.current = false;
-    refetchBombs();
-  }, [buyMined, refetchBombs, tr.shop_item_added]);
+  }, [
+    bombBoughtQty,
+    buyMined,
+    refetchBombs,
+    resetBuy,
+    submitBombPurchase,
+    tr.shop_item_added,
+  ]);
 
   useEffect(() => {
     if (!buyReceipt || buyReceipt.status !== "reverted" || !buyingRef.current) return;
@@ -495,6 +559,10 @@ export default function ShopPage() {
       setBuyMsg(tr.contract_not_deployed);
       return;
     }
+    const qty = normalizeShopPurchaseQuantity(bombQuantity);
+    setBombQuantity(qty);
+    setBombBoughtQty(0);
+    bombTargetQtyRef.current = qty;
     setBuying(true);
     buyingRef.current = true;
     buySubmittedRef.current = false;
@@ -507,7 +575,7 @@ export default function ShopPage() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [SEABATTLE_CONTRACT_ADDRESS, BOMB_PRICE],
+      args: [SEABATTLE_CONTRACT_ADDRESS, BOMB_PRICE * BigInt(qty)],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
@@ -516,6 +584,7 @@ export default function ShopPage() {
   // ─── Daily check-in ───
   // Paid Quest Reroll repeat purchase (after weekly points purchase)
   const paidQuestRerollRef = useRef(false);
+  const paidQuestRerollQtyRef = useRef(1);
   const paidQuestRerollHandledRef = useRef(false);
   const [paidQuestRerollFallbackMined, setPaidQuestRerollFallbackMined] = useState(false);
   const {
@@ -531,18 +600,28 @@ export default function ShopPage() {
   const paidQuestRerollMined =
     paidQuestRerollReceipt?.status === "success" || paidQuestRerollFallbackMined;
 
-  const finishPaidQuestRerollGrant = useCallback(async (txHash: `0x${string}`) => {
+  const finishPaidQuestRerollGrant = useCallback(async (
+    txHash: `0x${string}`,
+    quantity = paidQuestRerollQtyRef.current
+  ) => {
     if (!address) return;
-    await grantPaidQuestReroll(address, txHash);
+    const qty = normalizeShopPurchaseQuantity(quantity);
+    await grantPaidQuestReroll(address, txHash, qty);
     if (typeof window !== "undefined") {
       localStorage.removeItem(pendingPaidQrKey(address));
+      localStorage.removeItem(pendingPaidQrQtyKey(address));
     }
     setShopMsg(tr.shop_item_added);
     await refreshSeasonShop();
   }, [address, refreshSeasonShop, tr.shop_item_added]);
 
-  const findLatestPaidQuestRerollTx = useCallback(async (): Promise<`0x${string}` | null> => {
+  const findLatestPaidQuestRerollTx = useCallback(async (
+    quantity = paidQuestRerollQtyRef.current
+  ): Promise<`0x${string}` | null> => {
     if (!address) return null;
+    const expectedAmount = BigInt(
+      QUEST_REROLL_USDC_PRICE * normalizeShopPurchaseQuantity(quantity)
+    );
     const client = getPublicClient(wagmiConfig, { chainId: base.id });
     if (!client) return null;
     const latest = await client.getBlockNumber();
@@ -563,7 +642,7 @@ export default function ShopPage() {
     });
     const match = [...logs]
       .reverse()
-      .find((log) => log.args.value === BigInt(QUEST_REROLL_USDC_PRICE));
+      .find((log) => log.args.value === expectedAmount);
     return match?.transactionHash ?? null;
   }, [address, wagmiConfig]);
 
@@ -583,6 +662,10 @@ export default function ShopPage() {
     if (!address || !paidQuestRerollTxHash) return;
     if (typeof window !== "undefined") {
       localStorage.setItem(pendingPaidQrKey(address), paidQuestRerollTxHash);
+      localStorage.setItem(
+        pendingPaidQrQtyKey(address),
+        String(normalizeShopPurchaseQuantity(paidQuestRerollQtyRef.current))
+      );
     }
   }, [address, paidQuestRerollTxHash]);
 
@@ -596,7 +679,7 @@ export default function ShopPage() {
     ) return;
     paidQuestRerollRef.current = false;
     paidQuestRerollHandledRef.current = true;
-    finishPaidQuestRerollGrant(paidQuestRerollTxHash)
+    finishPaidQuestRerollGrant(paidQuestRerollTxHash, paidQuestRerollQtyRef.current)
       .catch((err) => {
         setShopMsg(err instanceof Error ? err.message : tr.shop_purchase_failed);
       })
@@ -616,6 +699,9 @@ export default function ShopPage() {
         ? localStorage.getItem(pendingPaidQrKey(address))
         : null;
     if (!storedHash?.startsWith("0x")) return;
+    const storedQty = normalizeShopPurchaseQuantity(
+      Number(localStorage.getItem(pendingPaidQrQtyKey(address)) ?? 1)
+    );
     let cancelled = false;
     setShopBusy("quest_reroll_usdc");
     waitForReceipt(wagmiConfig, { hash: storedHash as `0x${string}` })
@@ -623,9 +709,10 @@ export default function ShopPage() {
         if (cancelled) return;
         if (receipt.status !== "success") {
           localStorage.removeItem(pendingPaidQrKey(address));
+          localStorage.removeItem(pendingPaidQrQtyKey(address));
           return;
         }
-        await finishPaidQuestRerollGrant(storedHash as `0x${string}`);
+        await finishPaidQuestRerollGrant(storedHash as `0x${string}`, storedQty);
       })
       .catch((err) => {
         if (!cancelled) setShopMsg(err instanceof Error ? err.message : tr.shop_purchase_failed);
@@ -646,7 +733,7 @@ export default function ShopPage() {
           paidQuestRerollRef.current = false;
           paidQuestRerollHandledRef.current = true;
           try {
-            await finishPaidQuestRerollGrant(hash);
+            await finishPaidQuestRerollGrant(hash, paidQuestRerollQtyRef.current);
           } catch (err) {
             paidQuestRerollHandledRef.current = false;
             if (!cancelled) {
@@ -679,7 +766,7 @@ export default function ShopPage() {
     findLatestPaidQuestRerollTx()
       .then(async (hash) => {
         if (cancelled || !hash) return;
-        await finishPaidQuestRerollGrant(hash);
+        await finishPaidQuestRerollGrant(hash, paidQuestRerollQtyRef.current);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -695,6 +782,7 @@ export default function ShopPage() {
     if (!paidQuestRerollReceipt || paidQuestRerollReceipt.status !== "reverted" || shopBusy !== "quest_reroll_usdc") return;
     setShopMsg(tr.shop_purchase_failed);
     paidQuestRerollRef.current = false;
+    paidQuestRerollQtyRef.current = 1;
     paidQuestRerollHandledRef.current = false;
     setShopBusy(null);
   }, [paidQuestRerollReceipt, shopBusy, tr.shop_purchase_failed]);
@@ -707,15 +795,18 @@ export default function ShopPage() {
       : raw.slice(0, 100);
     setShopMsg(short);
     paidQuestRerollRef.current = false;
+    paidQuestRerollQtyRef.current = 1;
     paidQuestRerollHandledRef.current = false;
     setShopBusy(null);
   }, [paidQuestRerollError, shopBusy, tr.shop_purchase_failed, tr.tx_rejected]);
 
-  const handleBuyQuestRerollUsdc = () => {
+  const handleBuyQuestRerollUsdc = (quantity = 1) => {
     if (!address || shopBusy) return;
+    const qty = normalizeShopPurchaseQuantity(quantity);
     setShopBusy("quest_reroll_usdc");
     setShopMsg("");
     paidQuestRerollRef.current = true;
+    paidQuestRerollQtyRef.current = qty;
     paidQuestRerollHandledRef.current = false;
     setPaidQuestRerollFallbackMined(false);
     resetPaidQuestReroll();
@@ -723,7 +814,7 @@ export default function ShopPage() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "transfer",
-      args: [SHOP_TREASURY_ADDRESS, BigInt(QUEST_REROLL_USDC_PRICE)],
+      args: [SHOP_TREASURY_ADDRESS, BigInt(QUEST_REROLL_USDC_PRICE * qty)],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
@@ -1086,7 +1177,9 @@ export default function ShopPage() {
       ? tr.shop_bomb_approve
       : buyPending
         ? tr.shop_bomb_pending
-        : tr.shop_bomb_buying
+        : bombTargetQtyRef.current > 1
+          ? `${tr.shop_bomb_buying} ${bombBoughtQty}/${bombTargetQtyRef.current}`
+          : tr.shop_bomb_buying
     : tr.shop_bomb_buy;
   const currentSeasonLevel = Math.min(season?.level ?? 0, SEASON_MAX_LEVEL);
   const currentSeasonXp = season?.xp ?? 0;
@@ -1234,11 +1327,13 @@ export default function ShopPage() {
 
               <div className={styles.featuredGrid}>
                 {SHOP_ITEMS.filter((item) => item.featured).map((item) => {
-                  const qty = inventory?.[item.slug] ?? 0;
+                  const ownedQty = inventory?.[item.slug] ?? 0;
                   const isDouble = item.slug === "double_points_1h";
                   const isHero = isDouble;
-                  const canActivateDouble = isDouble && qty > 0;
+                  const canActivateDouble = isDouble && ownedQty > 0;
                   const useUsdcPrice = item.slug === "quest_reroll" && questRerollPointUsed;
+                  const allowMany = item.slug !== "quest_reroll" || useUsdcPrice;
+                  const purchaseQty = getItemPurchaseQty(item.slug, allowMany);
                   const buyBusy =
                     shopBusy === item.slug ||
                     (useUsdcPrice && shopBusy === "quest_reroll_usdc");
@@ -1258,8 +1353,8 @@ export default function ShopPage() {
                   const label = !item.enabled
                     ? copy.status
                     : useUsdcPrice
-                        ? "0.3 USDC"
-                        : `${item.pricePoints?.toLocaleString()} ${tr.shop_pts}`;
+                        ? formatUsdcMicro(QUEST_REROLL_USDC_PRICE * purchaseQty)
+                        : `${((item.pricePoints ?? 0) * purchaseQty).toLocaleString()} ${tr.shop_pts}`;
 
                   return (
                     <article
@@ -1298,16 +1393,32 @@ export default function ShopPage() {
                       >
                         <span className={styles.itemQty}>
                           <StarIcon size={12} />
-                          {tr.shop_owned} {qty}
+                          {tr.shop_owned} {ownedQty}
                         </span>
 
                         <div className={styles.itemActions}>
+                          {item.enabled && allowMany && (
+                            <label className={styles.quantityControl}>
+                              <span>{lang === "ru" ? "К-во" : "Qty"}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={MAX_SHOP_PURCHASE_QUANTITY}
+                                value={purchaseQty}
+                                onChange={(event) =>
+                                  setItemPurchaseQty(item.slug, Number(event.target.value))
+                                }
+                                disabled={shopBusy !== null}
+                                aria-label={`${copy.name} quantity`}
+                              />
+                            </label>
+                          )}
                           <button
                             className={`${styles.btn} ${styles.btnCompact} ${styles.shopBuyButton}`}
                             onClick={() =>
                               useUsdcPrice
-                                ? handleBuyQuestRerollUsdc()
-                                : handleBuyPointItem(item.slug)
+                                ? handleBuyQuestRerollUsdc(purchaseQty)
+                                : handleBuyPointItem(item.slug, purchaseQty)
                             }
                             disabled={
                               !isConnected ||
@@ -1669,7 +1780,9 @@ export default function ShopPage() {
                   <h2 className={styles.cardTitle}>{tr.shop_bomb_title}</h2>
                   <p className={styles.cardDesc}>{tr.shop_bomb_desc}</p>
                 </div>
-                <span className={styles.price}>{tr.shop_bomb_price}</span>
+                <span className={styles.price}>
+                  {formatUsdcMicro(2_000_000 * normalizeShopPurchaseQuantity(bombQuantity))}
+                </span>
               </div>
 
               <div className={styles.inventoryRow}>
@@ -1682,6 +1795,20 @@ export default function ShopPage() {
                     </span>
                   </span>
                 </div>
+                <label className={styles.quantityControl}>
+                  <span>{lang === "ru" ? "К-во" : "Qty"}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={MAX_SHOP_PURCHASE_QUANTITY}
+                    value={bombQuantity}
+                    onChange={(event) =>
+                      setBombQuantity(normalizeShopPurchaseQuantity(Number(event.target.value)))
+                    }
+                    disabled={buying}
+                    aria-label={`${tr.shop_bomb_title} quantity`}
+                  />
+                </label>
                 <button
                   className={`${styles.btn} ${styles.btnBuy}`}
                   onClick={handleBuy}

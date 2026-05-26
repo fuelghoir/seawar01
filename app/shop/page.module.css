@@ -2599,6 +2599,41 @@
   flex-wrap: wrap;
 }
 
+.quantityControl {
+  min-height: 36px;
+  display: inline-grid;
+  grid-template-columns: auto 54px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.26);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quantityControl input {
+  width: 54px;
+  height: 26px;
+  min-width: 0;
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: 0;
+  background: rgba(2, 8, 20, 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.quantityControl input:disabled {
+  opacity: 0.55;
+}
+
 .featuredItem .itemActions,
 .featuredItemHero .itemActions {
   justify-self: end;

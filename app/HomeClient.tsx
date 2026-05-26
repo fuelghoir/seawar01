@@ -70,7 +70,7 @@ import { useSettings, TR } from "./lib/settings";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
-const YT_URL = "https://www.youtube.com/@hermescrypt";
+const YT_URL = "https://www.youtube.com/@hermcrypto0x";
 const REFERRAL_STORAGE_KEY = "sea-battle-referrer";
 const BOOT_MIN_MS = 950;
 const BOOT_MAX_MS = 3600;

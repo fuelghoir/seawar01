@@ -2,6 +2,8 @@ import { supabase } from "./supabase";
 import { addSeasonXp, consumeItem, getGamePointMultiplier, getItemQuantity } from "./season";
 import { awardFirstGameReferralBonus } from "./referrals";
 
+export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
+
 // ─── Offchain game CRUD ───
 
 export async function createOffchainGame(
@@ -24,6 +26,66 @@ export async function createOffchainGame(
     .single();
   if (error) throw new Error(error.message);
   return data.id;
+}
+
+export async function createBotStatsGame(playerAddress: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("games")
+    .insert({
+      player1: playerAddress.toLowerCase(),
+      player2: BOT_STATS_OPPONENT,
+      state: 2,
+      current_turn: 1,
+      turn_phase: 0,
+      is_private: true,
+      game_mode: "bot",
+      wager_amount: 0,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return Number(data.id);
+}
+
+export async function recordBotStatsShots(
+  gameId: number,
+  shots: Array<{ x: number; y: number; isHit?: boolean }>
+): Promise<void> {
+  if (shots.length === 0) return;
+  const { error } = await supabase.from("shots").insert(
+    shots.map((shot) => ({
+      game_id: gameId,
+      player_num: 1,
+      x: shot.x,
+      y: shot.y,
+      is_hit: shot.isHit ?? null,
+    }))
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function finishBotStatsGame(
+  gameId: number,
+  playerAddress: string,
+  won: boolean,
+  playerHits: number,
+  botHits: number
+): Promise<void> {
+  const addr = playerAddress.toLowerCase();
+  const { error } = await supabase
+    .from("games")
+    .update({
+      state: 3,
+      winner: won ? addr : BOT_STATS_OPPONENT,
+      player1_hits: playerHits,
+      player2_hits: botHits,
+    })
+    .eq("id", gameId)
+    .eq("player1", addr)
+    .eq("game_mode", "bot");
+
+  if (error) throw new Error(error.message);
 }
 
 export async function getGameOnchainId(gameId: number): Promise<number | null> {

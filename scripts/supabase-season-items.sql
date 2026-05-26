@@ -79,13 +79,15 @@ alter table shop_usdc_purchases
 create or replace function record_paid_quest_reroll(
   p_wallet text,
   p_tx_hash text,
-  p_amount_usdc_micro bigint
+  p_amount_usdc_micro bigint,
+  p_quantity integer default 1
 ) returns boolean
 language plpgsql
 security definer
 as $$
 declare
   did_grant boolean := false;
+  grant_quantity integer := greatest(1, least(99, coalesce(p_quantity, 1)));
 begin
   p_wallet := lower(p_wallet);
   p_tx_hash := lower(p_tx_hash);
@@ -110,9 +112,9 @@ begin
 
   if coalesce(did_grant, false) then
     insert into player_items (wallet, item_slug, quantity, updated_at)
-    values (p_wallet, 'quest_reroll', 1, now())
+    values (p_wallet, 'quest_reroll', grant_quantity, now())
     on conflict (wallet, item_slug) do update
-      set quantity = player_items.quantity + 1,
+      set quantity = player_items.quantity + grant_quantity,
           updated_at = now();
   end if;
 

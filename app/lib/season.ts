@@ -48,6 +48,7 @@ export interface SeasonState {
 export const SEASON_KEY = "S1";
 export const SEASON_MAX_LEVEL = 100;
 export const QUEST_REROLL_USDC_PRICE = 300_000; // 0.3 USDC (6 decimals)
+export const MAX_SHOP_PURCHASE_QUANTITY = 99;
 // Point shop prices are balanced against perfect game rewards:
 // 70 pts without Double Points, 140 pts with Double Points.
 const SHOP_POINT_PRICES: Record<ShopItemSlug, number> = {
@@ -111,17 +112,17 @@ export const SHOP_ITEMS: ShopItemDefinition[] = [
 const BASE_SEASON_LEVELS: SeasonLevel[] = [
   { level: 1, xpRequired: 50, reward: { kind: "points", amount: 100 } },
   { level: 2, xpRequired: 120, reward: { kind: "item", slug: "quest_reroll", quantity: 1 } },
-  { level: 3, xpRequired: 220, reward: { kind: "points", amount: 150 } },
+  { level: 3, xpRequired: 220, reward: { kind: "item", slug: "radar_scan", quantity: 1 } },
   { level: 4, xpRequired: 350, reward: { kind: "item", slug: "double_points_1h", quantity: 1 } },
   { level: 5, xpRequired: 500, reward: { kind: "item", slug: "streak_freeze", quantity: 1 } },
-  { level: 6, xpRequired: 700, reward: { kind: "points", amount: 250 } },
+  { level: 6, xpRequired: 700, reward: { kind: "item", slug: "torpedo", quantity: 1 } },
   { level: 7, xpRequired: 950, reward: { kind: "item", slug: "quest_reroll", quantity: 1 } },
   { level: 8, xpRequired: 1250, reward: { kind: "item", slug: "double_points_1h", quantity: 1 } },
-  { level: 9, xpRequired: 1600, reward: { kind: "points", amount: 400 } },
+  { level: 9, xpRequired: 1600, reward: { kind: "item", slug: "radar_scan", quantity: 2 } },
   { level: 10, xpRequired: 2000, reward: { kind: "item", slug: "streak_freeze", quantity: 1 } },
   { level: 11, xpRequired: 2450, reward: { kind: "points", amount: 500 } },
   { level: 12, xpRequired: 2950, reward: { kind: "item", slug: "quest_reroll", quantity: 2 } },
-  { level: 13, xpRequired: 3500, reward: { kind: "points", amount: 650 } },
+  { level: 13, xpRequired: 3500, reward: { kind: "item", slug: "torpedo", quantity: 2 } },
   { level: 14, xpRequired: 4100, reward: { kind: "item", slug: "double_points_1h", quantity: 1 } },
   { level: 15, xpRequired: 4750, reward: { kind: "points", amount: 800 } },
   { level: 16, xpRequired: 5450, reward: { kind: "item", slug: "streak_freeze", quantity: 2 } },
@@ -142,6 +143,20 @@ function generatedSeasonXp(level: number): number {
 function generatedSeasonReward(level: number): SeasonReward {
   if (level === SEASON_MAX_LEVEL) {
     return { kind: "item", slug: "double_points_1h", quantity: 5 };
+  }
+  if (level % 20 === 0) {
+    return {
+      kind: "item",
+      slug: "torpedo",
+      quantity: Math.max(1, Math.floor(level / 40) + 1),
+    };
+  }
+  if (level % 15 === 0) {
+    return {
+      kind: "item",
+      slug: "radar_scan",
+      quantity: Math.max(1, Math.floor(level / 45) + 1),
+    };
   }
   if (level % 25 === 0) {
     return {
@@ -313,6 +328,14 @@ export function itemBySlug(slug: ShopItemSlug): ShopItemDefinition {
   return item;
 }
 
+export function normalizeShopPurchaseQuantity(quantity = 1): number {
+  if (!Number.isFinite(quantity)) return 1;
+  return Math.min(
+    MAX_SHOP_PURCHASE_QUANTITY,
+    Math.max(1, Math.floor(quantity))
+  );
+}
+
 export async function getInventory(wallet: string): Promise<InventoryMap> {
   const addr = normalizeWallet(wallet);
   const inventory = emptyInventory();
@@ -423,13 +446,16 @@ export async function grantRawPoints(wallet: string, points: number): Promise<vo
 
 export async function buyPointItem(
   wallet: string,
-  slug: ShopItemSlug
+  slug: ShopItemSlug,
+  quantity = 1
 ): Promise<void> {
-  await validatePointItemPurchase(wallet, slug);
+  const qty = normalizeShopPurchaseQuantity(quantity);
+  await validatePointItemPurchase(wallet, slug, qty);
 
   const item = itemBySlug(slug);
   const pricePoints = item.pricePoints;
   if (pricePoints == null) throw new Error("Item is not available yet");
+  const totalPricePoints = pricePoints * qty;
 
   const addr = normalizeWallet(wallet);
   const weekKey = getSeasonWeekKey();
@@ -442,7 +468,7 @@ export async function buyPointItem(
 
   if (error) throw new Error(error.message);
   const points = Number(data?.points ?? 0);
-  if (points < pricePoints) throw new Error("Not enough points");
+  if (points < totalPricePoints) throw new Error("Not enough points");
 
   if (slug === "quest_reroll") {
     const { error: recordError } = await supabase
@@ -463,7 +489,7 @@ export async function buyPointItem(
   const { error: updateError } = await supabase
     .from("player_stats")
     .update({
-      points: points - pricePoints,
+      points: points - totalPricePoints,
       updated_at: new Date().toISOString(),
     })
     .eq("wallet", addr);
@@ -479,16 +505,21 @@ export async function buyPointItem(
     throw new Error(updateError.message);
   }
 
-  await grantItem(addr, slug, 1);
+  await grantItem(addr, slug, qty);
 }
 
 export async function validatePointItemPurchase(
   wallet: string,
-  slug: ShopItemSlug
+  slug: ShopItemSlug,
+  quantity = 1
 ): Promise<void> {
+  const qty = normalizeShopPurchaseQuantity(quantity);
   const item = itemBySlug(slug);
   if (!item.enabled || item.pricePoints == null) {
     throw new Error("Item is not available yet");
+  }
+  if (slug === "quest_reroll" && qty > 1) {
+    throw new Error("Quest Reroll points purchase is limited to 1 per week");
   }
 
   const addr = normalizeWallet(wallet);
@@ -504,7 +535,7 @@ export async function validatePointItemPurchase(
 
   if (error) throw new Error(error.message);
   const points = Number(data?.points ?? 0);
-  if (points < item.pricePoints) throw new Error("Not enough points");
+  if (points < item.pricePoints * qty) throw new Error("Not enough points");
 }
 
 export async function hasQuestRerollPointPurchaseThisWeek(wallet: string): Promise<boolean> {
@@ -523,15 +554,19 @@ export async function hasQuestRerollPointPurchaseThisWeek(wallet: string): Promi
 
 export async function grantPaidQuestReroll(
   wallet: string,
-  txHash: string
+  txHash: string,
+  quantity = 1
 ): Promise<void> {
+  const qty = normalizeShopPurchaseQuantity(quantity);
   const addr = normalizeWallet(wallet);
   const normalizedTxHash = txHash.toLowerCase();
   const grantedAt = new Date().toISOString();
+  const amountUsdcMicro = QUEST_REROLL_USDC_PRICE * qty;
   const { error: rpcError } = await supabase.rpc("record_paid_quest_reroll", {
     p_wallet: addr,
     p_tx_hash: normalizedTxHash,
-    p_amount_usdc_micro: QUEST_REROLL_USDC_PRICE,
+    p_amount_usdc_micro: amountUsdcMicro,
+    p_quantity: qty,
   });
 
   if (!rpcError) return;
@@ -546,14 +581,14 @@ export async function grantPaidQuestReroll(
       wallet: addr,
       tx_hash: normalizedTxHash,
       item_slug: "quest_reroll",
-      amount_usdc_micro: QUEST_REROLL_USDC_PRICE,
+      amount_usdc_micro: amountUsdcMicro,
       granted_at: grantedAt,
     })
     .select("tx_hash")
     .maybeSingle();
 
   if (!insertWithGrantMarker.error) {
-    await grantItem(addr, "quest_reroll", 1);
+    await grantItem(addr, "quest_reroll", qty);
     return;
   }
 
@@ -564,13 +599,13 @@ export async function grantPaidQuestReroll(
       .eq("tx_hash", normalizedTxHash)
       .eq("wallet", addr)
       .eq("item_slug", "quest_reroll")
-      .eq("amount_usdc_micro", QUEST_REROLL_USDC_PRICE)
+      .eq("amount_usdc_micro", amountUsdcMicro)
       .is("granted_at", null)
       .select("tx_hash")
       .maybeSingle();
 
     if (!markExisting.error && markExisting.data) {
-      await grantItem(addr, "quest_reroll", 1);
+      await grantItem(addr, "quest_reroll", qty);
       return;
     }
     if (!markExisting.error) return;
@@ -587,7 +622,7 @@ export async function grantPaidQuestReroll(
       wallet: addr,
       tx_hash: normalizedTxHash,
       item_slug: "quest_reroll",
-      amount_usdc_micro: QUEST_REROLL_USDC_PRICE,
+      amount_usdc_micro: amountUsdcMicro,
     });
 
   if (legacyInsertError) {
@@ -595,7 +630,7 @@ export async function grantPaidQuestReroll(
     throw shopTableError(legacyInsertError);
   }
 
-  await grantItem(addr, "quest_reroll", 1);
+  await grantItem(addr, "quest_reroll", qty);
 }
 
 export async function activateDoublePoints(wallet: string): Promise<string> {

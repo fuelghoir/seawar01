@@ -18,7 +18,13 @@ import {
   BotState,
 } from "../lib/botAI";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
-import { addPoints, recordGameResult } from "../lib/offchainGame";
+import {
+  addPoints,
+  createBotStatsGame,
+  finishBotStatsGame,
+  recordBotStatsShots,
+  recordGameResult,
+} from "../lib/offchainGame";
 import { consumeItem, getItemQuantity } from "../lib/season";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
@@ -61,6 +67,7 @@ interface SavedBotGame {
   phase: GamePhase;
   myBoard: number[];
   botBoard: number[];
+  statsGameId?: number | null;
   isMyTurn: boolean;
   myHits: number;
   botHits: number;
@@ -150,6 +157,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   const [phase, setPhase] = useState<GamePhase>(() => save?.phase || "placing");
   const [myBoard, setMyBoard] = useState<number[]>(() => save?.myBoard || []);
   const [botBoard, setBotBoard] = useState<number[]>(() => save?.botBoard || []);
+  const [statsGameId, setStatsGameId] = useState<number | null>(() => save?.statsGameId ?? null);
   const [isMyTurn, setIsMyTurn] = useState<boolean>(() => save?.isMyTurn ?? true);
   const [myHits, setMyHits] = useState<number>(() => save?.myHits ?? 0);
   const [botHits, setBotHits] = useState<number>(() => save?.botHits ?? 0);
@@ -180,6 +188,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
   // Don't re-award points if restoring a finished game
   const pointsRecorded = useRef(!!(save?.winner));
+  const statsFinishedRecorded = useRef(!!(save?.winner && save?.statsGameId));
 
   // Refs for stale-closure safety in doBotTurn
   const phaseRef = useRef(phase);
@@ -189,6 +198,12 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   const botHitsRef = useRef(botHits);
   botHitsRef.current = botHits;
   const doBotTurnRef = useRef<() => void>(() => {});
+  const statsGameIdRef = useRef<number | null>(save?.statsGameId ?? null);
+  const statsGameCreateRef = useRef<Promise<number | null> | null>(null);
+
+  useEffect(() => {
+    statsGameIdRef.current = statsGameId;
+  }, [statsGameId]);
 
   // ─── Save state to localStorage after every meaningful change ───
   useEffect(() => {
@@ -198,6 +213,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         phase,
         myBoard,
         botBoard,
+        statsGameId,
         isMyTurn,
         myHits,
         botHits,
@@ -208,7 +224,18 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch { /* storage full or unavailable */ }
-  }, [phase, myBoard, botBoard, isMyTurn, myHits, botHits, winner, myShotsMap, botShotsMap]);
+  }, [
+    phase,
+    myBoard,
+    botBoard,
+    statsGameId,
+    isMyTurn,
+    myHits,
+    botHits,
+    winner,
+    myShotsMap,
+    botShotsMap,
+  ]);
 
   // ─── If restored mid-game on bot's turn, auto-trigger bot ───
   const needsBotTurnOnMount = useRef(
@@ -219,9 +246,45 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     needsBotTurnOnMount.current = false;
     setBotProcessing(true);
     setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Onchain save result ───
+  const ensureStatsGame = useCallback(async () => {
+    if (!address) return null;
+    if (statsGameIdRef.current) return statsGameIdRef.current;
+
+    if (!statsGameCreateRef.current) {
+      statsGameCreateRef.current = (async () => {
+        try {
+          const id = await createBotStatsGame(address);
+          statsGameIdRef.current = id;
+          setStatsGameId(id);
+          const existingShots = [...myShotsMap.entries()].map(([idx, isHit]) => ({
+            x: idx % 10,
+            y: Math.floor(idx / 10),
+            isHit,
+          }));
+          await recordBotStatsShots(id, existingShots);
+          return id;
+        } catch {
+          return null;
+        } finally {
+          statsGameCreateRef.current = null;
+        }
+      })();
+    }
+
+    return statsGameCreateRef.current;
+  }, [address, myShotsMap]);
+
+  const recordBotShots = useCallback(async (
+    shots: Array<{ x: number; y: number; isHit?: boolean }>
+  ) => {
+    const id = await ensureStatsGame();
+    if (!id) return;
+    await recordBotStatsShots(id, shots);
+  }, [ensureStatsGame]);
+
   const {
     data: resultTxHash,
     writeContract,
@@ -250,16 +313,40 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     }
   }, [resultConfirmed]);
 
-  // Award local points + DB stats when game ends
+  // Award local points and close the bot stats game when the match ends.
   useEffect(() => {
-    if (winner && address && !pointsRecorded.current) {
+    if (!winner || !address) return;
+
+    const didWin = winner === "me";
+
+    if (!statsFinishedRecorded.current) {
+      statsFinishedRecorded.current = true;
+      ensureStatsGame()
+        .then((id) => {
+          if (!id) {
+            statsFinishedRecorded.current = false;
+            return undefined;
+          }
+          return finishBotStatsGame(
+            id,
+            address,
+            didWin,
+            didWin ? Math.max(myHits, 20) : myHits,
+            didWin ? botHits : Math.max(botHits, 20)
+          );
+        })
+        .catch(() => {
+          statsFinishedRecorded.current = false;
+        });
+    }
+
+    if (!pointsRecorded.current) {
       pointsRecorded.current = true;
-      const didWin = winner === "me";
       addPoints(address, myHits + (didWin ? 50 : 0), myHits)
         .then(() => recordGameResult(address, didWin))
         .catch(() => {});
     }
-  }, [winner, address, myHits]);
+  }, [winner, address, myHits, botHits, ensureStatsGame]);
 
   const refreshTacticalItems = useCallback(async () => {
     if (!address) {
@@ -286,6 +373,9 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       localStorage.removeItem(BOT_RESULT_SAVE_KEY);
     }
     setResultSaved(false);
+    statsGameIdRef.current = null;
+    statsGameCreateRef.current = null;
+    setStatsGameId(null);
     setMyBoard(boardLayout);
     const botBoardLayout = generateRandomBoard();
     setBotBoard(botBoardLayout);
@@ -301,6 +391,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     const { x, y } = selectedCell;
     const idx = y * 10 + x;
     const isHit = botBoard[idx] === 1;
+    recordBotShots([{ x, y, isHit }]).catch(() => {});
 
     setMyShotsMap((prev) => {
       const next = new Map(prev);
@@ -336,8 +427,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       setBotProcessing(true);
       setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap]);
+  }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap, recordBotShots]);
 
   const handleUseRadar = useCallback(async () => {
     if (!address) {
@@ -421,11 +511,18 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
       const nextShots = new Map(myShotsMap);
       let hitsAdded = 0;
+      const statsShots: Array<{ x: number; y: number; isHit: boolean }> = [];
       for (const { idx } of line) {
         const isHit = botBoard[idx] === 1;
         nextShots.set(idx, isHit);
+        statsShots.push({
+          x: idx % 10,
+          y: Math.floor(idx / 10),
+          isHit,
+        });
         if (isHit) hitsAdded += 1;
       }
+      recordBotShots(statsShots).catch(() => {});
 
       setMyShotsMap(nextShots);
       setSelectedCell(null);
@@ -477,6 +574,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     myHits,
     myShotsMap,
     phase,
+    recordBotShots,
     refreshTacticalItems,
     selectedCell,
     torpedoDir,

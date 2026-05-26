@@ -27,7 +27,7 @@ export function SocialSidebar() {
       </a>
 
       <a
-        href="https://www.youtube.com/@hermescrypt"
+        href="https://www.youtube.com/@hermcrypto0x"
         target="_blank"
         rel="noopener noreferrer"
         className={`${styles.card} ${styles.yt}`}
