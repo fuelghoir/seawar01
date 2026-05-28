@@ -278,25 +278,16 @@ async function openExternalQuestTarget(
     return;
   }
 
-  if (isInMiniApp && quest.kind === "baseApp") {
-    try {
-      await sdk.actions.openMiniApp({ url: quest.miniAppUrl ?? quest.url });
-      return;
-    } catch {
-      // Fall through to the Base App URL.
-    }
-  }
-
   if (isInMiniApp) {
     try {
-      await sdk.actions.openUrl({ url: quest.baseAppUrl ?? quest.url });
+      await sdk.actions.openUrl({ url: quest.url });
       return;
     } catch {
       // Fall through to browser navigation.
     }
   }
 
-  const target = quest.baseAppUrl ?? quest.url;
+  const target = quest.url;
   const opened = window.open(target, "_blank", "noopener,noreferrer");
   if (!opened) window.location.href = target;
 }

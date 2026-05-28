@@ -30,8 +30,8 @@ export const TURBO_GUM_QUEST_COPY: Record<
   en: {
     title: "Turbo Gum Quest",
     subtitle:
-      "Open Turbo Gum in Base App and make a transaction there. The transaction cannot be tracked here, so points are granted when you open it.",
-    cardSubtitle: "Open Turbo Gum in Base App",
+      "Open Turbo Gum and make a transaction there. The transaction cannot be tracked here, so points are granted when you open it.",
+    cardSubtitle: "Open Turbo Gum",
     rewardLabel: "Bonus",
     timeLabel: "Time left",
     daysLeft: (days) => `${days}d`,
@@ -43,8 +43,8 @@ export const TURBO_GUM_QUEST_COPY: Record<
   ru: {
     title: "Квест Turbo Gum",
     subtitle:
-      "Перейди в Turbo Gum в Base App и сделай там транзакцию. Отследить ее здесь нельзя, поэтому очки начисляются сразу при переходе.",
-    cardSubtitle: "Открыть Turbo Gum в Base App",
+      "Перейди в Turbo Gum и сделай там транзакцию. Отследить ее здесь нельзя, поэтому очки начисляются сразу при переходе.",
+    cardSubtitle: "Открыть Turbo Gum",
     rewardLabel: "Бонус",
     timeLabel: "Осталось",
     daysLeft: (days) => `${days}д`,
@@ -186,21 +186,14 @@ export function TurboGumQuestPrompt({
 async function openTurboGumTarget(isInMiniApp: boolean): Promise<void> {
   if (isInMiniApp) {
     try {
-      await sdk.actions.openMiniApp({ url: TURBO_GUM_QUEST.url });
-      return;
-    } catch {
-      // Fall through to a Base App deep link.
-    }
-
-    try {
-      await sdk.actions.openUrl({ url: TURBO_GUM_QUEST.baseAppUrl });
+      await sdk.actions.openUrl({ url: TURBO_GUM_QUEST.url });
       return;
     } catch {
       // Fall through to browser navigation.
     }
   }
 
-  const target = isInMiniApp ? TURBO_GUM_QUEST.baseAppUrl : TURBO_GUM_QUEST.url;
+  const target = TURBO_GUM_QUEST.url;
   const opened = window.open(target, "_blank", "noopener,noreferrer");
   if (!opened) window.location.href = target;
 }

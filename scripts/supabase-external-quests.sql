@@ -48,7 +48,7 @@ begin
     (
       'gld-pirate-checkin-2026-05'::text,
       1000::integer,
-      'https://base.app/app/gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7'::text,
+      'https://gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7'::text,
       timestamptz '2026-05-28 00:00:00+00',
       null::timestamptz
     ),

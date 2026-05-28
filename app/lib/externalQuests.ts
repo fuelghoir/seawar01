@@ -17,9 +17,7 @@ export interface ExternalQuestDefinition {
   key: string;
   kind: ExternalQuestKind;
   url: string;
-  baseAppUrl?: string;
   appUrl?: string;
-  miniAppUrl?: string;
   reward: number;
   startsAt?: string | null;
   endsAt?: string | null;
@@ -47,8 +45,6 @@ export const TURBO_GUM_QUEST = {
   key: "turbo-gum-2026-05",
   kind: "baseApp",
   url: "https://turbo-gum.xyz?ref=TDU0CGYP",
-  baseAppUrl: "https://base.app/app/turbo-gum.xyz?ref=TDU0CGYP",
-  miniAppUrl: "https://turbo-gum.xyz?ref=TDU0CGYP",
   reward: 1000,
   startsAt: "2026-05-24T00:00:00.000Z",
   endsAt: "2026-06-03T00:00:00.000Z",
@@ -56,15 +52,15 @@ export const TURBO_GUM_QUEST = {
     en: {
       title: "Turbo Gum Quest",
       subtitle:
-        "Open Turbo Gum in Base App and make a transaction there. Points are granted when you open it.",
-      cardSubtitle: "Open Turbo Gum in Base App",
+        "Open Turbo Gum and make a transaction there. Points are granted when you open it.",
+      cardSubtitle: "Open Turbo Gum",
       action: "Open Turbo Gum",
     },
     ru: {
       title: "Квест Turbo Gum",
       subtitle:
-        "Открой Turbo Gum в Base App и сделай там транзакцию. Очки начисляются при переходе.",
-      cardSubtitle: "Открыть Turbo Gum в Base App",
+        "Открой Turbo Gum и сделай там транзакцию. Очки начисляются при переходе.",
+      cardSubtitle: "Открыть Turbo Gum",
       action: "Открыть Turbo Gum",
     },
   },
@@ -76,10 +72,6 @@ export const GLOBAL_EXTERNAL_QUESTS = [
     key: "gld-pirate-checkin-2026-05",
     kind: "baseApp",
     url: "https://gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
-    baseAppUrl:
-      "https://base.app/app/gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
-    miniAppUrl:
-      "https://gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
     reward: 1000,
     startsAt: "2026-05-28T00:00:00.000Z",
     endsAt: null,
@@ -87,15 +79,15 @@ export const GLOBAL_EXTERNAL_QUESTS = [
       en: {
         title: "GLD Pirate Check-in",
         subtitle:
-          "Open GLD Pirate in Base App and check in. Points are granted when you open it.",
-        cardSubtitle: "Check in through Base App",
+          "Open GLD Pirate and check in. Points are granted when you open it.",
+        cardSubtitle: "Check in GLD Pirate",
         action: "Open GLD Pirate",
       },
       ru: {
         title: "Чекин в GLD Pirate",
         subtitle:
-          "Открой GLD Pirate в Base App и сделай чекин. Очки начисляются при переходе.",
-        cardSubtitle: "Чекин через Base App",
+          "Открой GLD Pirate и сделай чекин. Очки начисляются при переходе.",
+        cardSubtitle: "Чекин в GLD Pirate",
         action: "Открыть GLD Pirate",
       },
     },
