@@ -16,10 +16,11 @@ import {
   TelegramIcon,
   XIcon,
 } from "./Icons";
+import CreatorProgram from "./CreatorProgram";
 import QuestPanel from "./QuestPanel";
 import styles from "./QuestHub.module.css";
 
-type QuestTab = "weekly" | "global";
+type QuestTab = "weekly" | "global" | "creator";
 
 interface QuestHubProps {
   address: string;
@@ -32,6 +33,7 @@ const COPY: Record<
   {
     weeklyTab: string;
     globalTab: string;
+    creatorTab?: string;
     globalLoading: string;
     globalEmpty: string;
     oneTime: string;
@@ -45,6 +47,7 @@ const COPY: Record<
   en: {
     weeklyTab: "Weekly",
     globalTab: "Global",
+    creatorTab: "Creator",
     globalLoading: "Loading global quests...",
     globalEmpty: "No global quests right now.",
     oneTime: "one-time",
@@ -162,6 +165,15 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
             <span className={styles.tabBadge}>{globalReadyCount}</span>
           )}
         </button>
+        <button
+          className={`${styles.tab} ${activeTab === "creator" ? styles.tabActive : ""}`}
+          onClick={() => setActiveTab("creator")}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "creator"}
+        >
+          {copy.creatorTab ?? "Creator"}
+        </button>
       </div>
 
       {activeTab === "weekly" ? (
@@ -171,6 +183,8 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
           hideHeader
           expanded
         />
+      ) : activeTab === "creator" ? (
+        <CreatorProgram address={address} />
       ) : (
         <div className={styles.globalPane}>
           {loadingGlobal ? (

@@ -9,7 +9,7 @@
   width: 100%;
   min-height: 38px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 4px;
   border: 1px solid rgba(var(--accent-rgb), 0.18);
@@ -244,6 +244,192 @@
   color: #ff8a8a;
 }
 
+.creatorPane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.creatorIntro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid rgba(255, 200, 80, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 200, 80, 0.06);
+}
+
+.creatorIcon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 200, 80, 0.34);
+  border-radius: 8px;
+  color: #ffd978;
+  background: rgba(255, 200, 80, 0.1);
+}
+
+.creatorIntro span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.creatorIntro b,
+.creatorSectionTitle {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.creatorIntro b {
+  color: #fff;
+}
+
+.creatorIntro small {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.creatorForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.creatorForm input {
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(5, 10, 22, 0.78);
+  color: #fff;
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+
+.creatorForm input:focus {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.08);
+}
+
+.creatorForm button {
+  min-height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffc850, var(--accent));
+  color: #06111b;
+  padding: 0 14px;
+  cursor: pointer;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.creatorForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.creatorRewards,
+.creatorLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.creatorSectionTitle {
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.creatorRewardRow,
+.creatorSubmission {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.creatorRewardRow span,
+.creatorSubmission span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.creatorSubmission {
+  text-decoration: none;
+}
+
+.creatorSubmission span {
+  overflow-wrap: anywhere;
+}
+
+.creatorRewardRow b,
+.creatorSubmission b {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.creatorClaimButton {
+  flex-shrink: 0;
+  min-height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #ffc850, var(--accent));
+  color: #06111b;
+  padding: 0 12px;
+  cursor: pointer;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.creatorClaimButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.creatorStatus_approved,
+.creatorStatus_rewarded {
+  border-color: rgba(74, 222, 128, 0.32) !important;
+  color: #4ade80 !important;
+}
+
+.creatorStatus_rejected {
+  border-color: rgba(248, 113, 113, 0.32) !important;
+  color: #fca5a5 !important;
+}
+
 @media (max-width: 520px) {
   .tabs {
     min-height: 40px;
@@ -274,5 +460,15 @@
   .globalAction,
   .claimedPill {
     grid-column: 1 / -1;
+  }
+
+  .creatorForm {
+    grid-template-columns: 1fr;
+  }
+
+  .creatorRewardRow,
+  .creatorSubmission {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

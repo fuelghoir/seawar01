@@ -38,6 +38,7 @@ import {
 } from "./lib/referrals";
 import { QuestHub } from "./components/QuestHub";
 import ReferralPanel from "./components/ReferralPanel";
+import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
 import { AppHeader } from "./components/AppHeader";
@@ -467,6 +468,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   <b>{tr.shots.toUpperCase()}</b>
                 </div>
               </div>
+              {address && <CreatorRewardsSummary address={address} />}
               {address && (
                 <div className={styles.mobileReferralBlock}>
                   <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
@@ -660,6 +662,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   <b>{profileView.totalCheckins}</b>
                 </div>
               </div>
+              {address && <CreatorRewardsSummary address={address} />}
             </div>
           )}
 
