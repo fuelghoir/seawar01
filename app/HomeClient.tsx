@@ -29,11 +29,6 @@ import {
   LIMITED_SBT_REQUIRED_WINS,
   LIMITED_SBT_WEEKLY_POINTS,
 } from "./lib/limitedSbt";
-import {
-  getTurboGumQuestStatus,
-  TURBO_GUM_QUEST,
-  type TurboGumQuestStatus,
-} from "./lib/externalQuests";
 import { ItemArt, type ItemArtKind } from "./components/ItemArt";
 import {
   extractReferralRefFromCurrentUrl,
@@ -41,14 +36,10 @@ import {
   normalizeReferralRef,
   recordReferral,
 } from "./lib/referrals";
-import QuestPanel from "./components/QuestPanel";
+import { QuestHub } from "./components/QuestHub";
 import ReferralPanel from "./components/ReferralPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
-import {
-  TurboGumQuestPrompt,
-  TURBO_GUM_QUEST_COPY,
-} from "./components/TurboGumQuestPrompt";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
@@ -97,7 +88,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [history, setHistory] = useState<GameHistoryEntry[]>([]);
   const [season, setSeason] = useState<SeasonState | null>(null);
-  const [turboQuest, setTurboQuest] = useState<TurboGumQuestStatus | null>(null);
   const [homeDataReady, setHomeDataReady] = useState(false);
   const [bootMinDone, setBootMinDone] = useState(false);
   const [bootMaxDone, setBootMaxDone] = useState(false);
@@ -105,7 +95,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [incomingRef, setIncomingRef] = useState<string | null>(null);
   const [showPlay, setShowPlay] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [showTurboGumQuest, setShowTurboGumQuest] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -215,12 +204,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     }
   }, [address]);
 
-  const refreshTurboGumQuest = useCallback(async () => {
-    if (!address) return;
-    const next = await getTurboGumQuestStatus(address).catch(() => null);
-    setTurboQuest(next);
-  }, [address]);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -229,7 +212,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       setCheckin(null);
       setHistory([]);
       setSeason(null);
-      setTurboQuest(null);
       setHomeDataReady(true);
       return;
     }
@@ -239,15 +221,13 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     setCheckin(null);
     setHistory([]);
     setSeason(null);
-    setTurboQuest(null);
 
     Promise.allSettled([
       getPlayerProfile(address),
       getCheckinStatus(address),
       getPlayerGameHistory(address),
       getSeasonState(address),
-      getTurboGumQuestStatus(address),
-    ]).then(([profileResult, checkinResult, historyResult, seasonResult, turboQuestResult]) => {
+    ]).then(([profileResult, checkinResult, historyResult, seasonResult]) => {
       if (cancelled) return;
 
       setProfile(
@@ -262,7 +242,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           : []
       );
       setSeason(seasonResult.status === "fulfilled" ? seasonResult.value : null);
-      setTurboQuest(turboQuestResult.status === "fulfilled" ? turboQuestResult.value : null);
       setHomeDataReady(true);
     });
 
@@ -275,21 +254,12 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     if (isConnected && address) setShowWelcome(true);
   }, [isConnected, address]);
 
-  useEffect(() => {
-    if (!showWelcome || !address || !checkin || checkin.canCheckin) return;
-    if (turboQuest?.active && !turboQuest.claimed) {
-      setShowTurboGumQuest(true);
-    }
-  }, [showWelcome, address, checkin, turboQuest]);
-
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
   const profileView = useMemo(
     () => profile ?? createEmptyProfile(address ?? ""),
     [profile, address]
   );
-  const turboCopy = TURBO_GUM_QUEST_COPY[lang];
-  const showTurboQuestCard = !!turboQuest?.active && !turboQuest.claimed;
   const sbtWinsLeft = Math.max(0, LIMITED_SBT_REQUIRED_WINS - profileView.totalWins);
   const sbtProgressPct = Math.min(100, (profileView.totalWins / LIMITED_SBT_REQUIRED_WINS) * 100);
   const openCaptainSbt = useCallback(() => {
@@ -404,22 +374,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         />
       )}
 
-      {showTurboGumQuest && address && showTurboQuestCard && (
-        <TurboGumQuestPrompt
-          address={address}
-          isInMiniApp={isInMiniApp}
-          initialStatus={turboQuest}
-          onClose={() => {
-            setShowTurboGumQuest(false);
-            setShowWelcome(false);
-          }}
-          onClaimed={() => {
-            loadProfile();
-            refreshTurboGumQuest();
-          }}
-        />
-      )}
-
       {isMobileHome ? (
         <main className={styles.mobileShell}>
           <div className={styles.mobileTopStats}>
@@ -440,6 +394,19 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             </div>
           </div>
 
+          {openSection === "quests" ? (
+            address && (
+              <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
+                <SectionHeader label={tr.home_quests} accent="#3b82f6" />
+                <QuestHub
+                  address={address}
+                  isInMiniApp={isInMiniApp}
+                  onPointsChanged={loadProfile}
+                />
+              </section>
+            )
+          ) : (
+            <>
           <section className={styles.mobileBattlePanel}>
             <div className={styles.mobileBattleHeader}>
               <span>{tr.mobile_your_fleet}</span>
@@ -463,17 +430,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             <span className={styles.playNowShimmer} aria-hidden="true" />
           </button>
 
-          {showTurboQuestCard && (
-            <HomeCard
-              media={<TurboGumCardLogo />}
-              title={turboCopy.title}
-              subtitle={turboCopy.cardSubtitle}
-              badge={`+${TURBO_GUM_QUEST.reward.toLocaleString()} PTS`}
-              accent="#fb7185"
-              onClick={() => setShowTurboGumQuest(true)}
-            />
-          )}
-
           <SecretSbtCard
             wins={profileView.totalWins}
             winsLeft={sbtWinsLeft}
@@ -487,18 +443,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             compact
             onOpen={() => router.push("/shop")}
           />
-
-          {address && openSection === "quests" && (
-            <section className={styles.mobilePanel}>
-              <SectionHeader label={tr.home_quests} accent="#3b82f6" />
-              <QuestPanel
-                address={address}
-                onPointsChanged={loadProfile}
-                hideHeader
-                expanded
-              />
-            </section>
-          )}
 
           {openSection === "profile" && (
             <section className={styles.mobilePanel}>
@@ -568,6 +512,8 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               YOUTUBE
             </a>
           </div>
+            </>
+          )}
 
           <nav className={styles.mobileNav} aria-label="Mobile navigation">
             <button
@@ -634,17 +580,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             <CheckinDots streak={checkin?.streak ?? 0} />
           </HomeCard>
 
-          {showTurboQuestCard && (
-            <HomeCard
-              media={<TurboGumCardLogo />}
-              title={turboCopy.title}
-              subtitle={turboCopy.cardSubtitle}
-              badge={`+${TURBO_GUM_QUEST.reward.toLocaleString()} PTS`}
-              accent="#fb7185"
-              onClick={() => setShowTurboGumQuest(true)}
-            />
-          )}
-
           <HomeCard
             Icon={ShieldIcon}
             title={tr.home_quests}
@@ -655,11 +590,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           />
           {address && openSection === "quests" && (
             <div className={styles.expandedPanel}>
-              <QuestPanel
+              <QuestHub
                 address={address}
+                isInMiniApp={isInMiniApp}
                 onPointsChanged={loadProfile}
-                hideHeader
-                expanded
               />
             </div>
           )}
@@ -1024,10 +958,6 @@ function InitialLoader() {
       </div>
     </main>
   );
-}
-
-function TurboGumCardLogo() {
-  return <span className={styles.turboGumCardLogo} aria-hidden="true" />;
 }
 
 function createEmptyProfile(wallet: string): PlayerProfile {

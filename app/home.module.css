@@ -1874,6 +1874,13 @@
   animation: cardIn 0.25s ease-out both;
 }
 
+.mobileTabPanel {
+  min-height: calc(100dvh - 150px - env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .mobileStatsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

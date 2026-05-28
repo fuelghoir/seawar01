@@ -158,6 +158,14 @@ export const TelegramIcon = make(
   "currentColor"
 );
 
+export const XIcon = function XIcon({ size = 18, className }: IconProps = {}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M18.9 2h3.3l-7.2 8.2L23.5 22h-6.7l-5.2-6.8L5.6 22H2.3l7.7-8.8L1.8 2h6.9l4.7 6.2L18.9 2Zm-1.2 18h1.8L7.7 3.9H5.8L17.7 20Z" />
+    </svg>
+  );
+};
+
 export const YoutubeIcon = function YoutubeIcon({ size = 18, className }: IconProps = {}) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">

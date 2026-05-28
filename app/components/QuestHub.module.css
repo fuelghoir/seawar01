@@ -1,0 +1,278 @@
+.hub {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tabs {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 8px;
+  background: rgba(var(--bg-abyss-rgb), 0.48);
+}
+
+.tab {
+  min-width: 0;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.48);
+  cursor: pointer;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.tab:hover {
+  border-color: rgba(var(--accent-rgb), 0.24);
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.tabActive {
+  border-color: rgba(var(--accent-rgb), 0.42);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+  box-shadow: inset 0 0 14px rgba(var(--accent-rgb), 0.05);
+}
+
+.tabBadge {
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(253, 230, 138, 0.18);
+  color: #fde68a;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.globalPane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loading {
+  margin: 0;
+  padding: 16px 8px;
+  text-align: center;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.globalQuest {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid rgba(var(--accent-2-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(10, 10, 24, 0.55);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.globalQuestClaimed {
+  border-color: rgba(74, 222, 128, 0.32);
+  background: rgba(6, 30, 18, 0.38);
+}
+
+.questIcon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  box-shadow: inset 0 0 14px rgba(var(--accent-rgb), 0.04);
+}
+
+.baseAppIcon {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.twitterIcon {
+  color: #f8fafc;
+  background: rgba(248, 250, 252, 0.08);
+}
+
+.telegramIcon {
+  color: #2aabee;
+  background: rgba(42, 171, 238, 0.09);
+}
+
+.globalQuestBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.globalQuestTop {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.globalQuestTitle {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.globalReward {
+  flex-shrink: 0;
+  color: #fde68a;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(253, 230, 138, 0.34);
+  white-space: nowrap;
+}
+
+.globalQuestDesc {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.globalQuestMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.globalQuestMeta span {
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  background: rgba(var(--accent-rgb), 0.055);
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.globalAction,
+.claimedPill {
+  grid-column: 2;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 7px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.globalAction {
+  border: none;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  color: #04111f;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.22);
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.globalAction:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.globalAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  filter: saturate(0.6);
+}
+
+.claimedPill {
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.msg {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.msgSuccess {
+  color: #4ade80;
+}
+
+.msgError {
+  color: #ff8a8a;
+}
+
+@media (max-width: 520px) {
+  .tabs {
+    min-height: 40px;
+  }
+
+  .tab {
+    min-height: 32px;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+
+  .globalQuest {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 9px;
+    padding: 10px;
+  }
+
+  .questIcon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .globalQuestTop {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .globalAction,
+  .claimedPill {
+    grid-column: 1 / -1;
+  }
+}
