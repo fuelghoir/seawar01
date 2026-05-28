@@ -278,9 +278,9 @@ async function openExternalQuestTarget(
     return;
   }
 
-  if (isInMiniApp && quest.miniAppUrl) {
+  if (isInMiniApp && quest.kind === "baseApp") {
     try {
-      await sdk.actions.openMiniApp({ url: quest.miniAppUrl });
+      await sdk.actions.openMiniApp({ url: quest.miniAppUrl ?? quest.url });
       return;
     } catch {
       // Fall through to the Base App URL.

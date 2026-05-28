@@ -78,6 +78,8 @@ export const GLOBAL_EXTERNAL_QUESTS = [
     url: "https://gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
     baseAppUrl:
       "https://base.app/app/gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
+    miniAppUrl:
+      "https://gldpiratebase.vercel.app/ref/0x7b92e59b2de9368e71843f9894ed63bfeebaaee7",
     reward: 1000,
     startsAt: "2026-05-28T00:00:00.000Z",
     endsAt: null,
