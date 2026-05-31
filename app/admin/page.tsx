@@ -587,8 +587,8 @@ export default function AdminPage() {
                 <input value={gameReward.quantity} onChange={(e) => setGameReward({ ...gameReward, quantity: e.target.value })} placeholder="1" />
               </label>
               <label className={styles.fullField}>
-                <span>Заметка</span>
-                <input value={gameReward.note} onChange={(e) => setGameReward({ ...gameReward, note: e.target.value })} placeholder="Например: TikTok ролик" />
+                <span>Сообщение пользователю</span>
+                <input value={gameReward.note} onChange={(e) => setGameReward({ ...gameReward, note: e.target.value })} placeholder="Например: Спасибо за TikTok ролик!" />
               </label>
             </div>
           ) : (
@@ -612,8 +612,8 @@ export default function AdminPage() {
                 </label>
               )}
               <label className={styles.fullField}>
-                <span>Заметка</span>
-                <input value={tokenReward.note} onChange={(e) => setTokenReward({ ...tokenReward, note: e.target.value })} placeholder="Кнопка CLAIM появится в Creator Program" />
+                <span>Сообщение пользователю</span>
+                <input value={tokenReward.note} onChange={(e) => setTokenReward({ ...tokenReward, note: e.target.value })} placeholder="Например: Спасибо за твою работу!" />
               </label>
             </div>
           )}

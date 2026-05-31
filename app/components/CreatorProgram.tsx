@@ -24,6 +24,7 @@ type Reward = {
   quantity?: number | null;
   amount_raw?: string | null;
   reward_label?: string | null;
+  admin_note?: string | null;
   status: string;
   created_at: string;
 };
@@ -218,10 +219,13 @@ export default function CreatorProgram({ address }: CreatorProgramProps) {
               <span className={styles.creatorSectionTitle}>Rewards</span>
               {rewards.slice(0, 5).map((reward) => (
                 <div key={reward.id} className={styles.creatorRewardRow}>
-                  <span>
-                    <CheckIcon size={14} />
-                    {rewardLabel(reward)}
-                  </span>
+                  <div className={styles.creatorRewardCopy}>
+                    <span>
+                      <CheckIcon size={14} />
+                      {rewardLabel(reward)}
+                    </span>
+                    {reward.admin_note && <small>{reward.admin_note}</small>}
+                  </div>
                   {isClaimableTokenReward(reward) ? (
                     <button
                       className={styles.creatorClaimButton}

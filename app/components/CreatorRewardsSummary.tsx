@@ -11,6 +11,7 @@ type Reward = {
   quantity?: number | null;
   amount_raw?: string | null;
   reward_label?: string | null;
+  admin_note?: string | null;
   status: string;
 };
 
@@ -42,7 +43,10 @@ export default function CreatorRewardsSummary({ address }: { address: string }) 
       </div>
       {rewards.slice(0, 3).map((reward) => (
         <div key={reward.id} className={styles.creatorRewardSummaryRow}>
-          <span>{rewardLabel(reward)}</span>
+          <div className={styles.creatorRewardSummaryCopy}>
+            <span>{rewardLabel(reward)}</span>
+            {reward.admin_note && <small>{reward.admin_note}</small>}
+          </div>
           <b>{reward.status}</b>
         </div>
       ))}
