@@ -313,6 +313,123 @@ export async function shootOffchain(
   if (error) throw new Error(error.message);
 }
 
+export interface ResolvedShotResult {
+  resolved: boolean;
+  x: number;
+  y: number;
+  isHit: boolean | null;
+  currentTurn?: number;
+  player1Hits?: number;
+  player2Hits?: number;
+  state?: number;
+  winner?: string | null;
+}
+
+export async function shootAndResolveOffchain(
+  gameId: number,
+  playerAddress: string,
+  x: number,
+  y: number
+): Promise<ResolvedShotResult> {
+  const { data: game } = await supabase
+    .from("games")
+    .select("*")
+    .eq("id", gameId)
+    .single();
+  if (!game) throw new Error("Game not found");
+  if (game.state !== 2) throw new Error("Game not active");
+  if (game.turn_phase !== 0) throw new Error("Waiting for hit report");
+
+  const addr = playerAddress.toLowerCase();
+  const playerNum = game.player1 === addr ? 1 : game.player2 === addr ? 2 : 0;
+  if (playerNum === 0) throw new Error("Not a player");
+  if (game.current_turn !== playerNum) throw new Error("Not your turn");
+
+  const { data: existing } = await supabase
+    .from("shots")
+    .select("id")
+    .eq("game_id", gameId)
+    .eq("player_num", playerNum)
+    .eq("x", x)
+    .eq("y", y)
+    .limit(1);
+  if (existing && existing.length > 0) throw new Error("Already shot here");
+
+  const opponentBoardStr = playerNum === 1 ? game.player2_board : game.player1_board;
+  if (!opponentBoardStr) {
+    await shootOffchain(gameId, playerAddress, x, y);
+    return { resolved: false, x, y, isHit: null };
+  }
+
+  let opponentBoard: number[];
+  try {
+    opponentBoard = JSON.parse(opponentBoardStr) as number[];
+  } catch {
+    await shootOffchain(gameId, playerAddress, x, y);
+    return { resolved: false, x, y, isHit: null };
+  }
+
+  const isHit = opponentBoard[y * 10 + x] === 1;
+  const player1Hits = Number(game.player1_hits ?? 0) + (playerNum === 1 && isHit ? 1 : 0);
+  const player2Hits = Number(game.player2_hits ?? 0) + (playerNum === 2 && isHit ? 1 : 0);
+  const nextTurn = isHit ? game.current_turn : (game.current_turn === 1 ? 2 : 1);
+  const finished = isHit && (playerNum === 1 ? player1Hits : player2Hits) >= 20;
+  const winner = finished ? addr : game.winner ?? null;
+
+  const { error: shotError } = await supabase.from("shots").insert({
+    game_id: gameId,
+    player_num: playerNum,
+    x,
+    y,
+    is_hit: isHit,
+  });
+  if (shotError) throw new Error(shotError.message);
+
+  const updates: Record<string, unknown> = {
+    last_shot_x: x,
+    last_shot_y: y,
+    last_shooter: addr,
+    turn_phase: 0,
+    current_turn: nextTurn,
+    player1_hits: player1Hits,
+    player2_hits: player2Hits,
+  };
+  if (finished) {
+    updates.state = 3;
+    updates.winner = winner;
+  }
+
+  const { error: updateError } = await supabase
+    .from("games")
+    .update(updates)
+    .eq("id", gameId);
+  if (updateError) throw new Error(updateError.message);
+
+  if (isHit) {
+    if (finished) {
+      const loserAddr = winner === game.player1 ? game.player2 : game.player1;
+      addPoints(addr, 51, 1)
+        .then(() => recordGameResult(addr, true))
+        .then(() => recordGameResult(loserAddr, false))
+        .catch(() => {});
+    } else {
+      addPoints(addr, 1, 1).catch(() => {});
+    }
+  }
+
+  return {
+    resolved: true,
+    x,
+    y,
+    isHit,
+    currentTurn: nextTurn,
+    player1Hits,
+    player2Hits,
+    state: finished ? 3 : game.state,
+    winner,
+  };
+}
+
 export async function reportHitOffchain(
   gameId: number,
   playerAddress: string,
