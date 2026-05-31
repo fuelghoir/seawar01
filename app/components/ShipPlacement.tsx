@@ -209,6 +209,7 @@ export function ShipPlacement({ onConfirm, isPending, isConfirming }: ShipPlacem
         onCellClick={handleCellClick}
         isInteractive={true}
         label="Your Fleet"
+        variant="placement"
       />
 
       <button

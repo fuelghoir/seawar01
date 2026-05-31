@@ -23,16 +23,52 @@
 
 /* App-shell layout for active game — Fire bar always visible without scroll. */
 .gameShell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100svh;
   max-height: 100svh;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 30%, rgba(var(--accent-rgb), 0.06) 0%, transparent 70%),
-    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+    radial-gradient(circle at 50% 45%, rgba(var(--accent-rgb), 0.1) 0 1px, transparent 2px 100%),
+    radial-gradient(ellipse 70% 54% at 50% 38%, rgba(var(--accent-rgb), 0.1) 0%, transparent 72%),
+    linear-gradient(180deg, #02070d 0%, #071724 52%, #02070d 100%);
+  background-size: 32px 32px, auto, auto;
   color: #fff;
   overflow: hidden;
   font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+}
+
+.gameShell::before,
+.gameShell::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gameShell::before {
+  inset: 52px 0 0;
+  opacity: 0.56;
+  background:
+    linear-gradient(rgba(var(--accent-rgb), 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, #000 15%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 15%, transparent 78%);
+}
+
+.gameShell::after {
+  width: min(72vw, 840px);
+  aspect-ratio: 1;
+  left: 50%;
+  top: 50%;
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 70px rgba(var(--accent-rgb), 0.035),
+    0 0 0 140px rgba(var(--accent-rgb), 0.025),
+    0 0 0 210px rgba(var(--accent-rgb), 0.018);
+  transform: translate(-50%, -50%);
 }
 
 @supports not (height: 100svh) {
@@ -43,6 +79,8 @@
 }
 
 .gameScroll {
+  position: relative;
+  z-index: 1;
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
@@ -50,12 +88,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 10px 10px 14px;
+  gap: 14px;
+  padding: 14px 10px 18px;
   animation: pageIn 0.3s ease-out;
 }
 
 .stickyFire {
+  position: relative;
   flex-shrink: 0;
   width: 100%;
   display: flex;
@@ -63,10 +102,15 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px max(12px, env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(var(--bg-abyss-rgb), 0.78) 0%, rgba(var(--bg-abyss-rgb), 0.98) 45%);
+  background:
+    linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.08), transparent) top / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(10, 28, 43, 0.92), rgba(2, 7, 13, 0.99));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 -12px 30px rgba(0, 0, 0, 0.34);
   z-index: 40;
 }
 
@@ -86,7 +130,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
 }
 
 /* Loading */
@@ -414,27 +458,33 @@
 /* Bot game status */
 .botStatus {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  width: 100%;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(100%, 420px);
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 6px;
+  background: rgba(2, 8, 15, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .turnIndicator {
   font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--accent);
   text-transform: uppercase;
-  letter-spacing: 0.24em;
-  min-height: 22px;
+  letter-spacing: 0.16em;
 }
 
 .hitCounters {
   display: flex;
-  gap: 24px;
+  gap: 12px;
   font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.12em;
@@ -453,7 +503,8 @@
 .fireButton {
   width: 100%;
   max-width: 360px;
-  padding: 16px 24px;
+  min-height: 52px;
+  padding: 14px 24px;
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 14px;
   font-weight: 900;
@@ -461,7 +512,7 @@
   text-transform: uppercase;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
   border: none;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--bg-abyss);
   cursor: pointer;
   box-shadow:
@@ -508,7 +559,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  border-radius: 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
@@ -618,6 +669,48 @@
   .fireButton {
     flex: 0 1 360px;
   }
+}
+
+@media (min-width: 980px) {
+  .gameScroll {
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 20px 30px;
+  }
+
+  .botStatus {
+    width: min(100%, 760px);
+  }
+
+  .boards,
+  .resultBoards {
+    display: grid;
+    grid-template-columns: repeat(2, min-content);
+    align-items: start;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .stickyFire {
+    min-height: 74px;
+    align-items: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .gameScroll {
+    gap: 10px;
+    padding: 9px 6px 12px;
+  }
+
+  .botStatus {
+    width: min(100%, 338px);
+    min-height: 34px;
+    padding: 7px 9px;
+  }
+
+  .turnIndicator { font-size: 9px; }
+  .hitCounters { gap: 8px; font-size: 9px; }
 }
 
 /* Bomb controls */

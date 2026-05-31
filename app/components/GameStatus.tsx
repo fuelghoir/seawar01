@@ -58,7 +58,9 @@ export function GameStatus({
     <div className={styles.container}>
       <div className={`${styles.banner} ${bannerClass}`}>
         <span className={styles.bannerText}>{bannerText}</span>
-        {subText && <span className={styles.bannerSub}>{subText}</span>}
+        <span className={`${styles.bannerSub} ${!subText ? styles.bannerSubEmpty : ""}`}>
+          {subText || "\u00a0"}
+        </span>
       </div>
       <div className={styles.scores}>
         <div className={styles.scoreBlock}>

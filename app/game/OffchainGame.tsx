@@ -1156,7 +1156,7 @@ export function OffchainGameContent({
       : "ENEMY TURN";
   const modeAccent =
     mode === "wager" ? "var(--accent)" : mode === "friend" ? "var(--accent-2)" : "var(--accent)";
-  const turnAccent = isMyTurn ? modeAccent : "#ef4444";
+  const turnAccent = isMyTurn ? modeAccent : "#b96a72";
 
   return (
     <div className={styles.gameShell}>
@@ -1187,6 +1187,7 @@ export function OffchainGameContent({
             onCellClick={handleEnemyCellClick}
             isInteractive={isMyTurn && game.turn_phase === 0 && !loading}
             label="Enemy Waters"
+            variant="target"
           />
           <Board cells={myBoardCells} isInteractive={false} label="Your Fleet" />
         </div>

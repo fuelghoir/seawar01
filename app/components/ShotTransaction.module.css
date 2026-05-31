@@ -1,13 +1,14 @@
 .button {
   width: 100%;
   max-width: 360px;
+  min-height: 50px;
   padding: 14px 24px;
   font-size: 15px;
   font-weight: 700;
   border: none;
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: relative;
@@ -46,4 +47,12 @@
 @keyframes reportPulse {
   0%, 100% { box-shadow: 0 4px 20px rgba(255, 153, 68, 0.3); }
   50% { box-shadow: 0 4px 28px rgba(255, 153, 68, 0.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .reportButton {
+    animation: none;
+    transition: none;
+  }
 }

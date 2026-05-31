@@ -1,174 +1,248 @@
-/* ── Battle cell (matches HeroBattleGrid aesthetic) ── */
 .cell {
-  width: 30px;
-  height: 30px;
-  border-radius: 4px;
+  position: relative;
+  z-index: 1;
+  width: var(--cell, 30px);
+  height: var(--cell, 30px);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
-  cursor: default;
-  user-select: none;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 3px;
+  color: #fff;
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 13px;
-  font-weight: 800;
-  position: relative;
+  font-weight: 900;
+  line-height: 1;
+  outline: none;
+  user-select: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.cell::before,
+.cell::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.cell::before {
+  inset: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.cell::after {
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .interactive {
-  cursor: pointer;
+  cursor: crosshair;
 }
 
-.interactive:hover {
-  transform: scale(1.12);
-  z-index: 1;
+.interactive:hover,
+.interactive:focus-visible {
+  z-index: 5;
+  transform: translateY(-3px) scale(1.08);
+  border-color: rgba(var(--accent-rgb), 0.92);
+  filter: brightness(1.16);
+  box-shadow:
+    0 0 0 1px rgba(var(--accent-rgb), 0.38),
+    0 8px 10px rgba(0, 0, 0, 0.42),
+    0 0 14px rgba(var(--accent-rgb), 0.38);
 }
 
-/* Water cell */
 .empty {
-  background: linear-gradient(135deg, var(--sea) 0%, var(--bg-secondary) 100%);
-  border: 1px solid rgba(var(--accent-rgb), 0.10);
-}
-
-.interactive.empty:hover {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.10), rgba(var(--accent-2-rgb), 0.08));
-  border-color: rgba(var(--accent-rgb), 0.55);
-  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.25);
-}
-
-/* Ship cell — friendly fleet */
-.ship {
-  background: linear-gradient(135deg, var(--bg-secondary), var(--ship));
-  border: 1px solid rgba(var(--accent-rgb), 0.45);
-  box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.12),
-    0 0 6px rgba(var(--accent-rgb), 0.15);
-}
-
-/* Hit cell — partial (amber, ship still afloat) */
-.hit {
-  background: linear-gradient(135deg, #b87a06, #fbbf24);
-  border: 1px solid #fbbf24;
-  animation: hitExplode 0.4s ease-out;
-  box-shadow:
-    0 0 12px rgba(251, 191, 36, 0.55),
-    inset 0 0 6px rgba(255, 230, 100, 0.35);
-}
-
-/* Sunk cell — total destruction (red) */
-.sunk {
-  background: linear-gradient(135deg, #b81d1d, #ef4444);
-  border: 1px solid #ff6666;
-  animation: hitExplode 0.4s ease-out;
-  box-shadow:
-    0 0 14px rgba(239, 68, 68, 0.6),
-    inset 0 0 6px rgba(255, 200, 50, 0.25);
-}
-
-/* Miss cell — splash */
-.miss {
-  background: linear-gradient(135deg, #0c1c2c, #11283e);
-  border: 1px solid rgba(100, 150, 255, 0.18);
-}
-
-.miss .marker {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(100, 150, 255, 0.55);
-  box-shadow: 0 0 6px rgba(100, 150, 255, 0.4);
-  text-indent: -9999px;
-  overflow: hidden;
-}
-
-/* Pending target (selected) */
-.pending {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-2-rgb), 0.18));
-  border: 2px solid var(--accent);
-  animation: targetLock 1.2s ease-in-out infinite;
-  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.45);
-}
-
-/* Radar hint */
-.radar {
+  border: 1px solid rgba(170, 196, 207, 0.22);
   background:
-    radial-gradient(circle at 50% 50%, rgba(74, 222, 128, 0.34) 0 18%, transparent 20% 100%),
-    linear-gradient(135deg, rgba(20, 83, 45, 0.58), rgba(6, 95, 70, 0.38));
-  border: 1px solid rgba(74, 222, 128, 0.76);
+    radial-gradient(circle at 72% 24%, rgba(255, 255, 255, 0.12) 0 5%, transparent 7%),
+    linear-gradient(145deg, #607681, #405661 58%, #293b43);
   box-shadow:
-    0 0 14px rgba(74, 222, 128, 0.42),
-    inset 0 0 10px rgba(74, 222, 128, 0.12);
+    inset 0 -4px 0 rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 2px rgba(0, 0, 0, 0.3);
 }
 
-.interactive.radar:hover {
-  border-color: #86efac;
-  box-shadow:
-    0 0 18px rgba(74, 222, 128, 0.58),
-    inset 0 0 12px rgba(74, 222, 128, 0.18);
+.interactive.empty:hover,
+.interactive.empty:focus-visible {
+  background:
+    radial-gradient(circle at 72% 24%, rgba(255, 255, 255, 0.18) 0 5%, transparent 7%),
+    linear-gradient(145deg, #6c8791, #466570 58%, #28444d);
 }
 
-/* Ship preview during placement */
+.ship {
+  border: 1px solid rgba(155, 205, 235, 0.66);
+  background: linear-gradient(145deg, #9fb8c4, #587b90 45%, #294659);
+  box-shadow:
+    inset 0 -4px 0 rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 0 8px rgba(74, 151, 190, 0.34);
+}
+
+.hit {
+  border: 1px solid #e7c94b;
+  background:
+    radial-gradient(circle, rgba(255, 248, 198, 0.72) 0 8%, transparent 10%),
+    linear-gradient(145deg, #e4cf65, #c9a928 52%, #765612);
+  box-shadow:
+    inset 0 -3px 0 rgba(113, 63, 18, 0.52),
+    0 0 11px rgba(217, 181, 48, 0.5);
+  animation: hitExplode 0.42s ease-out;
+}
+
+.sunk {
+  border: 1px solid #e16f6f;
+  background:
+    radial-gradient(circle, rgba(255, 220, 151, 0.66) 0 9%, transparent 11%),
+    linear-gradient(145deg, #dc6a64, #b83f3f 48%, #641f24);
+  box-shadow:
+    inset 0 -3px 0 rgba(69, 10, 10, 0.58),
+    0 0 12px rgba(196, 59, 59, 0.54);
+  animation: sunkExplode 0.5s ease-out;
+}
+
+.miss {
+  border: 1px solid rgba(128, 149, 166, 0.14);
+  background: linear-gradient(145deg, #1d2930, #10181d 58%, #070b0e);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.miss::before {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.pending {
+  border: 1px solid rgba(96, 239, 255, 0.74);
+  background:
+    radial-gradient(circle, rgba(198, 225, 213, 0.34) 0 10%, transparent 12%),
+    linear-gradient(145deg, #54727a, #31545e 58%, #172f38);
+  box-shadow:
+    inset 0 0 7px rgba(0, 212, 255, 0.18),
+    0 0 10px rgba(0, 212, 255, 0.36);
+}
+
+.radar {
+  border: 1px solid rgba(74, 222, 128, 0.9);
+  background:
+    radial-gradient(circle, rgba(187, 247, 208, 0.8) 0 12%, transparent 14%),
+    linear-gradient(145deg, #2d7c5b, #115e45 58%, #052e2b);
+  box-shadow:
+    inset 0 0 10px rgba(74, 222, 128, 0.2),
+    0 0 15px rgba(74, 222, 128, 0.55);
+}
+
 .preview {
-  background: rgba(var(--accent-rgb), 0.22);
-  border: 1px solid rgba(var(--accent-rgb), 0.6);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
+  border: 1px solid rgba(var(--accent-rgb), 0.8);
+  background: linear-gradient(145deg, rgba(var(--accent-rgb), 0.5), rgba(var(--accent-rgb), 0.18));
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.42);
 }
 
 .preview-invalid {
-  background: rgba(239, 68, 68, 0.22);
-  border: 1px solid rgba(239, 68, 68, 0.6);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.84);
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.5), rgba(127, 29, 29, 0.28));
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.36);
 }
 
-/* Markers */
 .marker {
+  position: relative;
+  z-index: 2;
   color: #fff;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
   font-size: 14px;
-  letter-spacing: 0;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.52), 0 0 8px rgba(255, 255, 255, 0.74);
 }
 
-.hit .marker,
-.sunk .marker {
-  animation: hitMarker 0.4s ease-out;
+.miss .marker {
+  width: 7px;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(157, 184, 203, 0.4);
+  border-radius: 50%;
+  background: rgba(92, 115, 132, 0.5);
+  box-shadow: 0 0 5px rgba(112, 140, 160, 0.28);
+  text-indent: -999px;
 }
 
-.sunk .marker {
-  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9));
+.targetCorners {
+  position: absolute;
+  z-index: 3;
+  inset: 4px;
+  border: 1px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
 }
 
-/* Animations */
 @keyframes hitExplode {
-  0% { transform: scale(1.4); opacity: 0.7; }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale(1.5); filter: brightness(1.8); }
+  55% { transform: scale(1.08); }
+  100% { transform: scale(1); filter: brightness(1); }
 }
 
-@keyframes targetLock {
-  0%, 100% {
-    border-color: var(--accent);
-    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4);
-  }
-  50% {
-    border-color: var(--accent-2);
-    box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.7);
-  }
+@keyframes sunkExplode {
+  0% { transform: scale(1.62) rotate(3deg); filter: brightness(2); }
+  58% { transform: scale(1.08) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0); filter: brightness(1); }
 }
 
-@keyframes hitMarker {
-  0% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.3); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Mobile */
-@media (max-width: 400px) {
+@media (max-width: 420px) {
   .cell {
-    width: 27px;
-    height: 27px;
     font-size: 11px;
   }
+
   .marker { font-size: 12px; }
   .miss .marker { width: 6px; height: 6px; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .cell,
+  .hit,
+  .sunk,
+  .pending {
+    animation: none;
+    transition: none;
+  }
+
+  .interactive:hover,
+  .interactive:focus-visible {
+    transform: none;
+    filter: none;
+    box-shadow: none;
+  }
+
+  .interactive.empty:hover,
+  .interactive.empty:focus-visible {
+    border-color: rgba(170, 196, 207, 0.22);
+    background:
+      radial-gradient(circle at 72% 24%, rgba(255, 255, 255, 0.12) 0 5%, transparent 7%),
+      linear-gradient(145deg, #607681, #405661 58%, #293b43);
+    box-shadow:
+      inset 0 -4px 0 rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 3px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell,
+  .hit,
+  .sunk,
+  .pending {
+    animation: none;
+    transition: none;
+  }
 }

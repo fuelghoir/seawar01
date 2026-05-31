@@ -10,6 +10,7 @@
 
 .banner {
   width: 100%;
+  min-height: 92px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -30,10 +31,15 @@
 }
 
 .bannerSub {
+  min-height: 15px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
   opacity: 0.85;
+}
+
+.bannerSubEmpty {
+  visibility: hidden;
 }
 
 .bannerYou {
@@ -45,10 +51,10 @@
 }
 
 .bannerEnemy {
-  background: linear-gradient(135deg, rgba(255, 99, 99, 0.22), rgba(178, 34, 52, 0.16));
-  border-color: #ff6b6b;
-  color: #ff8a8a;
-  box-shadow: 0 4px 20px rgba(255, 99, 99, 0.2);
+  background: linear-gradient(135deg, rgba(185, 106, 114, 0.15), rgba(105, 48, 57, 0.12));
+  border-color: rgba(185, 106, 114, 0.68);
+  color: #ce8b91;
+  box-shadow: 0 4px 16px rgba(105, 48, 57, 0.16);
 }
 
 .bannerPending {
@@ -120,5 +126,13 @@
 @media (max-width: 420px) {
   .bannerText { font-size: 22px; letter-spacing: 1.5px; }
   .bannerSub { font-size: 11px; }
-  .banner { padding: 14px 16px; }
+  .banner { min-height: 84px; padding: 14px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container,
+  .bannerYou,
+  .bannerPending {
+    animation: none;
+  }
 }

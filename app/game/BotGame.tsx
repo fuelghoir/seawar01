@@ -830,7 +830,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     : isMyTurn
       ? tr.turn_your
       : tr.turn_bot;
-  const turnAccent = isMyTurn ? "var(--accent)" : "#ef4444";
+  const turnAccent = isMyTurn ? "var(--accent)" : "#b96a72";
 
   return (
     <div className={styles.gameShell}>
@@ -859,6 +859,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
             onCellClick={handleEnemyCellClick}
             isInteractive={isMyTurn && !botProcessing}
             label={tr.bot_waters}
+            variant="target"
           />
           <Board cells={myBoardCells} isInteractive={false} label={tr.your_fleet} />
         </div>
