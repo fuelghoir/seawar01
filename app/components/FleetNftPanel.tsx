@@ -4,8 +4,11 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useAccount,
+  useCallsStatus,
+  useCapabilities,
   useConfig,
   useReadContract,
+  useSendCalls,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
@@ -14,7 +17,7 @@ import {
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog, maxUint256 } from "viem";
+import { decodeEventLog, encodeFunctionData, maxUint256 } from "viem";
 import {
   FLEET_NFT_CONTRACT_ADDRESS,
   fleetPassAbi,
@@ -31,7 +34,10 @@ import {
 } from "../lib/fleetNft";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import styles from "./FleetNftPanel.module.css";
+
+const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 
 function cacheKey(wallet: string) {
   return `seabattle_fleet_nft_${wallet.toLowerCase()}`;
@@ -51,6 +57,20 @@ function readCached(wallet?: string): FleetState {
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit) {
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      response = await fetch(input, init);
+      if (response.ok || (response.status !== 409 && response.status < 500)) return response;
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+    await wait(500);
+  }
+  return response!;
 }
 
 function optimisticFleetFromReceipt(
@@ -98,10 +118,12 @@ export default function FleetNftPanel() {
   const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | null>(null);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [purchaseFallbackMined, setPurchaseFallbackMined] = useState(false);
+  const [claimFallbackMined, setClaimFallbackMined] = useState(false);
   const purchaseSubmittedRef = useRef(false);
   const purchaseHandledRef = useRef(false);
   const previousTokenRef = useRef(0);
   const claimHandledRef = useRef(false);
+  const lastCreditedClaimHashRef = useRef<string | null>(null);
   const staleProtectionUntilRef = useRef(0);
 
   const commitFleet = useCallback((next: FleetState) => {
@@ -187,13 +209,39 @@ export default function FleetNftPanel() {
   const {
     data: claimHash,
     writeContract: writeClaim,
-    isPending: claimPending,
+    isPending: claimTxPending,
     reset: resetClaim,
   } = useWriteContract();
   const { data: claimReceipt } = useWaitForTransactionReceipt({ hash: claimHash });
+  const { data: capabilities } = useCapabilities({ chainId: base.id });
+  const paymasterSupported =
+    !!PAYMASTER_URL && !!capabilities?.paymasterService?.supported;
+  const {
+    sendCalls: sendClaimCalls,
+    data: claimCallsData,
+    isPending: claimCallsPending,
+  } = useSendCalls();
+  const { data: claimCallsStatus } = useCallsStatus({
+    id: claimCallsData?.id ?? "",
+    query: {
+      enabled: !!claimCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1_000,
+    },
+  });
 
   const approveMined = approveReceipt?.status === "success" || approveFallbackMined;
   const purchaseMined = purchaseReceipt?.status === "success" || purchaseFallbackMined;
+  const claimCallsSuccess = claimCallsStatus?.status === "success";
+  const claimProofHash =
+    claimHash ??
+    claimCallsStatus?.receipts?.[0]?.transactionHash as `0x${string}` | undefined;
+  const claimMined =
+    claimReceipt?.status === "success" || claimFallbackMined || claimCallsSuccess;
+  const claimPending =
+    claimTxPending ||
+    claimCallsPending ||
+    (!!claimCallsData?.id && !claimCallsSuccess && !claimHandledRef.current);
 
   const sendPurchase = useCallback((action: "buy" | "upgrade") => {
     purchaseSubmittedRef.current = true;
@@ -234,6 +282,20 @@ export default function FleetNftPanel() {
       cancelled = true;
     };
   }, [purchaseHash, wagmiConfig]);
+
+  useEffect(() => {
+    setClaimFallbackMined(false);
+    if (!claimHash) return;
+    let cancelled = false;
+    waitForReceipt(wagmiConfig, { hash: claimHash })
+      .then((receipt) => {
+        if (!cancelled && receipt.status === "success") setClaimFallbackMined(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [claimHash, wagmiConfig]);
 
   useEffect(() => {
     if (!approveMined || !purchaseAction || purchaseSubmittedRef.current) return;
@@ -280,16 +342,26 @@ export default function FleetNftPanel() {
   }, [approveError, purchaseAction, purchaseError, ru]);
 
   useEffect(() => {
-    if (claimReceipt?.status !== "success" || !claimHash || !address || claimHandledRef.current) return;
+    if (
+      !claimMined ||
+      !claimProofHash ||
+      !address ||
+      claimHandledRef.current ||
+      lastCreditedClaimHashRef.current === claimProofHash
+    ) return;
     claimHandledRef.current = true;
-    fetch("/api/fleet-nft/claim-points", {
+    lastCreditedClaimHashRef.current = claimProofHash;
+    commitFleet({ ...fleet, claimablePoints: 0 });
+    setMessage(ru ? "Зачисляем пойнты..." : "Crediting points...");
+    fetchWithRetry("/api/fleet-nft/claim-points", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: address, txHash: claimHash }),
+      body: JSON.stringify({ wallet: address, txHash: claimProofHash }),
     })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error || "Point claim failed");
+        notifyPlayerDataRefresh();
         setMessage(`+${Number(data?.points ?? 0).toLocaleString()} ${ru ? "ПОЙНТОВ" : "POINTS"}`);
       })
       .catch((err) => setMessage(err instanceof Error ? err.message : "Point claim failed"))
@@ -297,7 +369,7 @@ export default function FleetNftPanel() {
         void refreshFleet();
         void refetch();
       });
-  }, [address, claimHash, claimReceipt, refetch, refreshFleet, ru]);
+  }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru]);
 
   const startPurchase = async () => {
     if (!address || !deployed || fleet.maxed || purchaseAction) return;
@@ -339,6 +411,20 @@ export default function FleetNftPanel() {
     setMessage("");
     claimHandledRef.current = false;
     resetClaim();
+    if (paymasterSupported && PAYMASTER_URL) {
+      sendClaimCalls({
+        calls: [{
+          to: FLEET_NFT_CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: fleetPassAbi,
+            functionName: "claimPassivePoints",
+          }),
+        }],
+        capabilities: { paymasterService: { url: PAYMASTER_URL } },
+      });
+      return;
+    }
+
     writeClaim({
       address: FLEET_NFT_CONTRACT_ADDRESS,
       abi: fleetPassAbi,

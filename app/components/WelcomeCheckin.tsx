@@ -15,6 +15,7 @@ import { encodeFunctionData } from "viem";
 import { seaBattleAbi, SEABATTLE_CONTRACT_ADDRESS } from "../contracts/seaBattleAbi";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { getCheckinStatus, dailyCheckin, CheckinStatus } from "../lib/offchainGame";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { useSettings, TR } from "../lib/settings";
 import styles from "./WelcomeCheckin.module.css";
 
@@ -106,9 +107,11 @@ export function WelcomeCheckin({
   useEffect(() => {
     if (!success || recordedRef.current) return;
     recordedRef.current = true;
+    setCheckin((current) => current ? { ...current, canCheckin: false } : current);
     dailyCheckin(address)
       .then((res) => {
         setMsg(`+${res.points} ${tr.shop_pts}! ${tr.streak}: ${res.streak}d`);
+        notifyPlayerDataRefresh();
         onCheckedIn?.();
         setTimeout(() => onClose(), 1500);
       })

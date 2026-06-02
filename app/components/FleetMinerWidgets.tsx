@@ -17,6 +17,7 @@ import {
   ZERO_ADDRESS,
 } from "../lib/fleetNft";
 import { useSettings } from "../lib/settings";
+import { SEASON_UI_ENABLED } from "../lib/featureFlags";
 import styles from "./FleetMinerWidgets.module.css";
 
 function useFleetMinerState(address?: `0x${string}`) {
@@ -113,7 +114,7 @@ export function FleetMinerSummary({
             : ru ? "КУПИТЬ · 0.5 USDC" : "BUY · 0.5 USDC"}
         </button>
       </section>
-      <SeasonPoolCard />
+      {SEASON_UI_ENABLED && <SeasonPoolCard />}
     </div>
   );
 }

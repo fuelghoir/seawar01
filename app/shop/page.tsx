@@ -45,6 +45,7 @@ import {
 } from "../lib/offchainGame";
 import {
   SHOP_ITEMS,
+  SEASON_LEVELS,
   type InventoryMap,
   type SeasonState,
   type ShopItemSlug,
@@ -81,11 +82,20 @@ import {
   TrophyIcon,
 } from "../components/Icons";
 import { useSettings, TR } from "../lib/settings";
+import { notifyPlayerDataRefresh, PLAYER_DATA_REFRESH_EVENT } from "../lib/playerDataEvents";
+import { SEASON_UI_ENABLED } from "../lib/featureFlags";
 import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const BOMB_PRICE = BigInt(2_000_000); // 2 USDC
+const EMPTY_INVENTORY: InventoryMap = {
+  double_points_1h: 0,
+  quest_reroll: 0,
+  streak_freeze: 0,
+  radar_scan: 0,
+  torpedo: 0,
+};
 
 function pendingPaidQrKey(wallet: string) {
   return `sbt_pending_paid_qr_${wallet.toLowerCase()}`;
@@ -227,11 +237,34 @@ export default function ShopPage() {
   const [bombQuantity, setBombQuantity] = useState(1);
   const [bombBoughtQty, setBombBoughtQty] = useState(0);
 
+  const addOptimisticInventory = useCallback((slug: ShopItemSlug, quantity: number) => {
+    setInventory((current) => ({
+      ...EMPTY_INVENTORY,
+      ...current,
+      [slug]: (current?.[slug] ?? 0) + quantity,
+    }));
+  }, []);
+
+  const applyOptimisticSeasonClaim = useCallback((levels: number[]) => {
+    const claimed = new Set(levels);
+    setSeason((current) => current ? {
+      ...current,
+      claimedLevels: Array.from(new Set([...current.claimedLevels, ...levels])).sort((a, b) => a - b),
+      levels: current.levels.map((level) => claimed.has(level.level)
+        ? { ...level, claimed: true, claimable: false }
+        : level),
+    } : current);
+    for (const level of SEASON_LEVELS) {
+      if (!claimed.has(level.level) || level.reward.kind !== "item") continue;
+      addOptimisticInventory(level.reward.slug, level.reward.quantity);
+    }
+  }, [addOptimisticInventory]);
+
   const refreshSeasonShop = useCallback(async () => {
     if (!address) return;
     const results = await Promise.allSettled([
       getInventory(address).then(setInventory),
-      getSeasonState(address).then(setSeason),
+      ...(SEASON_UI_ENABLED ? [getSeasonState(address).then(setSeason)] : []),
       getActiveDoublePoints(address).then(setActiveBoosterUntil),
       hasQuestRerollPointPurchaseThisWeek(address).then(setQuestRerollPointUsed),
       getLimitedSbtState(address).then(setLimitedSbt),
@@ -245,6 +278,11 @@ export default function ShopPage() {
   useEffect(() => {
     if (address) refreshSeasonShop();
   }, [address, refreshSeasonShop]);
+
+  useEffect(() => {
+    window.addEventListener(PLAYER_DATA_REFRESH_EVENT, refreshSeasonShop);
+    return () => window.removeEventListener(PLAYER_DATA_REFRESH_EVENT, refreshSeasonShop);
+  }, [refreshSeasonShop]);
 
   useEffect(() => {
     const updateMobileBack = () => {
@@ -328,6 +366,7 @@ export default function ShopPage() {
       const activeUntil = await activateDoublePoints(address);
       setActiveBoosterUntil(activeUntil);
       setShopMsg(tr.shop_double_activated);
+      notifyPlayerDataRefresh();
       await refreshSeasonShop();
     } catch (err) {
       setShopMsg(err instanceof Error ? err.message : tr.shop_activation_failed);
@@ -367,11 +406,13 @@ export default function ShopPage() {
     const slug = pointPurchaseSlugRef.current;
     const qty = pointPurchaseQtyRef.current;
     pointPurchaseHandledRef.current = true;
+    addOptimisticInventory(slug, qty);
 
     buyPointItem(address, slug, qty)
       .then(async () => {
         if (slug === "quest_reroll") setQuestRerollPointUsed(true);
         setShopMsg(tr.shop_item_added);
+        notifyPlayerDataRefresh();
         await refreshSeasonShop();
       })
       .catch((err) => {
@@ -385,6 +426,7 @@ export default function ShopPage() {
       });
   }, [
     address,
+    addOptimisticInventory,
     pointPurchaseMined,
     refreshSeasonShop,
     tr.shop_item_added,
@@ -608,9 +650,11 @@ export default function ShopPage() {
       localStorage.removeItem(pendingPaidQrKey(address));
       localStorage.removeItem(pendingPaidQrQtyKey(address));
     }
+    addOptimisticInventory("quest_reroll", qty);
+    notifyPlayerDataRefresh();
     setShopMsg(tr.shop_item_added);
     await refreshSeasonShop();
-  }, [address, refreshSeasonShop, tr.shop_item_added]);
+  }, [address, addOptimisticInventory, refreshSeasonShop, tr.shop_item_added]);
 
   const findLatestPaidQuestRerollTx = useCallback(async (
     quantity = paidQuestRerollQtyRef.current
@@ -878,6 +922,7 @@ export default function ShopPage() {
   // Season rewards are unlocked with a lightweight on-chain claim proof.
   const seasonClaimLevelsRef = useRef<number[]>([]);
   const seasonClaimHandledRef = useRef(false);
+  const [seasonClaimFallbackMined, setSeasonClaimFallbackMined] = useState(false);
   const {
     data: seasonClaimTxHash,
     writeContract: writeSeasonClaimTx,
@@ -903,7 +948,8 @@ export default function ShopPage() {
     },
   });
   const seasonClaimCallsSuccess = seasonClaimCallsStatus?.status === "success";
-  const seasonClaimTxSuccess = seasonClaimTxReceipt?.status === "success";
+  const seasonClaimTxSuccess =
+    seasonClaimTxReceipt?.status === "success" || seasonClaimFallbackMined;
   const seasonClaimOnchainSuccess = seasonClaimTxSuccess || seasonClaimCallsSuccess;
   const seasonClaimPending = seasonClaimTxPending || seasonClaimCallsPending;
   const {
@@ -918,17 +964,31 @@ export default function ShopPage() {
   });
 
   useEffect(() => {
+    setSeasonClaimFallbackMined(false);
+    if (!seasonClaimTxHash) return;
+    let cancelled = false;
+    waitForReceipt(wagmiConfig, { hash: seasonClaimTxHash })
+      .then((receipt) => {
+        if (!cancelled && receipt.status === "success") setSeasonClaimFallbackMined(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [seasonClaimTxHash, wagmiConfig]);
+
+  useEffect(() => {
     if (address) getCheckinStatus(address).then(setCheckin).catch(() => {});
   }, [address]);
 
   useEffect(() => {
     if (!checkinSuccess || !address || checkinRecorded.current) return;
     checkinRecorded.current = true;
+    setCheckin((current) => current ? { ...current, canCheckin: false } : current);
     dailyCheckin(address)
       .then((res) => {
         setCheckinMsg(
           `+${res.points} ${tr.shop_pts}! ${tr.streak}: ${res.streak}d${res.usedFreeze ? ` (${tr.streak_freeze_used})` : ""}`
         );
+        notifyPlayerDataRefresh();
         getCheckinStatus(address).then(setCheckin).catch(() => {});
         refreshSeasonShop();
       })
@@ -950,6 +1010,7 @@ export default function ShopPage() {
     if (levels.length === 0) return;
     seasonClaimHandledRef.current = true;
     seasonClaimLevelsRef.current = [];
+    applyOptimisticSeasonClaim(levels);
 
     claimSeasonLevels(address, levels)
       .then(async (rewards) => {
@@ -961,6 +1022,7 @@ export default function ShopPage() {
             : "Season rewards claimed"
           : tr.shop_reward_claimed;
         setShopMsg(`${label}: ${rewardSummary}${rewardTail}`);
+        notifyPlayerDataRefresh();
         await refreshSeasonShop();
       })
       .catch((err) => {
@@ -970,6 +1032,7 @@ export default function ShopPage() {
   }, [
     seasonClaimOnchainSuccess,
     address,
+    applyOptimisticSeasonClaim,
     lang,
     refreshSeasonShop,
     tr.shop_claim_failed,
@@ -1002,6 +1065,7 @@ export default function ShopPage() {
 
     setClaimingSeasonLevels(claimLevels);
     setShopMsg("");
+    setSeasonClaimFallbackMined(false);
     resetSeasonClaimTx();
 
     try {
@@ -1120,6 +1184,7 @@ export default function ShopPage() {
             ? "Награда недели уже получена"
             : "Weekly reward already claimed"
       );
+      notifyPlayerDataRefresh();
       await refreshSeasonShop();
     } catch (err) {
       setSbtMsg(err instanceof Error ? err.message : tr.shop_claim_failed);
@@ -1288,14 +1353,18 @@ export default function ShopPage() {
                 <span>{tr.shop_boost}</span>
                 <b>{activeBoosterLabel ? `${tr.shop_boost_until} ${activeBoosterLabel}` : tr.shop_boost_inactive}</b>
               </div>
-              <div>
-                <span>{tr.shop_season}</span>
-                <b>{tr.shop_level} {currentSeasonLevel}</b>
-              </div>
-              <div>
-                <span>{tr.shop_xp}</span>
-                <b>{currentSeasonXp.toLocaleString()}</b>
-              </div>
+              {SEASON_UI_ENABLED && (
+                <>
+                  <div>
+                    <span>{tr.shop_season}</span>
+                    <b>{tr.shop_level} {currentSeasonLevel}</b>
+                  </div>
+                  <div>
+                    <span>{tr.shop_xp}</span>
+                    <b>{currentSeasonXp.toLocaleString()}</b>
+                  </div>
+                </>
+              )}
               <div>
                 <span>{tr.shop_bombs}</span>
                 <b>{available}</b>
@@ -1303,7 +1372,7 @@ export default function ShopPage() {
             </section>
 
             <FleetNftPanel />
-            <SeasonPoolCard variant="wide" />
+            {SEASON_UI_ENABLED && <SeasonPoolCard variant="wide" />}
 
             <section className={`${styles.card} ${styles.featuredCard}`}>
               <div className={styles.cardTop}>
@@ -1447,7 +1516,7 @@ export default function ShopPage() {
               {shopMsg && <p className={styles.msg}>{shopMsg}</p>}
             </section>
 
-            <section className={`${styles.card} ${styles.seasonCard}`}>
+            {SEASON_UI_ENABLED && <section className={`${styles.card} ${styles.seasonCard}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <TrophyIcon size={24} />
@@ -1603,7 +1672,7 @@ export default function ShopPage() {
                   </button>
                 </div>
               )}
-            </section>
+            </section>}
 
             <section className={`${styles.card} ${styles.sbtCard}`} id="captain-sbt">
               <div className={styles.cardTop}>

@@ -24,6 +24,7 @@ import {
 import { getItemQuantity } from "../lib/season";
 import { QUESTS_RU } from "../lib/questsRu";
 import { useSettings, TR } from "../lib/settings";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import styles from "./QuestPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -127,13 +128,14 @@ export default function QuestPanel({
     claimHandledRef.current = true;
     const questId = claimingQuestIdRef.current;
     claimingQuestIdRef.current = null;
+    setQuests(prev =>
+      prev.map(q => q.definition.id === questId ? { ...q, claimed: true } : q)
+    );
 
     claimUserQuest(address, questId)
       .then(({ reward }) => {
         setMsgs(prev => ({ ...prev, [questId]: `+${reward.toLocaleString()} ${tr.shop_pts}!` }));
-        setQuests(prev =>
-          prev.map(q => q.definition.id === questId ? { ...q, claimed: true } : q)
-        );
+        notifyPlayerDataRefresh();
         onPointsChanged?.();
         loadQuests();
       })

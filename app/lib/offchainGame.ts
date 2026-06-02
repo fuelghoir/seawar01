@@ -1074,17 +1074,17 @@ export async function getPlayerProfile(
 ): Promise<PlayerProfile> {
   const addr = wallet.toLowerCase();
 
-  const { data: stats } = await supabase
-    .from("player_stats")
-    .select("points, wins, games_played, checkin_streak, total_checkins")
-    .eq("wallet", addr)
-    .single();
-
-  // All games where this wallet is a player
-  const { data: games } = await supabase
-    .from("games")
-    .select("id, player1, player2, winner, state, game_mode, wager_amount")
-    .or(`player1.eq.${addr},player2.eq.${addr}`);
+  const [{ data: stats }, { data: games }] = await Promise.all([
+    supabase
+      .from("player_stats")
+      .select("points, wins, games_played, checkin_streak, total_checkins")
+      .eq("wallet", addr)
+      .single(),
+    supabase
+      .from("games")
+      .select("id, player1, player2, winner, state, game_mode, wager_amount")
+      .or(`player1.eq.${addr},player2.eq.${addr}`),
+  ]);
 
   const allGames = games || [];
   const finishedGames = allGames.filter(g => g.state === 3);
@@ -1113,22 +1113,20 @@ export async function getPlayerProfile(
   const earningsUsdc = earningsMicro / 1_000_000;
 
   // Count shots — get shot rows per game where this wallet was the shooter.
-  let totalShots = 0;
-  if (allGames.length > 0) {
-    const gameIds = allGames.map(g => g.id);
-    const { data: shotRows } = await supabase
+  const countShots = async (gameIds: number[], playerNum: number) => {
+    if (gameIds.length === 0) return 0;
+    const { count } = await supabase
       .from("shots")
-      .select("game_id, player_num")
-      .in("game_id", gameIds);
-    if (shotRows) {
-      const gameMap = new Map(
-        allGames.map(g => [g.id, g.player1 === addr ? 1 : 2])
-      );
-      totalShots = shotRows.filter(
-        s => gameMap.get(s.game_id) === s.player_num
-      ).length;
-    }
-  }
+      .select("id", { count: "exact", head: true })
+      .in("game_id", gameIds)
+      .eq("player_num", playerNum);
+    return count ?? 0;
+  };
+  const [playerOneShots, playerTwoShots] = await Promise.all([
+    countShots(allGames.filter((game) => game.player1 === addr).map((game) => game.id), 1),
+    countShots(allGames.filter((game) => game.player2 === addr).map((game) => game.id), 2),
+  ]);
+  const totalShots = playerOneShots + playerTwoShots;
 
   return {
     wallet: addr,

@@ -60,6 +60,8 @@ import {
   AnchorIcon,
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
+import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
+import { SEASON_UI_ENABLED } from "./lib/featureFlags";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
@@ -90,7 +92,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [history, setHistory] = useState<GameHistoryEntry[]>([]);
   const [season, setSeason] = useState<SeasonState | null>(null);
-  const [homeDataReady, setHomeDataReady] = useState(false);
   const [bootMinDone, setBootMinDone] = useState(false);
   const [bootMaxDone, setBootMaxDone] = useState(false);
   const [autoConnectGraceDone, setAutoConnectGraceDone] = useState(false);
@@ -214,11 +215,9 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       setCheckin(null);
       setHistory([]);
       setSeason(null);
-      setHomeDataReady(true);
       return;
     }
 
-    setHomeDataReady(false);
     setProfile(null);
     setCheckin(null);
     setHistory([]);
@@ -228,7 +227,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       getPlayerProfile(address),
       getCheckinStatus(address),
       getPlayerGameHistory(address),
-      getSeasonState(address),
+      SEASON_UI_ENABLED ? getSeasonState(address) : Promise.resolve(null),
     ]).then(([profileResult, checkinResult, historyResult, seasonResult]) => {
       if (cancelled) return;
 
@@ -244,13 +243,24 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           : []
       );
       setSeason(seasonResult.status === "fulfilled" ? seasonResult.value : null);
-      setHomeDataReady(true);
     });
 
     return () => {
       cancelled = true;
     };
   }, [address]);
+
+  useEffect(() => {
+    if (!address) return;
+    const refresh = () => {
+      void loadProfile();
+      void getCheckinStatus(address).then(setCheckin).catch(() => {});
+      void getPlayerGameHistory(address).then((entries) => setHistory(entries.slice(0, 4))).catch(() => {});
+      if (SEASON_UI_ENABLED) void getSeasonState(address).then(setSeason).catch(() => {});
+    };
+    window.addEventListener(PLAYER_DATA_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(PLAYER_DATA_REFRESH_EVENT, refresh);
+  }, [address, loadProfile]);
 
   useEffect(() => {
     if (isConnected && address) setShowWelcome(true);
@@ -291,7 +301,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const bootReady =
     miniAppBootSettled &&
     (bootMaxDone ||
-      (accountBootSettled && walletBootSettled && (!address || homeDataReady)));
+      (accountBootSettled && walletBootSettled));
 
   if (!bootMinDone || !bootReady) {
     return <InitialLoader />;
@@ -448,11 +458,13 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             onOpen={openCaptainSbt}
           />
 
-          <SeasonRoadmap
-            season={season}
-            compact
-            onOpen={() => router.push("/shop")}
-          />
+          {SEASON_UI_ENABLED && (
+            <SeasonRoadmap
+              season={season}
+              compact
+              onOpen={() => router.push("/shop")}
+            />
+          )}
 
           {openSection === "profile" && (
             <section className={styles.mobilePanel}>
@@ -1210,7 +1222,7 @@ function ShopPreview({
 
   return (
     <div className={styles.shopPreview}>
-      <SeasonRoadmap season={season} onOpen={onOpen} />
+      {SEASON_UI_ENABLED && <SeasonRoadmap season={season} onOpen={onOpen} />}
 
       <SectionHeader label={tr.shop_featured_armory.toUpperCase()} accent="#00dcb4" />
       {shopPreviewItems.map((it, i) => (

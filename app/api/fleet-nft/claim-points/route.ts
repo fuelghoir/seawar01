@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createPublicClient, decodeEventLog, http, isAddress, isHash } from "viem";
+import { createPublicClient, decodeEventLog, fallback, http, isAddress, isHash } from "viem";
 import { base } from "viem/chains";
 import {
   FLEET_NFT_CONTRACT_ADDRESS,
@@ -8,6 +8,34 @@ import {
 } from "../../../contracts/fleetPassAbi";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+const BASE_RPCS = [
+  process.env.NEXT_PUBLIC_BASE_RPC_URL,
+  "https://base-rpc.publicnode.com",
+  "https://base.meowrpc.com",
+  "https://base.drpc.org",
+  "https://mainnet.base.org",
+].filter(Boolean) as string[];
+
+const publicClient = createPublicClient({
+  chain: base,
+  transport: fallback(
+    BASE_RPCS.map((url) => http(url, { retryCount: 0, timeout: 3_000 })),
+    { retryCount: 0 },
+  ),
+});
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getConfirmedReceipt(hash: `0x${string}`) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const receipt = await publicClient.getTransactionReceipt({ hash }).catch(() => null);
+    if (receipt) return receipt;
+    await wait(500);
+  }
+  return null;
+}
 
 function adminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,11 +67,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid transaction hash" }, { status: 400 });
   }
 
-  const client = createPublicClient({
-    chain: base,
-    transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL),
-  });
-  const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
+  const receipt = await getConfirmedReceipt(txHash as `0x${string}`);
   if (!receipt || receipt.status !== "success") {
     return NextResponse.json({ error: "Claim transaction is not confirmed" }, { status: 409 });
   }

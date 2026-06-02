@@ -17,17 +17,16 @@ const CUSTOM_RPC = process.env.NEXT_PUBLIC_BASE_RPC_URL;
 // Keep mainnet.base.org last — it rate-limits hardest.
 const BASE_RPCS = [
   CUSTOM_RPC,
-  "https://base.llamarpc.com",
   "https://base-rpc.publicnode.com",
-  "https://base.drpc.org",
-  "https://1rpc.io/base",
   "https://base.meowrpc.com",
+  "https://base.drpc.org",
   "https://mainnet.base.org",
+  "https://1rpc.io/base",
 ].filter(Boolean) as string[];
 
 const baseTransport = fallback(
-  BASE_RPCS.map((url) => http(url, { batch: true, retryCount: 2 })),
-  { rank: false, retryCount: 2 }
+  BASE_RPCS.map((url) => http(url, { batch: true, retryCount: 0, timeout: 3_000 })),
+  { rank: false, retryCount: 0 }
 );
 
 const config = createConfig({
