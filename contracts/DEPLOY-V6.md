@@ -61,3 +61,7 @@ drop allocation flow.
 Do not switch `NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS` while active V5 wager
 rooms are open. Finish or refund them first because wager escrow stays in the
 contract where the room was created.
+
+The V6 app entry point uses `NEXT_PUBLIC_SEABATTLE_V6_CONTRACT_ADDRESS`. The
+legacy `NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS` remains documented for older
+deployments.

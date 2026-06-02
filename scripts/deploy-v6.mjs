@@ -47,6 +47,7 @@ const receipt = await publicClient.waitForTransactionReceipt({ hash });
 if (!receipt.contractAddress) throw new Error("Deploy failed: no contract address");
 
 writeEnv("NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS", receipt.contractAddress);
+writeEnv("NEXT_PUBLIC_SEABATTLE_V6_CONTRACT_ADDRESS", receipt.contractAddress);
 console.log(`${CONTRACT_NAME}: ${receipt.contractAddress}`);
 
 function compile(file, name) {
