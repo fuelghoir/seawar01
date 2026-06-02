@@ -64,6 +64,16 @@ export const fleetPassAbi = [
   },
   {
     type: "event",
+    name: "FleetMinted",
+    inputs: [
+      { type: "address", name: "player", indexed: true },
+      { type: "uint256", name: "tokenId", indexed: true },
+      { type: "uint8", name: "tier", indexed: false },
+      { type: "uint8", name: "level", indexed: false },
+    ],
+  },
+  {
+    type: "event",
     name: "PassivePointsClaimed",
     inputs: [
       { type: "address", name: "player", indexed: true },

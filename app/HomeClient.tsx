@@ -41,6 +41,7 @@ import ReferralPanel from "./components/ReferralPanel";
 import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
+import { FleetMinerPromo, FleetMinerSummary } from "./components/FleetMinerWidgets";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
@@ -375,6 +376,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         />
       )}
 
+      {address && (
+        <FleetMinerPromo
+          address={address}
+          blocked={showWelcome}
+          onOpen={() => router.push("/shop#fleet-nft")}
+        />
+      )}
+
       {isMobileHome ? (
         <main className={styles.mobileShell}>
           <div className={styles.mobileTopStats}>
@@ -564,6 +573,11 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       <main className={styles.layout}>
         {/* ───── LEFT COLUMN ───── */}
         <aside className={styles.leftCol}>
+          <FleetMinerSummary
+            address={address}
+            onOpen={() => router.push("/shop#fleet-nft")}
+          />
+
           <HomeCard
             Icon={CheckIcon}
             title={tr.home_checkin_title}

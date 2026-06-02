@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { getLeaderboard, LEADERBOARD_PAGE_SIZE, LeaderboardEntry } from "../lib/offchainGame";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
+import { FleetMinerSummary } from "../components/FleetMinerWidgets";
 import { useSettings, TR } from "../lib/settings";
 import styles from "./page.module.css";
 
@@ -107,6 +108,13 @@ export default function LeaderboardPage() {
         )}
 
         <div className={styles.subtitle}>{tr.lb_subtitle}</div>
+
+        <div className={styles.mobileSeasonIntel}>
+          <FleetMinerSummary
+            address={address}
+            onOpen={() => router.push("/shop#fleet-nft")}
+          />
+        </div>
 
         {loading ? (
           <div className={styles.loadingWrap}>

@@ -159,6 +159,11 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+.mobileSeasonIntel {
+  display: none;
+  width: 100%;
+}
+
 /* ───── Loading / empty ───── */
 
 .loadingWrap {
@@ -461,6 +466,10 @@
 }
 
 /* ───── Responsive ───── */
+
+@media (max-width: 720px) {
+  .mobileSeasonIntel { display: block; }
+}
 
 @media (max-width: 460px) {
   .content { padding: 18px 12px 36px; }

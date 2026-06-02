@@ -69,6 +69,7 @@ import {
 } from "../lib/season";
 import { SettingsPanel } from "../components/SettingsPanel";
 import FleetNftPanel from "../components/FleetNftPanel";
+import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
 import {
   CheckIcon,
@@ -1302,6 +1303,7 @@ export default function ShopPage() {
             </section>
 
             <FleetNftPanel />
+            <SeasonPoolCard variant="wide" />
 
             <section className={`${styles.card} ${styles.featuredCard}`}>
               <div className={styles.cardTop}>

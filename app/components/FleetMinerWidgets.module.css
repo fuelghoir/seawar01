@@ -1,0 +1,279 @@
+.summaryStack {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+}
+
+.minerCard,
+.poolCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(67, 215, 255, 0.32);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 72% 22%, rgba(67, 215, 255, 0.18), transparent 44%),
+    linear-gradient(145deg, rgba(4, 23, 40, 0.98), rgba(2, 8, 17, 0.98));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.minerCard {
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px;
+}
+
+.minerGlow {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  top: -45px;
+  right: -20px;
+  border: 1px solid rgba(67, 215, 255, 0.28);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 24px rgba(67, 215, 255, 0.035),
+    0 0 0 48px rgba(67, 215, 255, 0.018);
+}
+
+.minerShip {
+  position: absolute;
+  top: 3px;
+  right: -10px;
+  width: 79%;
+  height: auto;
+  filter: drop-shadow(0 12px 9px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 10px rgba(67, 215, 255, 0.26));
+}
+
+.minerCopy,
+.minerCard button {
+  position: relative;
+  z-index: 1;
+}
+
+.minerCopy span,
+.poolTop span,
+.poolCard small {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: #64ddff;
+}
+
+.minerCopy h2 {
+  margin: 4px 0 2px;
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.minerCopy p,
+.poolCard p {
+  margin: 0;
+  color: rgba(225, 242, 255, 0.65);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.32;
+}
+
+.minerCard button,
+.modalAction {
+  min-height: 34px;
+  margin-top: 9px;
+  border: 0;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #43d7ff, #e9fbff);
+  color: #03111e;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.poolCard {
+  padding: 10px;
+  border-color: rgba(255, 200, 80, 0.34);
+  background:
+    radial-gradient(circle at 92% 20%, rgba(255, 200, 80, 0.16), transparent 36%),
+    linear-gradient(145deg, rgba(29, 19, 5, 0.94), rgba(6, 8, 14, 0.98));
+}
+
+.poolCardWide {
+  grid-column: 1 / -1;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 18px;
+  min-height: 88px;
+  padding: 14px 16px;
+}
+
+.poolCardWide .poolTop,
+.poolCardWide p,
+.poolCardWide small {
+  grid-column: 1;
+}
+
+.poolCardWide strong {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  font-size: clamp(22px, 4vw, 34px);
+}
+
+.poolTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.poolTop span,
+.poolCard small {
+  color: #ffd06a;
+}
+
+.poolTop b {
+  color: rgba(255, 255, 255, 0.46);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+}
+
+.poolCard strong {
+  display: block;
+  margin: 4px 0;
+  color: #fff2bf;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+}
+
+.poolCard small {
+  display: block;
+  margin-top: 7px;
+  font-size: 7px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(2, 7, 16, 0.82);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+.modal {
+  position: relative;
+  width: min(100%, 420px);
+  overflow: hidden;
+  padding: 22px 20px 18px;
+  border: 1px solid rgba(67, 215, 255, 0.56);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(67, 215, 255, 0.2), transparent 42%),
+    linear-gradient(155deg, #061b30, #030914 74%);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62), 0 0 32px rgba(67, 215, 255, 0.2);
+  text-align: center;
+}
+
+.modalClose {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  z-index: 2;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modalKicker {
+  color: #64ddff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.modalShip {
+  width: 94%;
+  height: auto;
+  margin: -9px auto -22px;
+  filter: drop-shadow(0 18px 12px rgba(0, 0, 0, 0.62)) drop-shadow(0 0 16px rgba(67, 215, 255, 0.34));
+}
+
+.modal h2 {
+  margin: 0;
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: clamp(19px, 6vw, 27px);
+  letter-spacing: 0.08em;
+}
+
+.modal p {
+  margin: 9px auto 13px;
+  max-width: 330px;
+  color: rgba(226, 242, 255, 0.7);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.modalStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.modalStats span {
+  padding: 9px;
+  border: 1px solid rgba(67, 215, 255, 0.2);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.modalStats b {
+  color: #fff;
+  font-size: 15px;
+}
+
+.modalAction {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+}
+
+.modalLater {
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+@media (max-width: 560px) {
+  .poolCardWide {
+    display: block;
+  }
+
+  .poolCardWide strong {
+    font-size: 22px;
+  }
+}
