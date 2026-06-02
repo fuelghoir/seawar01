@@ -238,7 +238,8 @@
 
   .heading {
     display: block;
-    max-width: calc(100vw - 52px);
+    width: min(100%, 350px);
+    max-width: 100%;
   }
 
   .heading b {
@@ -249,8 +250,8 @@
   .description,
   .actions,
   .stats {
-    width: 100%;
-    max-width: calc(100vw - 52px);
+    width: min(100%, 350px);
+    max-width: 100%;
   }
 
   .stats {
