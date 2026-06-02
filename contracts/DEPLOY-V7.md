@@ -39,6 +39,14 @@ cancelWagerGame(uint256)         0xc9ec8277
 claimStaleWagerRefund(uint256)   0x641bf766
 ```
 
+5. Add Base USDC and `approve(address,uint256)` so the first wager can batch
+   its exact stake approval with the sponsored create/join call:
+
+```text
+0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+approve(address,uint256)         0x095ea7b3
+```
+
 ## Legacy V6 compensation
 
 The unresolved V6 game `2` could not self-refund because that method does not

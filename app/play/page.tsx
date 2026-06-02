@@ -418,6 +418,7 @@ function PlayPageInner() {
     action: "create" | "join";
     amount: number;
     joinId?: string;
+    sponsorApprove?: boolean;
   } | null>(null);
   const wagerWriteSubmittedRef = useRef(false);
   const wagerExpectedOnchainIdRef = useRef<bigint | null>(null);
@@ -678,15 +679,27 @@ function PlayPageInner() {
         pendingAction.current = { action: "create", mode: "wager", wager: wa.amount };
         setWagerRecoveryNonce((nonce) => nonce + 1);
         if (paymasterSupported && PAYMASTER_URL) {
-          sendWagerCalls({
-            calls: [{
-              to: SEABATTLE_CONTRACT_ADDRESS,
+          const calls = [];
+          if (wa.sponsorApprove) {
+            calls.push({
+              to: USDC_ADDRESS,
               data: encodeFunctionData({
-                abi: seaBattleAbi,
-                functionName: "createWagerGame",
-                args: [BigInt(wa.amount)],
+                abi: erc20Abi,
+                functionName: "approve",
+                args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wa.amount)],
               }),
-            }],
+            });
+          }
+          calls.push({
+            to: SEABATTLE_CONTRACT_ADDRESS,
+            data: encodeFunctionData({
+              abi: seaBattleAbi,
+              functionName: "createWagerGame",
+              args: [BigInt(wa.amount)],
+            }),
+          });
+          sendWagerCalls({
+            calls,
             capabilities: { paymasterService: { url: PAYMASTER_URL } },
           });
         } else {
@@ -717,15 +730,27 @@ function PlayPageInner() {
       pendingAction.current = { action: "join", mode: "wager", joinId: wa.joinId };
       setWagerRecoveryNonce((nonce) => nonce + 1);
       if (paymasterSupported && PAYMASTER_URL) {
-        sendWagerCalls({
-          calls: [{
-            to: SEABATTLE_CONTRACT_ADDRESS,
+        const calls = [];
+        if (wa.sponsorApprove) {
+          calls.push({
+            to: USDC_ADDRESS,
             data: encodeFunctionData({
-              abi: seaBattleAbi,
-              functionName: "joinWagerGame",
-              args: [BigInt(oid)],
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wa.amount)],
             }),
-          }],
+          });
+        }
+        calls.push({
+          to: SEABATTLE_CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: seaBattleAbi,
+            functionName: "joinWagerGame",
+            args: [BigInt(oid)],
+          }),
+        });
+        sendWagerCalls({
+          calls,
           capabilities: { paymasterService: { url: PAYMASTER_URL } },
         });
       } else {
@@ -1217,6 +1242,15 @@ function PlayPageInner() {
       return true;
     }
 
+    if (paymasterSupported && PAYMASTER_URL && wagerActionRef.current) {
+      wagerActionRef.current = {
+        ...wagerActionRef.current,
+        sponsorApprove: true,
+      };
+      setApproveFallbackMined(true);
+      return true;
+    }
+
     writeApprove({
       address: USDC_ADDRESS,
       abi: erc20Abi,
@@ -1226,7 +1260,7 @@ function PlayPageInner() {
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
     return false;
-  }, [address, wagmiConfig, writeApprove]);
+  }, [address, paymasterSupported, wagmiConfig, writeApprove]);
 
   // Handlers
   const handleCreate = async () => {
