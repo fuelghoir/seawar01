@@ -269,6 +269,76 @@
   text-transform: uppercase;
 }
 
+.customWager {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.46fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid rgba(var(--mode-accent-rgb), 0.26);
+  border-radius: 8px;
+  background: rgba(var(--bg-primary-rgb), 0.52);
+}
+
+.customWager > span:first-child b,
+.customWager > span:first-child small {
+  display: block;
+}
+
+.customWager > span:first-child b {
+  color: var(--text-primary);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.customWager > span:first-child small,
+.customWager strong {
+  margin-top: 3px;
+  color: rgba(138, 180, 212, 0.68);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customWagerInput {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid rgba(var(--mode-accent-rgb), 0.42);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.customWagerInput input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #fff;
+  background: transparent;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.customWagerInput b {
+  color: var(--mode-accent);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+}
+
+.customWager strong {
+  color: var(--mode-accent);
+  white-space: nowrap;
+}
+
 .primaryButton,
 .secondaryButton,
 .gameItemJoin,
@@ -634,6 +704,10 @@
   }
 
   .wagerSelector {
+    grid-template-columns: 1fr;
+  }
+
+  .customWager {
     grid-template-columns: 1fr;
   }
 

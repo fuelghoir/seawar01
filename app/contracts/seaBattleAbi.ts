@@ -131,6 +131,13 @@ export const seaBattleAbi = [
     outputs: [{ type: "uint256", name: "" }],
     stateMutability: "view",
   },
+  {
+    type: "function",
+    name: "fundSeasonRewards",
+    inputs: [{ type: "uint256", name: "amount" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
   // ─── Views ───
   {
     type: "function",
@@ -173,6 +180,20 @@ export const seaBattleAbi = [
     name: "owner",
     inputs: [],
     outputs: [{ type: "address", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "rewardVault",
+    inputs: [],
+    outputs: [{ type: "address", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "seasonFundingTotal",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
     stateMutability: "view",
   },
   // ─── Events ───
@@ -244,6 +265,15 @@ export const seaBattleAbi = [
     inputs: [
       { type: "address", name: "player", indexed: true },
       { type: "uint256", name: "timestamp", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "SeasonRevenueFunded",
+    inputs: [
+      { type: "address", name: "payer", indexed: true },
+      { type: "bytes32", name: "source", indexed: true },
+      { type: "uint256", name: "amount", indexed: false },
     ],
   },
 ] as const;

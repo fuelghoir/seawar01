@@ -1,0 +1,24 @@
+{
+  "name": "Sea Battle Fleet Pass - Aegis Destroyer - Level 2",
+  "description": "A transferable evolving Sea Battle fleet NFT. Upgrades burn the previous token and mint its evolved form while preserving accrued points.",
+  "image": "https://seawar01.vercel.app/nft/fleet-tier-2.png",
+  "external_url": "https://seawar01.vercel.app/shop",
+  "attributes": [
+    {
+      "trait_type": "Tier",
+      "value": 2
+    },
+    {
+      "trait_type": "Level",
+      "value": 2
+    },
+    {
+      "trait_type": "Fleet class",
+      "value": "Aegis Destroyer"
+    },
+    {
+      "trait_type": "Points per hour",
+      "value": 250
+    }
+  ]
+}

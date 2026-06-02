@@ -81,6 +81,20 @@ const WAGER_OPTIONS = [
   { label: "5 USDC", value: 5_000_000 },
   { label: "10 USDC", value: 10_000_000 },
 ];
+const MIN_WAGER_USDC = 0.1;
+const MAX_WAGER_USDC = 10_000;
+
+function customWagerMicro(value: string) {
+  const amount = Number(value.replace(",", "."));
+  if (!Number.isFinite(amount) || amount < MIN_WAGER_USDC || amount > MAX_WAGER_USDC) return null;
+  return Math.round(amount * 1_000_000);
+}
+
+function formatWager(amountMicro: number) {
+  return `${(amountMicro / 1_000_000).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })} USDC`;
+}
 
 function dismissedRefundsKey(wallet: string) {
   return `seabattle_dismissed_refunds_${wallet.toLowerCase()}`;
@@ -120,6 +134,9 @@ const PLAY_COPY = {
     hideClaimedRecord: "Hide this record (if already claimed)",
     contractWarning: "Contract not deployed yet. Set NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS in .env",
     wagerAmount: "Wager amount",
+    customWager: "Custom stake",
+    customWagerHint: "From 0.1 to 10,000 USDC",
+    invalidWager: "Enter a stake from 0.1 to 10,000 USDC",
     validGameId: "Enter a valid game ID",
     offchainCreateFailed: "Failed to create offchain game",
     onchainIdMissing: "Onchain game ID not found",
@@ -166,6 +183,9 @@ const PLAY_COPY = {
     hideClaimedRecord: "Скрыть запись (если уже получено)",
     contractWarning: "Контракт ещё не задеплоен. Укажи NEXT_PUBLIC_SEABATTLE_CONTRACT_ADDRESS в .env",
     wagerAmount: "Размер ставки",
+    customWager: "Своя ставка",
+    customWagerHint: "От 0.1 до 10 000 USDC",
+    invalidWager: "Введи ставку от 0.1 до 10 000 USDC",
     validGameId: "Введи корректный ID игры",
     offchainCreateFailed: "Не удалось создать offchain-игру",
     onchainIdMissing: "Onchain ID игры не найден",
@@ -211,6 +231,7 @@ function PlayPageInner() {
   const [offchainLoading, setOffchainLoading] = useState(false);
   const [offchainGames, setOffchainGames] = useState<{ id: number; player1: string; game_mode: string; wager_amount: number }[]>([]);
   const [wagerAmount, setWagerAmount] = useState(WAGER_OPTIONS[0].value);
+  const [customWager, setCustomWager] = useState("1");
   const [unclaimedWins, setUnclaimedWins] = useState<UnclaimedWin[]>([]);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
@@ -970,11 +991,17 @@ function PlayPageInner() {
 
     if (mode === "wager") {
       if (CONTRACT_NOT_SET) { setError(tr.contract_not_deployed); return; }
+      const selectedAmount = customWagerMicro(customWager);
+      if (selectedAmount === null) {
+        setError(playCopy.invalidWager);
+        return;
+      }
+      setWagerAmount(selectedAmount);
       if (wagerSecondStepReady && wagerActionRef.current?.action === "create") {
         submitWagerWrite();
         return;
       }
-      wagerActionRef.current = { action: "create", amount: wagerAmount };
+      wagerActionRef.current = { action: "create", amount: selectedAmount };
       wagerExpectedOnchainIdRef.current = null;
       wagerCompletionStartedRef.current = false;
       resetApprove();
@@ -986,7 +1013,7 @@ function PlayPageInner() {
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: "approve",
-        args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(wagerAmount)],
+        args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(selectedAmount)],
         chainId: base.id,
         dataSuffix: BUILDER_CODE_SUFFIX,
       });
@@ -1133,6 +1160,7 @@ function PlayPageInner() {
         : playCopy.botKicker;
   const modeClass = mode === "wager" ? styles.wagerMode : styles.friendMode;
   const selectedWager = WAGER_OPTIONS.find((opt) => opt.value === wagerAmount);
+  const selectedWagerLabel = selectedWager?.label ?? formatWager(wagerAmount);
   const createButtonLabel =
     createSecondStepReady
       ? playCopy.sendUsdc
@@ -1207,7 +1235,7 @@ function PlayPageInner() {
               </div>
               <div className={styles.modeTelemetry}>
                 <div>
-                  <b>{mode === "wager" ? selectedWager?.label : playCopy.free}</b>
+                  <b>{mode === "wager" ? selectedWagerLabel : playCopy.free}</b>
                   <small>{mode === "wager" ? playCopy.stake : playCopy.entry}</small>
                 </div>
                 <div>
@@ -1235,7 +1263,10 @@ function PlayPageInner() {
                     <button
                       key={opt.value}
                       className={`${styles.wagerOption} ${wagerAmount === opt.value ? styles.wagerActive : ""}`}
-                      onClick={() => setWagerAmount(opt.value)}
+                      onClick={() => {
+                        setWagerAmount(opt.value);
+                        setCustomWager(String(opt.value / 1_000_000));
+                      }}
                       disabled={loading || createSecondStepReady}
                       type="button"
                     >
@@ -1244,6 +1275,32 @@ function PlayPageInner() {
                     </button>
                   ))}
                 </div>
+              )}
+
+              {mode === "wager" && (
+                <label className={styles.customWager}>
+                  <span>
+                    <b>{playCopy.customWager}</b>
+                    <small>{playCopy.customWagerHint}</small>
+                  </span>
+                  <span className={styles.customWagerInput}>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={customWager}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setCustomWager(next);
+                        const amount = customWagerMicro(next);
+                        if (amount !== null) setWagerAmount(amount);
+                      }}
+                      disabled={loading || createSecondStepReady}
+                      aria-label={playCopy.customWager}
+                    />
+                    <b>USDC</b>
+                  </span>
+                  <strong>{playCopy.prizePool} {(wagerAmount * 2 * 0.9 / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong>
+                </label>
               )}
 
               {mode !== "bot" && (

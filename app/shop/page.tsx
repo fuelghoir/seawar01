@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useAccount,
   useReadContract,
+  useReadContracts,
   useWriteContract,
   useWaitForTransactionReceipt,
   useSendCalls,
@@ -67,6 +68,7 @@ import {
   validateSeasonLevelClaims,
 } from "../lib/season";
 import { SettingsPanel } from "../components/SettingsPanel";
+import FleetNftPanel from "../components/FleetNftPanel";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
 import {
   CheckIcon,
@@ -172,33 +174,38 @@ export default function ShopPage() {
   const owned = Number(bombsOwned ?? BigInt(0));
   const available = Math.max(0, owned - bombsUsed);
   const captainSbtDeployed = CAPTAIN_SBT_CONTRACT_ADDRESS !== ZERO_ADDR;
-  const { data: captainSbtBalance, refetch: refetchCaptainSbtBalance } = useReadContract({
-    address: CAPTAIN_SBT_CONTRACT_ADDRESS,
-    abi: captainSbtAbi,
-    functionName: "balanceOf",
-    args: [address || ZERO_ADDR],
+  const { data: captainSbtReads, refetch: refetchCaptainSbtReads } = useReadContracts({
+    contracts: [
+      {
+        address: CAPTAIN_SBT_CONTRACT_ADDRESS,
+        abi: captainSbtAbi,
+        functionName: "balanceOf",
+        args: [address || ZERO_ADDR],
+      },
+      {
+        address: CAPTAIN_SBT_CONTRACT_ADDRESS,
+        abi: captainSbtAbi,
+        functionName: "tokenOfOwner",
+        args: [address || ZERO_ADDR],
+      },
+      {
+        address: CAPTAIN_SBT_CONTRACT_ADDRESS,
+        abi: captainSbtAbi,
+        functionName: "totalSupply",
+      },
+      {
+        address: CAPTAIN_SBT_CONTRACT_ADDRESS,
+        abi: captainSbtAbi,
+        functionName: "nonces",
+        args: [address || ZERO_ADDR],
+      },
+    ],
     query: { enabled: !!address && captainSbtDeployed },
   });
-  const { data: captainSbtTokenId, refetch: refetchCaptainSbtTokenId } = useReadContract({
-    address: CAPTAIN_SBT_CONTRACT_ADDRESS,
-    abi: captainSbtAbi,
-    functionName: "tokenOfOwner",
-    args: [address || ZERO_ADDR],
-    query: { enabled: !!address && captainSbtDeployed },
-  });
-  const { data: captainSbtTotalSupply, refetch: refetchCaptainSbtSupply } = useReadContract({
-    address: CAPTAIN_SBT_CONTRACT_ADDRESS,
-    abi: captainSbtAbi,
-    functionName: "totalSupply",
-    query: { enabled: captainSbtDeployed },
-  });
-  const { data: captainSbtNonce, refetch: refetchCaptainSbtNonce } = useReadContract({
-    address: CAPTAIN_SBT_CONTRACT_ADDRESS,
-    abi: captainSbtAbi,
-    functionName: "nonces",
-    args: [address || ZERO_ADDR],
-    query: { enabled: !!address && captainSbtDeployed },
-  });
+  const captainSbtBalance = captainSbtReads?.[0]?.result;
+  const captainSbtTokenId = captainSbtReads?.[1]?.result;
+  const captainSbtTotalSupply = captainSbtReads?.[2]?.result;
+  const captainSbtNonce = captainSbtReads?.[3]?.result;
 
   // Season shop inventory
   const [inventory, setInventory] = useState<InventoryMap | null>(null);
@@ -221,27 +228,16 @@ export default function ShopPage() {
 
   const refreshSeasonShop = useCallback(async () => {
     if (!address) return;
-    try {
-      const [
-        nextInventory,
-        nextSeason,
-        nextBooster,
-        nextQuestRerollPointUsed,
-        nextLimitedSbt,
-      ] = await Promise.all([
-        getInventory(address),
-        getSeasonState(address),
-        getActiveDoublePoints(address),
-        hasQuestRerollPointPurchaseThisWeek(address).catch(() => false),
-        getLimitedSbtState(address).catch(() => null),
-      ]);
-      setInventory(nextInventory);
-      setSeason(nextSeason);
-      setActiveBoosterUntil(nextBooster);
-      setQuestRerollPointUsed(nextQuestRerollPointUsed);
-      setLimitedSbt(nextLimitedSbt);
-    } catch (err) {
-      setShopMsg(err instanceof Error ? err.message : tr.shop_items_load_failed);
+    const results = await Promise.allSettled([
+      getInventory(address).then(setInventory),
+      getSeasonState(address).then(setSeason),
+      getActiveDoublePoints(address).then(setActiveBoosterUntil),
+      hasQuestRerollPointPurchaseThisWeek(address).then(setQuestRerollPointUsed),
+      getLimitedSbtState(address).then(setLimitedSbt),
+    ]);
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed?.status === "rejected") {
+      setShopMsg(failed.reason instanceof Error ? failed.reason.message : tr.shop_items_load_failed);
     }
   }, [address, tr.shop_items_load_failed]);
 
@@ -1055,19 +1051,13 @@ export default function ShopPage() {
     setSbtMsg(lang === "ru" ? "SBT заминчен on-chain" : "SBT minted on-chain");
     Promise.all([
       refreshSeasonShop(),
-      refetchCaptainSbtBalance(),
-      refetchCaptainSbtTokenId(),
-      refetchCaptainSbtSupply(),
-      refetchCaptainSbtNonce(),
+      refetchCaptainSbtReads(),
     ]).catch(() => {});
     setSbtBusy(null);
   }, [
     captainSbtMintReceipt,
     lang,
-    refetchCaptainSbtBalance,
-    refetchCaptainSbtNonce,
-    refetchCaptainSbtSupply,
-    refetchCaptainSbtTokenId,
+    refetchCaptainSbtReads,
     refreshSeasonShop,
     sbtBusy,
   ]);
@@ -1310,6 +1300,8 @@ export default function ShopPage() {
                 <b>{available}</b>
               </div>
             </section>
+
+            <FleetNftPanel />
 
             <section className={`${styles.card} ${styles.featuredCard}`}>
               <div className={styles.cardTop}>
