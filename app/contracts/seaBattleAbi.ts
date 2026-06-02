@@ -1,8 +1,9 @@
-const DEFAULT_SEABATTLE_V6_CONTRACT_ADDRESS =
-  "0x6457682e81b593f458acc030a6b8ba2a1e408250" as `0x${string}`;
+const DEFAULT_SEABATTLE_V7_CONTRACT_ADDRESS =
+  "0x8de75fbc38b1e47e53fb2e85791c935f5f653aa6" as `0x${string}`;
 
 export const SEABATTLE_CONTRACT_ADDRESS = (process.env
-  .NEXT_PUBLIC_SEABATTLE_V6_CONTRACT_ADDRESS || DEFAULT_SEABATTLE_V6_CONTRACT_ADDRESS) as `0x${string}`;
+  .NEXT_PUBLIC_SEABATTLE_V7_CONTRACT_ADDRESS ||
+  DEFAULT_SEABATTLE_V7_CONTRACT_ADDRESS) as `0x${string}`;
 
 export const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`;
 export const COMMISSION_WALLET = "0xA4Df87d8940ac70aC8A33DB79bb1057238B490e4" as `0x${string}`;
@@ -100,6 +101,13 @@ export const seaBattleAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "function",
+    name: "claimStaleWagerRefund",
+    inputs: [{ type: "uint256", name: "gameId" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
   // ─── Result ───
   {
     type: "function",
@@ -153,6 +161,19 @@ export const seaBattleAbi = [
       { type: "uint256", name: "wagerAmount" },
       { type: "bool", name: "finished" },
       { type: "address", name: "winner" },
+      { type: "bool", name: "cancelled" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getWagerRefundState",
+    inputs: [{ type: "uint256", name: "gameId" }],
+    outputs: [
+      { type: "uint256", name: "createdAt" },
+      { type: "uint256", name: "joinedAt" },
+      { type: "bool", name: "refundClaimedP1" },
+      { type: "bool", name: "refundClaimedP2" },
       { type: "bool", name: "cancelled" },
     ],
     stateMutability: "view",
@@ -248,6 +269,15 @@ export const seaBattleAbi = [
     inputs: [
       { type: "uint256", name: "gameId", indexed: true },
       { type: "address", name: "player1", indexed: false },
+      { type: "uint256", name: "refund", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "StaleWagerRefundClaimed",
+    inputs: [
+      { type: "uint256", name: "gameId", indexed: true },
+      { type: "address", name: "player", indexed: true },
       { type: "uint256", name: "refund", indexed: false },
     ],
   },

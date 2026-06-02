@@ -4,13 +4,16 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   useAccount,
+  useCallsStatus,
+  useCapabilities,
+  useSendCalls,
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
   useConfig,
 } from "wagmi";
 import { readContract, simulateContract } from "@wagmi/core";
-import { keccak256, toHex, concatHex } from "viem";
+import { keccak256, toHex, concatHex, encodeFunctionData } from "viem";
 import { base } from "wagmi/chains";
 import { supabase, OffchainGame } from "../lib/supabase";
 import {
@@ -44,6 +47,8 @@ import { GameLobby } from "./components/GameLobby";
 import { GameWaitOpponent } from "./components/GameWaitOpponent";
 import { GameResult } from "./components/GameResult";
 import styles from "./page.module.css";
+
+const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 
 function buildBoardHash(boardLayout: number[], salt: Uint8Array): string {
   const boardHex = toHex(new Uint8Array(boardLayout));
@@ -106,6 +111,9 @@ export function OffchainGameContent({
   const router = useRouter();
   const { address } = useAccount();
   const wagmiConfig = useConfig();
+  const { data: capabilities } = useCapabilities({ chainId: base.id });
+  const paymasterSupported =
+    !!PAYMASTER_URL && !!capabilities?.paymasterService?.supported;
   const gameIdNum = Number(gameIdStr);
 
   const [game, setGame] = useState<OffchainGame | null>(null);
@@ -127,12 +135,27 @@ export function OffchainGameContent({
   const {
     data: resultTxHash,
     writeContract: writeResult,
-    isPending: resultPending,
+    isPending: resultTxPending,
   } = useWriteContract();
   const { data: resultReceipt } = useWaitForTransactionReceipt({
     hash: resultTxHash,
   });
-  const resultConfirmed = resultReceipt?.status === "success";
+  const {
+    sendCalls: sendResultCalls,
+    data: resultCallsData,
+    isPending: resultCallsPending,
+  } = useSendCalls();
+  const { data: resultCallsStatus } = useCallsStatus({
+    id: resultCallsData?.id ?? "",
+    query: {
+      enabled: !!resultCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1_000,
+    },
+  });
+  const resultConfirmed =
+    resultReceipt?.status === "success" || resultCallsStatus?.status === "success";
+  const resultPending = resultTxPending || resultCallsPending;
   const [wagerResultRecorded, setWagerResultRecorded] = useState(false);
 
   useEffect(() => {
@@ -209,12 +232,27 @@ export function OffchainGameContent({
   const {
     data: claimTxHash,
     writeContract: writeClaim,
-    isPending: claimPending,
+    isPending: claimTxPending,
   } = useWriteContract();
   const { data: claimReceipt } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
-  const claimConfirmed = claimReceipt?.status === "success";
+  const {
+    sendCalls: sendClaimCalls,
+    data: claimCallsData,
+    isPending: claimCallsPending,
+  } = useSendCalls();
+  const { data: claimCallsStatus } = useCallsStatus({
+    id: claimCallsData?.id ?? "",
+    query: {
+      enabled: !!claimCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1_000,
+    },
+  });
+  const claimConfirmed =
+    claimReceipt?.status === "success" || claimCallsStatus?.status === "success";
+  const claimPending = claimTxPending || claimCallsPending;
 
   // ─── V5 bomb inventory (purchase in /shop, consume off-chain) ───
   // Contract tracks total purchased; off-chain games track which fired.
@@ -296,6 +334,32 @@ export function OffchainGameContent({
   // Friend mode: each player explicitly calls recordSoloResult via the
   // Save Result button — no auto-fire here.
   const resultRecordedRef = useRef(false);
+  const submitWagerResult = useCallback((winner: `0x${string}`) => {
+    if (!onchainGameId) return;
+    if (paymasterSupported && PAYMASTER_URL) {
+      sendResultCalls({
+        calls: [{
+          to: SEABATTLE_CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: seaBattleAbi,
+            functionName: "recordResult",
+            args: [BigInt(onchainGameId), winner],
+          }),
+        }],
+        capabilities: { paymasterService: { url: PAYMASTER_URL } },
+      });
+      return;
+    }
+    writeResult({
+      address: SEABATTLE_CONTRACT_ADDRESS,
+      abi: seaBattleAbi,
+      functionName: "recordResult",
+      args: [BigInt(onchainGameId), winner],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+  }, [onchainGameId, paymasterSupported, sendResultCalls, writeResult]);
+
   const handleRecordWagerResult = useCallback(async () => {
     if (
       game?.state !== 3 ||
@@ -341,14 +405,7 @@ export function OffchainGameContent({
       // If the read is flaky, still let the wallet/simulation surface the result.
     }
 
-    writeResult({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "recordResult",
-      args: [BigInt(onchainGameId), game.winner as `0x${string}`],
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
+    submitWagerResult(game.winner as `0x${string}`);
   }, [
     address,
     game?.state,
@@ -357,7 +414,7 @@ export function OffchainGameContent({
     onchainGameId,
     wagerResultRecorded,
     wagmiConfig,
-    writeResult,
+    submitWagerResult,
   ]);
   useEffect(() => {
     if (
@@ -415,16 +472,9 @@ export function OffchainGameContent({
         return;
       }
 
-      writeResult({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "recordResult",
-        args: [BigInt(onchainGameId), game.winner as `0x${string}`],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
+      submitWagerResult(game.winner as `0x${string}`);
     })();
-  }, [game?.state, game?.winner, address, mode, onchainGameId, wagerResultRecorded, writeResult, wagmiConfig]);
+  }, [game?.state, game?.winner, address, mode, onchainGameId, wagerResultRecorded, submitWagerResult, wagmiConfig]);
 
   // Friend mode: explicit per-player save via V4 recordSoloResult.
   const handleSaveFriendResult = useCallback(() => {
@@ -453,6 +503,20 @@ export function OffchainGameContent({
 
   const handleClaim = useCallback(() => {
     if (!onchainGameId) return;
+    if (paymasterSupported && PAYMASTER_URL) {
+      sendClaimCalls({
+        calls: [{
+          to: SEABATTLE_CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: seaBattleAbi,
+            functionName: "claimPrize",
+            args: [BigInt(onchainGameId)],
+          }),
+        }],
+        capabilities: { paymasterService: { url: PAYMASTER_URL } },
+      });
+      return;
+    }
     writeClaim({
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
@@ -461,7 +525,7 @@ export function OffchainGameContent({
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [onchainGameId, writeClaim]);
+  }, [onchainGameId, paymasterSupported, sendClaimCalls, writeClaim]);
 
   // Load game data
   const loadGame = useCallback(async () => {

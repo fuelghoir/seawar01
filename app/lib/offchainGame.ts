@@ -3,6 +3,7 @@ import { addSeasonXp, consumeItem, getGamePointMultiplier, getItemQuantity } fro
 import { awardFirstGameReferralBonus } from "./referrals";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
+const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
 
 // ─── Offchain game CRUD ───
 
@@ -221,10 +222,11 @@ export interface RefundableGame {
 }
 
 /**
- * Wager games created by `wallet` and still unjoined. Hidden/cancelled rows are
- * excluded so old local dismissals cannot resurface as bogus refunds.
+ * Wager games created by `wallet`, still unjoined, and old enough for the
+ * contract's three-minute refund delay.
  */
 export async function getRefundableGames(wallet: string): Promise<RefundableGame[]> {
+  const cutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
   const { data } = await supabase
     .from("games")
     .select("id, onchain_game_id, wager_amount, created_at")
@@ -234,8 +236,35 @@ export async function getRefundableGames(wallet: string): Promise<RefundableGame
     .is("player2", null)
     .not("onchain_game_id", "is", null)
     .gt("wager_amount", 0)
+    .gte("created_at", V7_WAGER_LAUNCHED_AT)
+    .lt("created_at", cutoff)
     .order("id", { ascending: false });
   return (data || []) as RefundableGame[];
+}
+
+export interface ActiveWagerGame extends RefundableGame {
+  player1: string;
+  player2: string | null;
+  state: number;
+}
+
+/**
+ * Return unfinished wager rooms for reconnect and joined-game timeout checks.
+ * Contract state is checked separately by the caller before presenting actions.
+ */
+export async function getActiveWagerGames(wallet: string): Promise<ActiveWagerGame[]> {
+  const addr = wallet.toLowerCase();
+  const { data } = await supabase
+    .from("games")
+    .select("id, onchain_game_id, wager_amount, created_at, player1, player2, state")
+    .eq("game_mode", "wager")
+    .in("state", [0, 1, 2])
+    .or(`player1.eq.${addr},player2.eq.${addr}`)
+    .not("onchain_game_id", "is", null)
+    .gt("wager_amount", 0)
+    .gte("created_at", V7_WAGER_LAUNCHED_AT)
+    .order("id", { ascending: false });
+  return (data || []) as ActiveWagerGame[];
 }
 
 export async function markGameCancelled(gameId: number): Promise<void> {
@@ -260,6 +289,7 @@ export async function getUnclaimedWins(wallet: string): Promise<UnclaimedWin[]> 
     .eq("game_mode", "wager")
     .eq("prize_claimed", false)
     .eq("state", 3)
+    .gte("created_at", V7_WAGER_LAUNCHED_AT)
     .order("id", { ascending: false });
   return (data || []) as UnclaimedWin[];
 }
@@ -681,11 +711,13 @@ export async function getBombsUsedCount(wallet: string): Promise<number> {
       .from("games")
       .select("id", { count: "exact", head: true })
       .eq("player1", addr)
+      .gte("created_at", V7_WAGER_LAUNCHED_AT)
       .eq("bomb_used_p1", true),
     supabase
       .from("games")
       .select("id", { count: "exact", head: true })
       .eq("player2", addr)
+      .gte("created_at", V7_WAGER_LAUNCHED_AT)
       .eq("bomb_used_p2", true),
   ]);
   return (usedAsP1 || 0) + (usedAsP2 || 0);
@@ -697,7 +729,7 @@ export async function getAvailableGames(
 ): Promise<{ id: number; player1: string; game_mode: string; wager_amount: number }[]> {
   let query = supabase
     .from("games")
-    .select("id, player1, game_mode, wager_amount")
+    .select("id, player1, game_mode, wager_amount, created_at")
     .eq("state", 0)
     .eq("is_private", false)
     .order("id", { ascending: false })
@@ -725,7 +757,9 @@ export async function getAvailableGames(
         || r.game_mode === "friend"
     );
   }
-  return rows.filter(r => r.game_mode === mode);
+  return rows.filter(
+    r => r.game_mode === mode && r.created_at >= V7_WAGER_LAUNCHED_AT
+  );
 }
 
 export async function getPlayerShots(

@@ -4,6 +4,9 @@ import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useAccount,
+  useCallsStatus,
+  useCapabilities,
+  useSendCalls,
   useWriteContract,
   useWaitForTransactionReceipt,
   useSwitchChain,
@@ -15,7 +18,7 @@ import {
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog } from "viem";
+import { decodeEventLog, encodeFunctionData, maxUint256 } from "viem";
 import {
   seaBattleAbi,
   erc20Abi,
@@ -40,7 +43,9 @@ import {
   markPrizeClaimed,
   autoCloseStaleGames,
   getRefundableGames,
+  getActiveWagerGames,
   markGameCancelled,
+  ActiveWagerGame,
   UnclaimedWin,
   RefundableGame,
 } from "../lib/offchainGame";
@@ -55,6 +60,7 @@ const styles = { ...baseStyles, ...localStyles };
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const CONTRACT_NOT_SET = SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR;
+const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 
 function formatRevert(msg: string, lang: string = "en"): string {
   const ru = lang === "ru";
@@ -99,6 +105,10 @@ function formatWager(amountMicro: number) {
 function dismissedRefundsKey(wallet: string) {
   return `seabattle_dismissed_refunds_${wallet.toLowerCase()}`;
 }
+
+type DisplayRefundableGame = RefundableGame & {
+  refundKind: "unjoined" | "joined";
+};
 
 const PLAY_COPY = {
   en: {
@@ -149,6 +159,12 @@ const PLAY_COPY = {
     cannotFinalize: "Cannot finalize: ",
     cannotClaim: "Cannot claim: ",
     alreadyClaimedOnchain: "Already claimed onchain. Use × to hide this record.",
+    activeWagers: "Your active wager battles",
+    reconnect: "Reconnect",
+    waitingOpponent: "Waiting for opponent",
+    placingShips: "Fleet placement",
+    battleActive: "Battle active",
+    joinedRefund: "Timed-out battle",
   },
   ru: {
     botKicker: "Тренировка соло",
@@ -198,6 +214,12 @@ const PLAY_COPY = {
     cannotFinalize: "Не удалось финализировать: ",
     cannotClaim: "Не удалось получить: ",
     alreadyClaimedOnchain: "Уже получено onchain. Нажми ×, чтобы скрыть запись.",
+    activeWagers: "Твои активные бои со ставкой",
+    reconnect: "Вернуться",
+    waitingOpponent: "Ждём соперника",
+    placingShips: "Расстановка флота",
+    battleActive: "Бой идёт",
+    joinedRefund: "Бой просрочен",
   },
 };
 
@@ -222,6 +244,9 @@ function PlayPageInner() {
   const tr = TR[lang];
   const playCopy = PLAY_COPY[lang === "ru" ? "ru" : "en"];
   const wagmiConfig = useConfig();
+  const { data: capabilities } = useCapabilities({ chainId: base.id });
+  const paymasterSupported =
+    !!PAYMASTER_URL && !!capabilities?.paymasterService?.supported;
 
   const [joinGameId, setJoinGameId] = useState("");
   const [error, setError] = useState("");
@@ -236,7 +261,8 @@ function PlayPageInner() {
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [claimStep, setClaimStep] = useState<"idle" | "recording" | "claiming">("idle");
   const [claimErr, setClaimErr] = useState("");
-  const [refundableGames, setRefundableGames] = useState<RefundableGame[]>([]);
+  const [refundableGames, setRefundableGames] = useState<DisplayRefundableGame[]>([]);
+  const [activeWagerGames, setActiveWagerGames] = useState<ActiveWagerGame[]>([]);
   const [dismissedRefundIds, setDismissedRefundIds] = useState<Set<number>>(() => new Set());
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelErr, setCancelErr] = useState("");
@@ -260,6 +286,11 @@ function PlayPageInner() {
     useWaitForTransactionReceipt({ hash: txHash });
   const [wagerReceiptFallback, setWagerReceiptFallback] = useState<typeof receipt | null>(null);
   const wagerReceipt = receipt ?? wagerReceiptFallback;
+  const {
+    sendCalls: sendWagerCalls,
+    isPending: wagerCallsPending,
+    error: wagerCallsError,
+  } = useSendCalls();
 
   // USDC approve for wager
   const {
@@ -314,7 +345,27 @@ function PlayPageInner() {
   const { data: claimReceipt } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
-  const claimConfirmed = claimReceipt?.status === "success";
+  const {
+    sendCalls: sendClaimCalls,
+    data: claimCallsData,
+    isPending: claimCallsPending,
+    error: claimCallsError,
+  } = useSendCalls();
+  const { data: claimCallsStatus } = useCallsStatus({
+    id: claimCallsData?.id ?? "",
+    query: {
+      enabled: !!claimCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1_000,
+    },
+  });
+  const claimCallsBaselineRef = useRef<string | null>(null);
+  const sponsoredClaimConfirmed =
+    !!claimCallsData?.id &&
+    claimCallsData.id !== claimCallsBaselineRef.current &&
+    claimCallsStatus?.status === "success";
+  const claimConfirmed =
+    claimReceipt?.status === "success" || sponsoredClaimConfirmed;
 
   // Record result
   const {
@@ -340,7 +391,27 @@ function PlayPageInner() {
   const { data: cancelReceipt } = useWaitForTransactionReceipt({
     hash: cancelTxHash,
   });
-  const cancelConfirmed = cancelReceipt?.status === "success";
+  const {
+    sendCalls: sendCancelCalls,
+    data: cancelCallsData,
+    isPending: cancelCallsPending,
+    error: cancelCallsError,
+  } = useSendCalls();
+  const { data: cancelCallsStatus } = useCallsStatus({
+    id: cancelCallsData?.id ?? "",
+    query: {
+      enabled: !!cancelCallsData?.id,
+      refetchInterval: ({ state }) =>
+        state.data?.status === "success" ? false : 1_000,
+    },
+  });
+  const cancelCallsBaselineRef = useRef<string | null>(null);
+  const sponsoredCancelConfirmed =
+    !!cancelCallsData?.id &&
+    cancelCallsData.id !== cancelCallsBaselineRef.current &&
+    cancelCallsStatus?.status === "success";
+  const cancelConfirmed =
+    cancelReceipt?.status === "success" || sponsoredCancelConfirmed;
 
   // Pending action routing
   const wagerActionRef = useRef<{
@@ -452,8 +523,9 @@ function PlayPageInner() {
   }, [approveTxHash, address, approveSuccess, wagmiConfig]);
 
   useEffect(() => {
-    if (writeError) {
-      const msg = writeError.message || "Transaction failed";
+    const txError = writeError || wagerCallsError;
+    if (txError) {
+      const msg = txError.message || "Transaction failed";
       const reasonMatch = msg.match(/reason:\s*(.+?)(?:\n|$)/);
       setError(reasonMatch ? reasonMatch[1] : msg.slice(0, 150));
       if (pendingAction.current?.mode === "wager") {
@@ -464,7 +536,7 @@ function PlayPageInner() {
         setWagerSecondStepReady(!!wagerActionRef.current && approveSuccess);
       }
     }
-  }, [writeError, approveSuccess]);
+  }, [writeError, wagerCallsError, approveSuccess]);
 
   useEffect(() => {
     if (
@@ -605,14 +677,28 @@ function PlayPageInner() {
         }
         pendingAction.current = { action: "create", mode: "wager", wager: wa.amount };
         setWagerRecoveryNonce((nonce) => nonce + 1);
-        writeContract({
-          address: SEABATTLE_CONTRACT_ADDRESS,
-          abi: seaBattleAbi,
-          functionName: "createWagerGame",
-          args: [BigInt(wa.amount)],
-          chainId: base.id,
-          dataSuffix: BUILDER_CODE_SUFFIX,
-        });
+        if (paymasterSupported && PAYMASTER_URL) {
+          sendWagerCalls({
+            calls: [{
+              to: SEABATTLE_CONTRACT_ADDRESS,
+              data: encodeFunctionData({
+                abi: seaBattleAbi,
+                functionName: "createWagerGame",
+                args: [BigInt(wa.amount)],
+              }),
+            }],
+            capabilities: { paymasterService: { url: PAYMASTER_URL } },
+          });
+        } else {
+          writeContract({
+            address: SEABATTLE_CONTRACT_ADDRESS,
+            abi: seaBattleAbi,
+            functionName: "createWagerGame",
+            args: [BigInt(wa.amount)],
+            chainId: base.id,
+            dataSuffix: BUILDER_CODE_SUFFIX,
+          });
+        }
         return;
       }
 
@@ -630,14 +716,28 @@ function PlayPageInner() {
       wagerExpectedOnchainIdRef.current = BigInt(oid);
       pendingAction.current = { action: "join", mode: "wager", joinId: wa.joinId };
       setWagerRecoveryNonce((nonce) => nonce + 1);
-      writeContract({
-        address: SEABATTLE_CONTRACT_ADDRESS,
-        abi: seaBattleAbi,
-        functionName: "joinWagerGame",
-        args: [BigInt(oid)],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
+      if (paymasterSupported && PAYMASTER_URL) {
+        sendWagerCalls({
+          calls: [{
+            to: SEABATTLE_CONTRACT_ADDRESS,
+            data: encodeFunctionData({
+              abi: seaBattleAbi,
+              functionName: "joinWagerGame",
+              args: [BigInt(oid)],
+            }),
+          }],
+          capabilities: { paymasterService: { url: PAYMASTER_URL } },
+        });
+      } else {
+        writeContract({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "joinWagerGame",
+          args: [BigInt(oid)],
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+      }
     } catch (e: unknown) {
       pendingAction.current = null;
       wagerWriteSubmittedRef.current = false;
@@ -646,7 +746,14 @@ function PlayPageInner() {
       setWagerSecondStepReady(true);
       setError((e as Error).message?.slice(0, 150) || "Transaction failed");
     }
-  }, [playCopy.onchainIdMissing, resetWagerWrite, wagmiConfig, writeContract]);
+  }, [
+    paymasterSupported,
+    playCopy.onchainIdMissing,
+    resetWagerWrite,
+    sendWagerCalls,
+    wagmiConfig,
+    writeContract,
+  ]);
 
   useEffect(() => {
     if (!approveSuccess || !wagerActionRef.current || wagerWriteSubmittedRef.current) return;
@@ -714,59 +821,147 @@ function PlayPageInner() {
     setRefundableGames((games) => games.filter((g) => g.id !== gameId));
   }, [address]);
 
-  const loadRefundable = useCallback(async () => {
+  const cancellingRefundKindRef = useRef<DisplayRefundableGame["refundKind"] | null>(null);
+
+  const loadWagerRooms = useCallback(async () => {
     if (!address || mode !== "wager") {
       setRefundableGames([]);
+      setActiveWagerGames([]);
       return;
     }
-    const games = await getRefundableGames(address);
-    setRefundableGames(games);
-  }, [address, mode]);
+    const [unjoined, active] = await Promise.all([
+      getRefundableGames(address),
+      getActiveWagerGames(address),
+    ]);
+    const me = address.toLowerCase();
+    const joinedRefunds: DisplayRefundableGame[] = [];
+    const resumable: ActiveWagerGame[] = [];
+
+    await Promise.all(active.map(async (game) => {
+      if (!game.player2 || game.onchain_game_id === null) {
+        resumable.push(game);
+        return;
+      }
+
+      try {
+        const refundState = await readContract(wagmiConfig, {
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "getWagerRefundState",
+          args: [BigInt(game.onchain_game_id)],
+          chainId: base.id,
+        }) as readonly [bigint, bigint, boolean, boolean, boolean];
+        const [, joinedAt, refundClaimedP1, refundClaimedP2, cancelled] = refundState;
+        const mineClaimed =
+          game.player1.toLowerCase() === me ? refundClaimedP1 : refundClaimedP2;
+        const refundReady =
+          joinedAt > BigInt(0) &&
+          Date.now() >= Number(joinedAt + BigInt(15 * 60)) * 1000;
+
+        if (refundClaimedP1 && refundClaimedP2) {
+          markGameCancelled(game.id).catch(() => {});
+          return;
+        }
+        if (refundReady && !mineClaimed) {
+          joinedRefunds.push({ ...game, refundKind: "joined" });
+        }
+        if (!cancelled) {
+          resumable.push(game);
+        }
+      } catch {
+        // V6 rooms do not expose timeout state. Keep reconnect available.
+        resumable.push(game);
+      }
+    }));
+
+    setActiveWagerGames(resumable);
+    setRefundableGames([
+      ...unjoined.map((game) => ({ ...game, refundKind: "unjoined" as const })),
+      ...joinedRefunds,
+    ]);
+  }, [address, mode, wagmiConfig]);
 
   useEffect(() => {
     autoCloseStaleGames().catch(() => {});
-    loadRefundable();
-  }, [loadRefundable]);
+    loadWagerRooms();
+    const interval = window.setInterval(loadWagerRooms, 10000);
+    return () => window.clearInterval(interval);
+  }, [loadWagerRooms]);
 
   useEffect(() => {
     if (cancelConfirmed && cancellingId !== null) {
       rememberDismissedRefund(cancellingId);
-      markGameCancelled(cancellingId).catch(() => {});
+      if (cancellingRefundKindRef.current === "unjoined") {
+        markGameCancelled(cancellingId).catch(() => {});
+      }
       setCancellingId(null);
       setCancelErr("");
+      cancellingRefundKindRef.current = null;
       resetCancel();
-      loadRefundable();
+      loadWagerRooms();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cancelConfirmed, cancellingId]);
 
   useEffect(() => {
-    if (cancelWriteError && cancellingId !== null) {
-      const msg = cancelWriteError.message || "Refund failed";
+    const refundError = cancelWriteError || cancelCallsError;
+    if (refundError && cancellingId !== null) {
+      const msg = refundError.message || "Refund failed";
       setCancelErr(formatRevert(msg, lang));
       setCancellingId(null);
+      cancellingRefundKindRef.current = null;
     }
-  }, [cancelWriteError, cancellingId, lang]);
+  }, [cancelWriteError, cancelCallsError, cancellingId, lang]);
 
-  const handleRefund = useCallback((g: RefundableGame) => {
+  const handleRefund = useCallback((g: DisplayRefundableGame) => {
     if (g.onchain_game_id === null) return;
     setCancelErr("");
     resetCancel();
     setCancellingId(g.id);
+    cancellingRefundKindRef.current = g.refundKind;
+    cancelCallsBaselineRef.current = cancelCallsData?.id ?? null;
+    if (paymasterSupported && PAYMASTER_URL) {
+      const data = g.refundKind === "joined"
+        ? encodeFunctionData({
+            abi: seaBattleAbi,
+            functionName: "claimStaleWagerRefund",
+            args: [BigInt(g.onchain_game_id)],
+          })
+        : encodeFunctionData({
+            abi: seaBattleAbi,
+            functionName: "cancelWagerGame",
+            args: [BigInt(g.onchain_game_id)],
+          });
+      sendCancelCalls({
+        calls: [{ to: SEABATTLE_CONTRACT_ADDRESS, data }],
+        capabilities: { paymasterService: { url: PAYMASTER_URL } },
+      });
+      return;
+    }
     writeCancel({
       address: SEABATTLE_CONTRACT_ADDRESS,
       abi: seaBattleAbi,
-      functionName: "cancelWagerGame",
+      functionName: g.refundKind === "joined" ? "claimStaleWagerRefund" : "cancelWagerGame",
       args: [BigInt(g.onchain_game_id)],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [writeCancel, resetCancel]);
+  }, [
+    cancelCallsData?.id,
+    paymasterSupported,
+    resetCancel,
+    sendCancelCalls,
+    writeCancel,
+  ]);
 
   const handleDismissRefund = useCallback(async (gameId: number) => {
     rememberDismissedRefund(gameId);
-    await markGameCancelled(gameId).catch(() => {});
   }, [rememberDismissedRefund]);
+
+  const handleReconnectWager = useCallback((game: ActiveWagerGame) => {
+    if (game.onchain_game_id === null) return;
+    router.push(`/game?id=${game.id}&mode=wager&oid=${game.onchain_game_id}`);
+  }, [router]);
 
   const claimingOidRef = useRef<number | null>(null);
 
@@ -805,14 +1000,15 @@ function PlayPageInner() {
   ]);
 
   useEffect(() => {
-    if (claimWriteError && claimingId !== null) {
-      const msg = claimWriteError.message || tr.shop_claim_failed;
+    const prizeError = claimWriteError || claimCallsError;
+    if (prizeError && claimingId !== null) {
+      const msg = prizeError.message || tr.shop_claim_failed;
       setClaimErr(formatRevert(msg, lang));
       setClaimingId(null);
       claimingOidRef.current = null;
       setClaimStep("idle");
     }
-  }, [claimWriteError, claimingId, lang, tr.shop_claim_failed]);
+  }, [claimWriteError, claimCallsError, claimingId, lang, tr.shop_claim_failed]);
 
   useEffect(() => {
     if (recordWriteError && claimingId !== null) {
@@ -825,7 +1021,7 @@ function PlayPageInner() {
   }, [recordWriteError, claimingId, lang, playCopy.cannotFinalize]);
 
   const handleClaimWin = async (win: UnclaimedWin) => {
-    if (!win.onchain_game_id || !address || claimPending || recordPending) return;
+    if (!win.onchain_game_id || !address || claimPending || claimCallsPending || recordPending) return;
     setClaimErr("");
     resetClaim();
     resetRecord();
@@ -884,6 +1080,33 @@ function PlayPageInner() {
           setClaimStep("idle");
           return;
         }
+        if (paymasterSupported && PAYMASTER_URL) {
+          claimCallsBaselineRef.current = claimCallsData?.id ?? null;
+          setClaimStep("claiming");
+          sendClaimCalls({
+            calls: [
+              {
+                to: SEABATTLE_CONTRACT_ADDRESS,
+                data: encodeFunctionData({
+                  abi: seaBattleAbi,
+                  functionName: "recordResult",
+                  args: [BigInt(win.onchain_game_id), address as `0x${string}`],
+                }),
+              },
+              {
+                to: SEABATTLE_CONTRACT_ADDRESS,
+                data: encodeFunctionData({
+                  abi: seaBattleAbi,
+                  functionName: "claimPrize",
+                  args: [BigInt(win.onchain_game_id)],
+                }),
+              },
+            ],
+            capabilities: { paymasterService: { url: PAYMASTER_URL } },
+          });
+          return;
+        }
+
         setClaimStep("recording");
         writeRecord({
           address: SEABATTLE_CONTRACT_ADDRESS,
@@ -929,6 +1152,21 @@ function PlayPageInner() {
       }
 
       setClaimStep("claiming");
+      if (paymasterSupported && PAYMASTER_URL) {
+        claimCallsBaselineRef.current = claimCallsData?.id ?? null;
+        sendClaimCalls({
+          calls: [{
+            to: SEABATTLE_CONTRACT_ADDRESS,
+            data: encodeFunctionData({
+              abi: seaBattleAbi,
+              functionName: "claimPrize",
+              args: [BigInt(win.onchain_game_id)],
+            }),
+          }],
+          capabilities: { paymasterService: { url: PAYMASTER_URL } },
+        });
+        return;
+      }
       writeClaim({
         address: SEABATTLE_CONTRACT_ADDRESS,
         abi: seaBattleAbi,
@@ -963,6 +1201,32 @@ function PlayPageInner() {
     const interval = setInterval(loadOffchainGames, 5000);
     return () => clearInterval(interval);
   }, [mode, loadOffchainGames]);
+
+  const prepareWagerAllowance = useCallback(async (amount: number) => {
+    if (!address) return false;
+    const allowance = await readContract(wagmiConfig, {
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [address, SEABATTLE_CONTRACT_ADDRESS],
+      chainId: base.id,
+    }).catch(() => BigInt(0));
+
+    if (allowance >= BigInt(amount)) {
+      setApproveFallbackMined(true);
+      return true;
+    }
+
+    writeApprove({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [SEABATTLE_CONTRACT_ADDRESS, maxUint256],
+      chainId: base.id,
+      dataSuffix: BUILDER_CODE_SUFFIX,
+    });
+    return false;
+  }, [address, wagmiConfig, writeApprove]);
 
   // Handlers
   const handleCreate = async () => {
@@ -1009,14 +1273,9 @@ function PlayPageInner() {
       setApproveFallbackMined(false);
       setWagerSecondStepReady(false);
       pendingAction.current = null;
-      writeApprove({
-        address: USDC_ADDRESS,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(selectedAmount)],
-        chainId: base.id,
-        dataSuffix: BUILDER_CODE_SUFFIX,
-      });
+      if (await prepareWagerAllowance(selectedAmount)) {
+        submitWagerWrite();
+      }
       return;
     }
   };
@@ -1102,14 +1361,9 @@ function PlayPageInner() {
         setApproveFallbackMined(false);
         setWagerSecondStepReady(false);
         pendingAction.current = null;
-        writeApprove({
-          address: USDC_ADDRESS,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(actualAmount)],
-          chainId: base.id,
-          dataSuffix: BUILDER_CODE_SUFFIX,
-        });
+        if (await prepareWagerAllowance(actualAmount)) {
+          submitWagerWrite();
+        }
       } catch (e: unknown) {
         setError((e as Error).message);
         setOffchainLoading(false);
@@ -1122,7 +1376,11 @@ function PlayPageInner() {
     mode === "wager" && !!approveTxHash && !approveSuccess && !!wagerActionRef.current;
   const wagerConfirming = isConfirming && !wagerReceipt;
   const wagerWriteSubmitting =
-    mode === "wager" && wagerWriteSubmittedRef.current && !txHash && !writeError;
+    mode === "wager" &&
+    wagerWriteSubmittedRef.current &&
+    !txHash &&
+    !writeError &&
+    !wagerCallsError;
   const createSecondStepReady =
     mode === "wager" &&
     action === "create" &&
@@ -1138,7 +1396,13 @@ function PlayPageInner() {
   const loading =
     mode === "bot" || mode === "friend"
       ? offchainLoading
-      : isPending || wagerConfirming || approvePending || approveConfirming || wagerWriteSubmitting || offchainLoading;
+      : isPending ||
+        wagerCallsPending ||
+        wagerConfirming ||
+        approvePending ||
+        approveConfirming ||
+        wagerWriteSubmitting ||
+        offchainLoading;
 
   const modeSubtitle: Record<GameMode, string> = {
     bot: tr.subtitle_bot,
@@ -1362,6 +1626,40 @@ function PlayPageInner() {
 
             {error && <p className={styles.error}>{error}</p>}
 
+            {mode === "wager" && activeWagerGames.length > 0 && (
+              <div className={`${styles.gameList} ${styles.activeWagerList}`}>
+                <h3 className={styles.gameListTitle}>
+                  {playCopy.activeWagers} ({activeWagerGames.length})
+                </h3>
+                {activeWagerGames.map((game) => {
+                  const status =
+                    game.state === 0
+                      ? playCopy.waitingOpponent
+                      : game.state === 1
+                        ? playCopy.placingShips
+                        : playCopy.battleActive;
+                  return (
+                    <div key={game.id} className={styles.gameItem}>
+                      <div className={styles.gameItemInfo}>
+                        <span className={styles.gameItemId}>#{game.id}</span>
+                        <span className={styles.activeWagerStatus}>{status}</span>
+                        <span className={styles.gameItemWager}>
+                          {game.wager_amount / 1_000_000} USDC
+                        </span>
+                      </div>
+                      <button
+                        className={styles.gameItemJoin}
+                        onClick={() => handleReconnectWager(game)}
+                        type="button"
+                      >
+                        {playCopy.reconnect}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {mode !== "bot" && offchainGames.length > 0 && (
               <div className={styles.gameList}>
                 <h3 className={styles.gameListTitle}>
@@ -1420,7 +1718,7 @@ function PlayPageInner() {
                         ? playCopy.confirmFirst
                         : playCopy.finalizing
                       : claimStep === "claiming"
-                        ? claimPending
+                        ? claimPending || claimCallsPending
                           ? playCopy.confirmSecond
                           : playCopy.claiming
                         : playCopy.checking;
@@ -1439,8 +1737,9 @@ function PlayPageInner() {
                           disabled={
                             !w.onchain_game_id ||
                             claimPending ||
+                            claimCallsPending ||
                             recordPending ||
-                            (claimingId !== null && claimingId !== w.id)
+                            claimingId !== null
                           }
                         >
                           {btnLabel}
@@ -1471,13 +1770,16 @@ function PlayPageInner() {
                   const amount = g.wager_amount / 1_000_000;
                   const btnLabel = !isActive
                     ? tr.refund
-                    : cancelPending
+                    : cancelPending || cancelCallsPending
                       ? playCopy.confirmWallet
                       : playCopy.refunding;
                   return (
                     <div key={g.id} className={styles.unclaimedItem}>
                       <div className={styles.unclaimedInfo}>
                         <span className={styles.unclaimedGameId}>{playCopy.gameLabel} #{g.id}</span>
+                        {g.refundKind === "joined" && (
+                          <span className={styles.refundReason}>{playCopy.joinedRefund}</span>
+                        )}
                         <span className={styles.unclaimedAmount}>
                           {amount.toFixed(2)} USDC
                         </span>
@@ -1489,7 +1791,8 @@ function PlayPageInner() {
                           disabled={
                             g.onchain_game_id === null ||
                             cancelPending ||
-                            (cancellingId !== null && cancellingId !== g.id)
+                            cancelCallsPending ||
+                            cancellingId !== null
                           }
                         >
                           {btnLabel}
