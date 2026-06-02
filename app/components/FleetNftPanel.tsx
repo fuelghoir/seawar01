@@ -120,7 +120,7 @@ export default function FleetNftPanel() {
     localStorage.setItem(cacheKey(address), JSON.stringify(next));
   }, [address, reads]);
 
-  const vaultBalance = (reads?.[1]?.result as bigint | undefined) ?? BigInt(0);
+  const vaultBalance = reads?.[1]?.result as bigint | undefined;
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
@@ -280,7 +280,7 @@ export default function FleetNftPanel() {
         <div className={styles.stats}>
           <div><span>{ru ? "СКОРОСТЬ" : "RATE"}</span><b>{owned ? fleet.pointsPerHour : 50} PTS/H</b></div>
           <div><span>{ru ? "НАКОПЛЕНО" : "READY"}</span><b>{fleet.claimablePoints.toLocaleString()} PTS</b></div>
-          <div><span>{ru ? "ПУЛ НАГРАД" : "REWARD VAULT"}</span><b>{formatUsdc(vaultBalance)}</b></div>
+          <div><span>{ru ? "ПУЛ НАГРАД" : "REWARD VAULT"}</span><b>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</b></div>
         </div>
 
         <div className={styles.actions}>
