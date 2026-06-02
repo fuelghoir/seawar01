@@ -38,6 +38,35 @@ import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import styles from "./FleetNftPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
+const FLEET_EVOLUTION = [
+  {
+    tier: 1,
+    name: { en: "CORVETTE", ru: "КОРВЕТ" },
+    levels: [
+      { level: 1, rate: 50, price: 500_000 },
+      { level: 2, rate: 75, price: 300_000 },
+      { level: 3, rate: 100, price: 300_000 },
+    ],
+  },
+  {
+    tier: 2,
+    name: { en: "DESTROYER", ru: "ЭСМИНЕЦ" },
+    levels: [
+      { level: 1, rate: 200, price: 3_000_000 },
+      { level: 2, rate: 250, price: 2_000_000 },
+      { level: 3, rate: 300, price: 2_000_000 },
+    ],
+  },
+  {
+    tier: 3,
+    name: { en: "FLAGSHIP", ru: "ФЛАГМАН" },
+    levels: [
+      { level: 1, rate: 400, price: 10_000_000 },
+      { level: 2, rate: 450, price: 5_000_000 },
+      { level: 3, rate: 500, price: 5_000_000 },
+    ],
+  },
+] as const;
 
 function cacheKey(wallet: string) {
   return `seabattle_fleet_nft_${wallet.toLowerCase()}`;
@@ -438,6 +467,9 @@ export default function FleetNftPanel() {
     () => Array.from({ length: 3 }, (_, index) => index < visualLevel),
     [visualLevel]
   );
+  const currentEvolutionIndex = owned
+    ? (fleet.tier - 1) * 3 + (fleet.level - 1)
+    : -1;
   const busy = purchaseAction !== null || approvePending || purchasePending;
 
   return (
@@ -462,7 +494,7 @@ export default function FleetNftPanel() {
         <div className={styles.heading}>
           <div>
             <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
-            <h2>{owned ? `FLEET PASS #${fleet.tokenId}` : ru ? "СОБЕРИ СВОЙ ФЛОТ" : "BUILD YOUR FLEET"}</h2>
+            <h2>{owned ? `FLEET PASS ${fleet.tokenId}` : ru ? "СОБЕРИ СВОЙ ФЛОТ" : "BUILD YOUR FLEET"}</h2>
           </div>
           <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
         </div>
@@ -489,6 +521,84 @@ export default function FleetNftPanel() {
         </div>
         {message && <p className={styles.message}>{message}</p>}
       </div>
+
+      <section className={styles.evolution}>
+        <div className={styles.evolutionHead}>
+          <div>
+            <span>{ru ? "КАРТА ЭВОЛЮЦИИ" : "EVOLUTION MAP"}</span>
+            <h3>{ru ? "3 КОРАБЛЯ · 9 УРОВНЕЙ ДОБЫЧИ" : "3 SHIPS · 9 MINING LEVELS"}</h3>
+          </div>
+          <p>
+            {ru
+              ? "Каждый апгрейд сжигает старый NFT и сразу отправляет новый корабль в кошелек."
+              : "Each upgrade burns the old NFT and sends the evolved ship straight to your wallet."}
+          </p>
+        </div>
+
+        <div className={styles.evolutionGrid}>
+          {FLEET_EVOLUTION.map((ship, shipIndex) => {
+            const activeShip = owned && fleet.tier === ship.tier;
+            return (
+              <article
+                className={`${styles.evolutionShip} ${activeShip ? styles.evolutionShipActive : ""}`}
+                key={ship.tier}
+              >
+                <div className={styles.evolutionShipTop}>
+                  <div>
+                    <span>{ru ? `КОРАБЛЬ 0${ship.tier}` : `SHIP 0${ship.tier}`}</span>
+                    <b>{ru ? ship.name.ru : ship.name.en}</b>
+                  </div>
+                  <strong>T{ship.tier}</strong>
+                </div>
+                <div className={styles.evolutionArt}>
+                  <span aria-hidden="true" />
+                  <Image
+                    src={`/nft/fleet-tier-${ship.tier}.png`}
+                    alt=""
+                    width={260}
+                    height={182}
+                  />
+                </div>
+                <div className={styles.evolutionLevels}>
+                  {ship.levels.map((level, levelIndex) => {
+                    const evolutionIndex = shipIndex * 3 + levelIndex;
+                    const current = evolutionIndex === currentEvolutionIndex;
+                    const completed = evolutionIndex < currentEvolutionIndex;
+                    const next = evolutionIndex === currentEvolutionIndex + 1;
+                    return (
+                      <div
+                        className={`${styles.evolutionLevel} ${
+                          current
+                            ? styles.evolutionLevelCurrent
+                            : completed
+                              ? styles.evolutionLevelDone
+                              : next
+                                ? styles.evolutionLevelNext
+                                : ""
+                        }`}
+                        key={level.level}
+                      >
+                        <span>LVL {level.level}</span>
+                        <b>{level.rate} <small>PTS/H</small></b>
+                        <em>{formatUsdc(level.price)}</em>
+                      </div>
+                    );
+                  })}
+                </div>
+                {shipIndex < FLEET_EVOLUTION.length - 1 && (
+                  <span className={styles.evolutionArrow} aria-hidden="true">›</span>
+                )}
+              </article>
+            );
+          })}
+        </div>
+
+        <div className={styles.evolutionLegend}>
+          <span><i className={styles.legendCurrent} />{ru ? "ТЕКУЩИЙ" : "CURRENT"}</span>
+          <span><i className={styles.legendNext} />{ru ? "СЛЕДУЮЩИЙ" : "NEXT"}</span>
+          <span><i className={styles.legendLocked} />{ru ? "БУДУЩИЕ" : "FUTURE"}</span>
+        </div>
+      </section>
     </section>
   );
 }
