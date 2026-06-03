@@ -28,7 +28,7 @@ node scripts/deploy-v7.mjs
 3. Copy `NEXT_PUBLIC_SEABATTLE_V7_CONTRACT_ADDRESS` from `.env` to the
    production environment and redeploy the app.
 4. Add the V7 contract and the required functions to the CDP paymaster
-   allowlist if wager gas should be sponsored:
+   allowlist. This covers wager, daily check-in, and quest claim:
 
 ```text
 createWagerGame(uint256)         0xbc9d56e6
@@ -37,6 +37,8 @@ recordResult(uint256,address)    0x91059748
 claimPrize(uint256)              0xd7098154
 cancelWagerGame(uint256)         0xc9ec8277
 claimStaleWagerRefund(uint256)   0x641bf766
+checkin()                        0xbaeb0718
+recordSoloResult(address,bool)   0x2cce14a6
 ```
 
 5. Add Base USDC and `approve(address,uint256)` so the first wager can batch

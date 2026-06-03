@@ -32,8 +32,8 @@ const baseTransport = fallback(
 const config = createConfig({
   chains: [base],
   connectors: [
-    injected(),
     baseAccount({ appName: "Sea Battle" }),
+    injected(),
   ],
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,

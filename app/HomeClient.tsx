@@ -168,7 +168,8 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     if (!isInMiniApp) return;
     if (connectors.length === 0) return;
     autoConnected.current = true;
-    connect({ connector: connectors[0] });
+    const connector = connectors.find(isBaseAccountConnector) ?? connectors[0];
+    connect({ connector });
   }, [isReady, isInMiniApp, isConnected, connectors, connect]);
 
   useEffect(() => {

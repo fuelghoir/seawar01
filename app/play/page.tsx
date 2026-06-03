@@ -1368,8 +1368,12 @@ function PlayPageInner() {
         }) as readonly [
           `0x${string}`, `0x${string}`, number, bigint, boolean, `0x${string}`, boolean
         ];
+        const onchainP1 = onchainGame[0];
         const onchainP2 = onchainGame[1];
         const onchainFinished = onchainGame[4];
+        if (onchainP1.toLowerCase() === address.toLowerCase()) {
+          setError(playCopy.ownGame); setOffchainLoading(false); return;
+        }
         if (onchainFinished) {
           setError(playCopy.gameFinished); setOffchainLoading(false); return;
         }
