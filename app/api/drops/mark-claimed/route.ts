@@ -3,6 +3,7 @@ import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { base } from "viem/chains";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -33,10 +34,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: campaignResult.error.message }, { status: 500 });
   }
 
-  const contractAddress = (campaignResult?.data?.contract_address ||
-    process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS ||
-    ZERO_ADDR) as `0x${string}`;
-  if (contractAddress === ZERO_ADDR) {
+  const contractAddress = resolveDropClaimContract(campaignResult?.data?.contract_address);
+  if (!contractAddress) {
     return NextResponse.json({ error: "Drop claim contract is not configured" }, { status: 500 });
   }
 
@@ -103,6 +102,18 @@ function parseCreatorRewardDropId(dropId: string) {
   if (!match) return null;
   const id = Number(match[1]);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function resolveDropClaimContract(value: string | null | undefined): `0x${string}` | null {
+  const configured = String(value || "").trim().toLowerCase();
+  if (configured && configured !== ZERO_ADDR) return configured as `0x${string}`;
+
+  const fallback = String(
+    process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS ||
+      DROP_CLAIM_CONTRACT_ADDRESS ||
+      ZERO_ADDR,
+  ).toLowerCase();
+  return fallback === ZERO_ADDR ? null : (fallback as `0x${string}`);
 }
 
 function adminSupabaseOrAnon() {

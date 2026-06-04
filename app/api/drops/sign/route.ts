@@ -3,6 +3,7 @@ import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { supabase } from "../../../lib/supabase";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -210,8 +211,15 @@ function dropIdToBytes32(dropId: string): `0x${string}` {
 }
 
 function normalizeContractAddress(value: string | null | undefined): `0x${string}` | null {
-  const address = (value || process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS || ZERO_ADDR).toLowerCase();
-  return address === ZERO_ADDR ? null : (address as `0x${string}`);
+  const configured = String(value || "").trim().toLowerCase();
+  if (configured && configured !== ZERO_ADDR) return configured as `0x${string}`;
+
+  const fallback = String(
+    process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS ||
+      DROP_CLAIM_CONTRACT_ADDRESS ||
+      ZERO_ADDR,
+  ).toLowerCase();
+  return fallback === ZERO_ADDR ? null : (fallback as `0x${string}`);
 }
 
 function parseCreatorRewardDropId(dropId: string) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../lib/supabase";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
 
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
           token_symbol: symbolForKind(reward.reward_kind),
           decimals: decimalsForKind(reward.reward_kind),
           status: "active",
-          contract_address: process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS || null,
+          contract_address: resolveDropClaimContract(),
         },
       })),
     ],
@@ -75,4 +76,13 @@ function symbolForKind(kind: string) {
 
 function decimalsForKind(kind: string) {
   return kind === "usdc" ? 6 : 18;
+}
+
+function resolveDropClaimContract() {
+  const address = String(
+    process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS ||
+      DROP_CLAIM_CONTRACT_ADDRESS ||
+      "",
+  ).trim();
+  return address || null;
 }
