@@ -42,7 +42,9 @@ recordSoloResult(address,bool)   0x2cce14a6
 ```
 
 5. Add Base USDC and `approve(address,uint256)` so the first wager can batch
-   its exact stake approval with the sponsored create/join call:
+   its exact stake approval with the sponsored create/join call. Never request
+   unlimited USDC allowance; every approval must be limited to the current
+   stake or purchase amount:
 
 ```text
 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913

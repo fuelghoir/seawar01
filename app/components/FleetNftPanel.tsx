@@ -17,7 +17,7 @@ import {
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog, encodeFunctionData, maxUint256 } from "viem";
+import { decodeEventLog, encodeFunctionData } from "viem";
 import {
   FLEET_NFT_CONTRACT_ADDRESS,
   fleetPassAbi,
@@ -424,12 +424,12 @@ export default function FleetNftPanel() {
       return;
     }
 
-    setMessage(ru ? "Одобри USDC один раз для быстрых улучшений" : "Approve USDC once for fast upgrades");
+    setMessage(ru ? "Одобри USDC только на эту покупку" : "Approve USDC for this purchase only");
     writeApprove({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [FLEET_NFT_CONTRACT_ADDRESS, maxUint256],
+      args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(actionPrice)],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });

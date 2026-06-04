@@ -18,7 +18,7 @@ import {
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog, encodeFunctionData, maxUint256 } from "viem";
+import { decodeEventLog, encodeFunctionData } from "viem";
 import {
   seaBattleAbi,
   erc20Abi,
@@ -1255,7 +1255,7 @@ function PlayPageInner() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [SEABATTLE_CONTRACT_ADDRESS, maxUint256],
+      args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(amount)],
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
