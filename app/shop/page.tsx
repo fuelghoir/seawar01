@@ -83,7 +83,10 @@ import {
 } from "../components/Icons";
 import { useSettings, TR } from "../lib/settings";
 import { notifyPlayerDataRefresh, PLAYER_DATA_REFRESH_EVENT } from "../lib/playerDataEvents";
-import { SEASON_UI_ENABLED } from "../lib/featureFlags";
+import {
+  SEASON_UI_ENABLED,
+  USDC_SEASON_REWARDS_ENABLED,
+} from "../lib/featureFlags";
 import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -1372,7 +1375,7 @@ export default function ShopPage() {
             </section>
 
             <FleetNftPanel />
-            {SEASON_UI_ENABLED && <SeasonPoolCard variant="wide" />}
+            {USDC_SEASON_REWARDS_ENABLED && <SeasonPoolCard variant="wide" />}
 
             <section className={`${styles.card} ${styles.featuredCard}`}>
               <div className={styles.cardTop}>
