@@ -701,6 +701,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             onOpen={openCaptainSbt}
           />
 
+          {SEASON_UI_ENABLED && (
+            <SeasonRoadmap
+              season={season}
+              compact
+              onOpen={() => router.push("/shop")}
+            />
+          )}
+
           <HomeCard
             Icon={UsersIcon}
             title={tr.home_referrals_title}
