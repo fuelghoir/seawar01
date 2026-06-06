@@ -815,11 +815,12 @@ export async function addPoints(
   const addr = wallet.toLowerCase();
   const multiplier = await getGamePointMultiplier(addr).catch(() => 1);
   const awardedPoints = Math.floor(points * multiplier);
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("player_stats")
     .select("points, total_hits")
     .eq("wallet", addr)
-    .single();
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
 
   if (existing) {
     const updates: Record<string, unknown> = {
@@ -827,19 +828,21 @@ export async function addPoints(
       updated_at: new Date().toISOString(),
     };
     if (hits > 0) updates.total_hits = (existing.total_hits ?? 0) + hits;
-    await supabase
+    const { error } = await supabase
       .from("player_stats")
       .update(updates)
       .eq("wallet", addr);
+    if (error) throw new Error(error.message);
   } else {
-    await supabase.from("player_stats").insert({
+    const { error } = await supabase.from("player_stats").insert({
       wallet: addr,
       points: awardedPoints,
       ...(hits > 0 ? { total_hits: hits } : {}),
     });
+    if (error) throw new Error(error.message);
   }
 
-  addSeasonXp(addr, Math.max(1, points)).catch(() => {});
+  await addSeasonXp(addr, Math.max(1, points)).catch(() => {});
 
   // Award 10% of points to referrer (fire-and-forget, doesn't block game flow)
   if (awardedPoints > 0) {
@@ -933,11 +936,13 @@ export async function getCheckinStatus(
   wallet: string
 ): Promise<CheckinStatus> {
   const addr = wallet.toLowerCase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("player_stats")
     .select("checkin_streak, last_checkin")
     .eq("wallet", addr)
-    .single();
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
 
   if (!data) {
     return { canCheckin: true, streak: 0, nextReward: 5 };
@@ -982,25 +987,28 @@ export async function dailyCheckin(
   const today = todayUTC();
   const yesterday = yesterdayUTC();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("player_stats")
     .select("*")
     .eq("wallet", addr)
-    .single();
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
 
   let newStreak: number;
 
   if (!existing) {
     newStreak = 1;
     const reward = getCheckinReward(newStreak);
-    await supabase.from("player_stats").insert({
+    const { error: insertError } = await supabase.from("player_stats").insert({
       wallet: addr,
       points: reward,
       checkin_streak: newStreak,
       last_checkin: today,
       total_checkins: 1,
     });
-    addSeasonXp(addr, 20).catch(() => {});
+    if (insertError) throw new Error(insertError.message);
+    await addSeasonXp(addr, 20);
     return { points: reward, streak: newStreak };
   }
 
@@ -1025,7 +1033,7 @@ export async function dailyCheckin(
 
   const reward = getCheckinReward(newStreak);
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("player_stats")
     .update({
       points: existing.points + reward,
@@ -1036,7 +1044,8 @@ export async function dailyCheckin(
     })
     .eq("wallet", addr);
 
-  addSeasonXp(addr, 20).catch(() => {});
+  if (updateError) throw new Error(updateError.message);
+  await addSeasonXp(addr, 20);
   return { points: reward, streak: newStreak, usedFreeze };
 }
 

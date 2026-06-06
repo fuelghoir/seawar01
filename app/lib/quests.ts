@@ -217,6 +217,15 @@ function getWeeklyCheckinStreak(globalStreak: number, lastCheckin: string | null
   return Math.max(0, Math.min(globalStreak, daysIntoWeek, 7));
 }
 
+function getWeeklyCheckinCount(
+  totalCheckins: number,
+  globalStreak: number,
+  lastCheckin: string | null | undefined
+): number {
+  if (totalCheckins <= 0) return 0;
+  return Math.min(totalCheckins, getWeeklyCheckinStreak(globalStreak, lastCheckin));
+}
+
 interface UserMetrics {
   total_wins: number;
   total_games: number;
@@ -251,7 +260,11 @@ async function getUserMetrics(wallet: string): Promise<UserMetrics> {
     total_wins: stats?.wins ?? 0,
     total_games: stats?.games_played ?? 0,
     total_hits: stats?.total_hits ?? 0,
-    total_checkins: stats?.total_checkins ?? 0,
+    total_checkins: getWeeklyCheckinCount(
+      stats?.total_checkins ?? 0,
+      stats?.checkin_streak ?? 0,
+      stats?.last_checkin
+    ),
     checkin_streak: getWeeklyCheckinStreak(stats?.checkin_streak ?? 0, stats?.last_checkin),
     wager_wins: wagerRows.filter(g => g.winner === addr).length,
     wager_games: wagerRows.length,
@@ -270,7 +283,7 @@ export interface UserQuestState {
 
 function getQuestProgress(def: QuestDefinition, metrics: UserMetrics, baseline: number) {
   const currentValue = metrics[def.metric] ?? 0;
-  return def.metric === "checkin_streak"
+  return def.metric === "checkin_streak" || def.metric === "total_checkins"
     ? currentValue
     : Math.max(0, currentValue - baseline);
 }
@@ -303,8 +316,11 @@ export async function getUserQuestsWithProgress(wallet: string): Promise<UserQue
       wallet: addr,
       quest_id: d.id,
       week_key: weekKey,
-      // weekly streak quests use week-local progress, all others are delta from now
-      baseline: d.metric === "checkin_streak" ? 0 : (metrics[d.metric] ?? 0),
+      // Weekly check-in quests should count the current week even if the
+      // quest panel is opened after today's check-in.
+      baseline: d.metric === "checkin_streak" || d.metric === "total_checkins"
+        ? 0
+        : (metrics[d.metric] ?? 0),
       }));
     const { data: inserted, error } = await supabase
       .from("user_quests")
