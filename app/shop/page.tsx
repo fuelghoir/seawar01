@@ -1021,8 +1021,8 @@ export default function ShopPage() {
         const rewardTail = rewards.length > 3 ? ` +${rewards.length - 3}` : "";
         const label = rewards.length > 1
           ? lang === "ru"
-            ? "Сезонные награды получены"
-            : "Season rewards claimed"
+            ? "Награды Battle Pass получены"
+            : "Battle Pass rewards claimed"
           : tr.shop_reward_claimed;
         setShopMsg(`${label}: ${rewardSummary}${rewardTail}`);
         notifyPlayerDataRefresh();
@@ -1300,7 +1300,7 @@ export default function ShopPage() {
         notDeployed: "SBT contract not deployed",
         setup: "SBT setup pending",
       };
-  const seasonRewardsTitle = lang === "ru" ? "Награды сезона" : "Season rewards";
+  const seasonRewardsTitle = lang === "ru" ? "Награды Battle Pass" : "Battle Pass rewards";
   const seasonRewardsToggleLabel = seasonRewardsOpen
     ? lang === "ru"
       ? "Свернуть"

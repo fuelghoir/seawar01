@@ -1015,6 +1015,18 @@
   white-space: nowrap;
 }
 
+.seasonEnds {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 217, 120, 0.68);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .seasonProgressLine {
   height: 7px;
   margin: 11px 0 9px;

@@ -701,14 +701,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             onOpen={openCaptainSbt}
           />
 
-          {SEASON_UI_ENABLED && (
-            <SeasonRoadmap
-              season={season}
-              compact
-              onOpen={() => router.push("/shop")}
-            />
-          )}
-
           <HomeCard
             Icon={UsersIcon}
             title={tr.home_referrals_title}
@@ -1308,6 +1300,7 @@ function SeasonRoadmap({
             : `${currentXp.toLocaleString()} XP`}
         </span>
       </div>
+      <span className={styles.seasonEnds}>{tr.season_ends}</span>
 
       <div className={styles.seasonProgressLine}>
         <span style={{ width: `${progressPct}%` }} />

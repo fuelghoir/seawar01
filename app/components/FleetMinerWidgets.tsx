@@ -70,7 +70,7 @@ export function SeasonPoolCard({
           ? "80% чистого заработка попадает в пул наград."
           : "80% of net revenue flows into player rewards."}
       </p>
-      <small>{ru ? "КОНЕЦ: 01.07.2026 · 00:00 UTC" : "ENDS: 01.07.2026 · 00:00 UTC"}</small>
+      <small>{ru ? "КОНЕЦ: 31.08.2026 · 23:59 UTC" : "ENDS: 31.08.2026 · 23:59 UTC"}</small>
     </section>
   );
 }
