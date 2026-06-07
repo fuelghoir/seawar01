@@ -20,6 +20,7 @@ import {
   computeBoardCommitment,
   isFinalChallengeStatus,
 } from "../lib/challengeShared";
+import { useSettings, type Lang } from "../lib/settings";
 import styles from "./page.module.css";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -46,6 +47,195 @@ const MOVE_PRESETS = [
   { id: "raid", label: "Raid", moves: 10, entryFee: "0.12", note: "Balanced hunt" },
   { id: "siege", label: "Siege", moves: 12, entryFee: "0.18", note: "More shots" },
 ];
+
+const CHALLENGE_COPY = {
+  en: {
+    prizePresets: {
+      "bank-1": { label: "Scout", note: "Quick low-risk bank" },
+      "bank-5": { label: "Captain", note: "Main prize room" },
+      "bank-10": { label: "Admiral", note: "Heavy prize bank" },
+    },
+    movePresets: {
+      blitz: { label: "Blitz", note: "Hardest clear" },
+      raid: { label: "Raid", note: "Balanced hunt" },
+      siege: { label: "Siege", note: "More shots" },
+    },
+    databaseActivating: "Challenge database is being activated. Run the Supabase challenge migration, then open challenges will load here.",
+    contractActivating: "Challenge contract is being activated. The mode preview is visible now.",
+    maxCashout: "max cashout",
+    shots: "shots",
+    toDrops: "to drops",
+    hit: "hit",
+    joining: "Joining...",
+    open: "Open",
+    cancel: "Cancel",
+    cancelling: "Cancel...",
+    settle: "Settle",
+    attackTicket: "Attack ticket",
+    heroEyebrow: "Async 5x5 challenge mode",
+    heroTitle: "Sea Challenge",
+    heroText: "Fund a prize bank, hide a compact 5x5 fleet, and let one attacker buy a fixed shot run. Every hit raises the cashout coefficient. Full clear pays the biggest multiplier, while drops always receive 10% of the pot.",
+    tagGrid: "5x5 grid",
+    tagShips: "8 ship cells",
+    tagCashout: "cashout any time",
+    potSplit: "Pot split",
+    potSplitSub: "Prize bank + attack ticket",
+    payoutVault: "Payout vault",
+    payoutVaultDesc: "All finished challenge payouts stack here and can be claimed together.",
+    claimAll: "Claim all payouts",
+    claiming: "Claiming...",
+    connectWallet: "Connect wallet on the main screen to create or join challenges.",
+    create: "Create",
+    buildChallenge: "Build a challenge",
+    prizeBank: "Prize bank",
+    creatorFunds: "Creator funds this amount",
+    attackFormat: "Attack format",
+    fixedVariants: "Fixed shot variants",
+    fullClear: "Full clear",
+    selectedSetup: "Selected setup",
+    bank: "bank",
+    ticket: "ticket",
+    fullClearPays: "Full clear pays",
+    toAttacker: "to the attacker",
+    dropsReceive: "Drops receive",
+    cashoutLadder: "Cashout ladder",
+    formula: "90% pot x (hits / 8)^2",
+    yourFleet: "Your fleet",
+    placeShips: "Place 5x5 ships",
+    reconnect: "Reconnect",
+    yourRuns: "Your runs",
+    noRuns: "No active runs yet.",
+    targets: "Targets",
+    openTargets: "Open targets",
+    refresh: "Refresh",
+    noTargets: "No open targets right now.",
+    attackBoard: "Attack board",
+    selectTarget: "Select a target",
+    target: "Target",
+    challengeGrid: "Challenge Grid",
+    lockPayout: "Lock payout",
+    locking: "Locking...",
+    payoutSettled: "Payout settled",
+    coefficientGrows: "Coefficient grows with hits",
+    cashOutNow: "Cash out now",
+    cashingOut: "Cashout...",
+    cashoutDesc: "10% of the full pot goes to drops. The remaining 90% is split by the ladder: attacker receives the current cashout, bank owner receives the rest.",
+    noTargetTitle: "No target selected",
+    noTargetDesc: "Pick an open target or reopen one of your runs from the left panel.",
+    preparing: "Preparing challenge...",
+    approve: "Approve exact USDC amount...",
+    createWallet: "Create challenge in wallet...",
+    savingBoard: "Saving hidden board...",
+    challengeLive: "Challenge is live. One attacker can buy the ticket.",
+    joiningChallenge: "Joining challenge...",
+    attackStarted: "Attack run started. Sink all ships before shots run out.",
+    firing: "Firing...",
+    battleFinished: "Battle finished. Settle onchain to move the USDC.",
+    hitKeep: "Hit. Keep hunting.",
+    miss: "Miss. Move spent.",
+    settling: "Settling payout...",
+    payoutLocked: "Payout locked. Use Claim all payouts whenever you want.",
+    calculatingCashout: "Calculating cashout...",
+    cashoutSaved: "Cashout saved. Settlement signature is not ready.",
+    allClaimed: "All available challenge payouts claimed.",
+    cancellingChallenge: "Cancelling open challenge...",
+    cancelled: "Challenge cancelled and prize bank returned.",
+  },
+  ru: {
+    prizePresets: {
+      "bank-1": { label: "Разведчик", note: "Быстрый небольшой банк" },
+      "bank-5": { label: "Капитан", note: "Основной банк приза" },
+      "bank-10": { label: "Адмирал", note: "Крупный банк приза" },
+    },
+    movePresets: {
+      blitz: { label: "Блиц", note: "Самая сложная зачистка" },
+      raid: { label: "Рейд", note: "Баланс риска" },
+      siege: { label: "Осада", note: "Больше выстрелов" },
+    },
+    databaseActivating: "База челленджей еще включается. Примени Supabase migration, после этого открытые цели появятся здесь.",
+    contractActivating: "Контракт челленджей еще включается. Сейчас виден preview режима.",
+    maxCashout: "макс. cashout",
+    shots: "выстрелов",
+    toDrops: "в drops",
+    hit: "попад.",
+    joining: "Входим...",
+    open: "Открыть",
+    cancel: "Отменить",
+    cancelling: "Отмена...",
+    settle: "Закрыть выплату",
+    attackTicket: "Билет атаки",
+    heroEyebrow: "Асинхронный режим 5x5",
+    heroTitle: "Sea Challenge",
+    heroText: "Создай банк приза, спрячь флот на поле 5x5 и дай одному атакующему купить фиксированную попытку. Каждое попадание повышает коэффициент cashout. Полная зачистка дает максимальный множитель, а drops всегда получает 10% банка.",
+    tagGrid: "поле 5x5",
+    tagShips: "8 клеток кораблей",
+    tagCashout: "cashout в любой момент",
+    potSplit: "Деление банка",
+    potSplitSub: "Банк приза + билет атаки",
+    payoutVault: "Выплаты",
+    payoutVaultDesc: "Все выплаты по завершенным челленджам копятся здесь, их можно забрать одной кнопкой.",
+    claimAll: "Забрать все выплаты",
+    claiming: "Забираем...",
+    connectWallet: "Подключи кошелек на главном экране, чтобы создавать или атаковать челленджи.",
+    create: "Создание",
+    buildChallenge: "Собрать челлендж",
+    prizeBank: "Банк приза",
+    creatorFunds: "Создатель кладет эту сумму",
+    attackFormat: "Формат атаки",
+    fixedVariants: "Фиксированные варианты",
+    fullClear: "Полная зачистка",
+    selectedSetup: "Выбранный сетап",
+    bank: "банк",
+    ticket: "билет",
+    fullClearPays: "Полная зачистка платит",
+    toAttacker: "атакующему",
+    dropsReceive: "Drops получает",
+    cashoutLadder: "Лестница cashout",
+    formula: "90% банка x (попадания / 8)^2",
+    yourFleet: "Твой флот",
+    placeShips: "Расставь корабли 5x5",
+    reconnect: "Вернуться",
+    yourRuns: "Твои игры",
+    noRuns: "Активных игр пока нет.",
+    targets: "Цели",
+    openTargets: "Открытые цели",
+    refresh: "Обновить",
+    noTargets: "Открытых целей сейчас нет.",
+    attackBoard: "Поле атаки",
+    selectTarget: "Выбери цель",
+    target: "Цель",
+    challengeGrid: "Поле челленджа",
+    lockPayout: "Зафиксировать выплату",
+    locking: "Фиксируем...",
+    payoutSettled: "Выплата зафиксирована",
+    coefficientGrows: "Коэффициент растет с попаданиями",
+    cashOutNow: "Забрать cashout",
+    cashingOut: "Cashout...",
+    cashoutDesc: "10% всего банка уходит в drops. Остальные 90% делятся по лестнице: атакующий получает текущий cashout, владелец банка получает остаток.",
+    noTargetTitle: "Цель не выбрана",
+    noTargetDesc: "Выбери открытую цель или вернись к своей игре из левой панели.",
+    preparing: "Готовим челлендж...",
+    approve: "Одобри точную сумму USDC...",
+    createWallet: "Создай челлендж в кошельке...",
+    savingBoard: "Сохраняем скрытый флот...",
+    challengeLive: "Челлендж запущен. Один атакующий может купить билет.",
+    joiningChallenge: "Входим в челлендж...",
+    attackStarted: "Атака началась. Потопи все корабли до конца выстрелов.",
+    firing: "Стреляем...",
+    battleFinished: "Бой завершен. Закрой выплату ончейн, чтобы распределить USDC.",
+    hitKeep: "Попал. Продолжай охоту.",
+    miss: "Мимо. Выстрел потрачен.",
+    settling: "Фиксируем выплату...",
+    payoutLocked: "Выплата зафиксирована. Можно забрать все выплаты одной кнопкой.",
+    calculatingCashout: "Считаем cashout...",
+    cashoutSaved: "Cashout сохранен. Подпись для settlement пока не готова.",
+    allClaimed: "Все доступные выплаты по челленджам забраны.",
+    cancellingChallenge: "Отменяем открытый челлендж...",
+    cancelled: "Челлендж отменен, банк приза возвращен.",
+  },
+};
+
+type ChallengeCopy = (typeof CHALLENGE_COPY)[Lang];
 
 function makeSalt() {
   const bytes = new Uint8Array(16);
@@ -75,18 +265,18 @@ function formatMultiplier(payout: bigint, ticket: bigint) {
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}x`;
 }
 
-function challengeSetupErrorMessage(error: unknown) {
+function challengeSetupErrorMessage(error: unknown, copy: ChallengeCopy) {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (/challenge_games|schema cache|could not find the table/i.test(message)) {
-    return "Challenge database is being activated. Run the Supabase challenge migration, then open challenges will load here.";
+    return copy.databaseActivating;
   }
   return /challenge contract is not deployed|contract is not deployed/i.test(message)
-    ? "Challenge contract is being activated. The mode preview is visible now."
+    ? copy.contractActivating
     : "";
 }
 
-function challengeDisplayError(error: unknown, fallback: string) {
-  const setupMessage = challengeSetupErrorMessage(error);
+function challengeDisplayError(error: unknown, fallback: string, copy: ChallengeCopy) {
+  const setupMessage = challengeSetupErrorMessage(error, copy);
   return setupMessage
     ? { text: setupMessage, soft: true }
     : { text: error instanceof Error ? error.message : fallback, soft: false };
@@ -102,22 +292,23 @@ function challengeStatusLabel(status: PublicChallenge["status"]) {
   return status.replace("_", " ");
 }
 
-function challengeSubtitle(challenge: PublicChallenge) {
+function challengeSubtitle(challenge: PublicChallenge, copy: ChallengeCopy) {
   const fullClear = calculateChallengePayouts(
     BigInt(challenge.creatorAmount),
     BigInt(challenge.entryFee),
     CHALLENGE_TOTAL_SHIP_CELLS,
   );
-  return `${formatUsdc(fullClear.challengerPayout)} max cashout - ${challenge.maxMoves} shots - ${formatUsdc(fullClear.dropFee)} to drops`;
+  return `${formatUsdc(fullClear.challengerPayout)} ${copy.maxCashout} - ${challenge.maxMoves} ${copy.shots} - ${formatUsdc(fullClear.dropFee)} ${copy.toDrops}`;
 }
 
 function showFriendlyError(
   error: unknown,
   fallback: string,
+  copy: ChallengeCopy,
   setError: (value: string) => void,
   setMessage: (value: string) => void,
 ) {
-  const display = challengeDisplayError(error, fallback);
+  const display = challengeDisplayError(error, fallback, copy);
   if (display.soft) {
     setMessage(display.text);
     setError("");
@@ -154,6 +345,8 @@ export default function ChallengePage() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const config = useConfig();
+  const { lang } = useSettings();
+  const copy = CHALLENGE_COPY[lang];
 
   const [selectedPrizeId, setSelectedPrizeId] = useState(PRIZE_PRESETS[0].id);
   const [selectedMoveId, setSelectedMoveId] = useState(MOVE_PRESETS[1].id);
@@ -201,7 +394,7 @@ export default function ChallengePage() {
       }
       setError("");
     } catch (err) {
-      const setupMessage = challengeSetupErrorMessage(err);
+      const setupMessage = challengeSetupErrorMessage(err, copy);
       if (setupMessage) {
         setOpenChallenges([]);
         setMyChallenges([]);
@@ -209,9 +402,9 @@ export default function ChallengePage() {
         setError("");
         return;
       }
-      showFriendlyError(err, "Could not load challenges", setError, setMessage);
+      showFriendlyError(err, "Could not load challenges", copy, setError, setMessage);
     }
-  }, [wallet]);
+  }, [copy, wallet]);
 
   const loadChallenge = useCallback(
     async (challenge: PublicChallenge) => {
@@ -223,10 +416,10 @@ export default function ChallengePage() {
         setSettlement(data.settlement || null);
         setError("");
       } catch (err) {
-        showFriendlyError(err, "Could not load challenge", setError, setMessage);
+        showFriendlyError(err, "Could not load challenge", copy, setError, setMessage);
       }
     },
-    [wallet],
+    [copy, wallet],
   );
 
   useEffect(() => {
@@ -273,7 +466,7 @@ export default function ChallengePage() {
     })) as bigint;
     if (allowance >= amount) return;
 
-    setMessage("Approve exact USDC amount...");
+    setMessage(copy.approve);
     const hash = await writeContractAsync({
       address: USDC_ADDRESS,
       abi: erc20Abi,
@@ -308,7 +501,7 @@ export default function ChallengePage() {
       await ensureReady();
       setBusy("create");
       setError("");
-      setMessage("Preparing challenge...");
+      setMessage(copy.preparing);
 
       const creatorAmount = selectedCreatorAmount;
       const entryAmount = selectedEntryAmount;
@@ -318,7 +511,7 @@ export default function ChallengePage() {
       const commitment = computeBoardCommitment(board, salt);
       await approveIfNeeded(creatorAmount);
 
-      setMessage("Create challenge in wallet...");
+      setMessage(copy.createWallet);
       const hash = await writeContractAsync({
         address: CHALLENGE_CONTRACT_ADDRESS,
         abi: challengeAbi,
@@ -329,7 +522,7 @@ export default function ChallengePage() {
       if (receipt.status !== "success") throw new Error("Create challenge reverted");
       const onchainChallengeId = extractCreatedId(receipt.logs);
 
-      setMessage("Saving hidden board...");
+      setMessage(copy.savingBoard);
       const data = await requestJson<ChallengeResponse>("/api/challenges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -347,10 +540,10 @@ export default function ChallengePage() {
       setSelected(data.challenge);
       setShots([]);
       setSettlement(null);
-      setMessage("Challenge is live. One attacker can buy the ticket.");
+      setMessage(copy.challengeLive);
       await loadLists();
     } catch (err) {
-      showFriendlyError(err, "Could not create challenge", setError, setMessage);
+      showFriendlyError(err, "Could not create challenge", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -361,7 +554,7 @@ export default function ChallengePage() {
       await ensureReady();
       setBusy(`join:${challenge.id}`);
       setError("");
-      setMessage("Joining challenge...");
+      setMessage(copy.joiningChallenge);
       const amount = BigInt(challenge.entryFee);
       await approveIfNeeded(amount);
 
@@ -379,14 +572,14 @@ export default function ChallengePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet }),
       });
-      setMessage("Attack run started. Sink all ships before shots run out.");
+      setMessage(copy.attackStarted);
       setSelected(data.challenge);
       setShots([]);
       setSettlement(null);
       await loadChallenge(data.challenge);
       await loadLists();
     } catch (err) {
-      showFriendlyError(err, "Could not join challenge", setError, setMessage);
+      showFriendlyError(err, "Could not join challenge", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -398,7 +591,7 @@ export default function ChallengePage() {
     try {
       setBusy(`shot:${x}:${y}`);
       setError("");
-      setMessage("Firing...");
+      setMessage(copy.firing);
       const data = await requestJson<ShotResponse>(`/api/challenges/${selected.id}/shot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -409,14 +602,14 @@ export default function ChallengePage() {
       setSettlement(data.settlement || null);
       setMessage(
         data.settlement
-          ? "Battle finished. Settle onchain to move the USDC."
+          ? copy.battleFinished
           : data.shot.isHit
-            ? "Hit. Keep hunting."
-            : "Miss. Move spent.",
+            ? copy.hitKeep
+            : copy.miss,
       );
       await loadLists();
     } catch (err) {
-      showFriendlyError(err, "Could not fire shot", setError, setMessage);
+      showFriendlyError(err, "Could not fire shot", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -428,7 +621,7 @@ export default function ChallengePage() {
       await ensureReady();
       setBusy(`settle:${selected.id}`);
       setError("");
-      setMessage("Settling payout...");
+      setMessage(copy.settling);
       const hash = await writeContractAsync({
         address: CHALLENGE_CONTRACT_ADDRESS,
         abi: challengeAbi,
@@ -450,10 +643,10 @@ export default function ChallengePage() {
       setSelected(data.challenge);
       setSettlement(null);
       await loadPendingPayout();
-      setMessage("Payout locked. Use Claim all payouts whenever you want.");
+      setMessage(copy.payoutLocked);
       await loadLists();
     } catch (err) {
-      showFriendlyError(err, "Could not settle challenge", setError, setMessage);
+      showFriendlyError(err, "Could not settle challenge", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -464,7 +657,7 @@ export default function ChallengePage() {
     try {
       setBusy(`cashout:${selected.id}`);
       setError("");
-      setMessage("Calculating cashout...");
+      setMessage(copy.calculatingCashout);
       const data = await requestJson<ChallengeResponse>(`/api/challenges/${selected.id}/cashout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -475,10 +668,10 @@ export default function ChallengePage() {
       if (data.settlement) {
         await handleSettle(data.settlement);
       } else {
-        setMessage("Cashout saved. Settlement signature is not ready.");
+        setMessage(copy.cashoutSaved);
       }
     } catch (err) {
-      showFriendlyError(err, "Could not cash out", setError, setMessage);
+      showFriendlyError(err, "Could not cash out", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -489,7 +682,7 @@ export default function ChallengePage() {
       await ensureReady();
       setBusy("claim");
       setError("");
-      setMessage("Claiming all payouts...");
+      setMessage(copy.claiming);
       const hash = await writeContractAsync({
         address: CHALLENGE_CONTRACT_ADDRESS,
         abi: challengeAbi,
@@ -498,9 +691,9 @@ export default function ChallengePage() {
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Claim reverted");
       await loadPendingPayout();
-      setMessage("All available challenge payouts claimed.");
+      setMessage(copy.allClaimed);
     } catch (err) {
-      showFriendlyError(err, "Could not claim payouts", setError, setMessage);
+      showFriendlyError(err, "Could not claim payouts", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -511,7 +704,7 @@ export default function ChallengePage() {
       await ensureReady();
       setBusy(`cancel:${challenge.id}`);
       setError("");
-      setMessage("Cancelling open challenge...");
+      setMessage(copy.cancellingChallenge);
       const hash = await writeContractAsync({
         address: CHALLENGE_CONTRACT_ADDRESS,
         abi: challengeAbi,
@@ -526,10 +719,10 @@ export default function ChallengePage() {
         body: JSON.stringify({ wallet, txHash: hash }),
       });
       if (selected?.id === challenge.id) setSelected(null);
-      setMessage("Challenge cancelled and prize bank returned.");
+      setMessage(copy.cancelled);
       await loadLists();
     } catch (err) {
-      showFriendlyError(err, "Could not cancel challenge", setError, setMessage);
+      showFriendlyError(err, "Could not cancel challenge", copy, setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -545,12 +738,12 @@ export default function ChallengePage() {
           <span className={styles.cardKicker}>
             #{challenge.onchainChallengeId} - {challengeStatusLabel(challenge.status)}
           </span>
-          <h3>{formatUsdc(challenge.creatorAmount)} prize bank</h3>
-          <p>{challengeSubtitle(challenge)}</p>
+          <h3>{formatUsdc(challenge.creatorAmount)} {copy.prizeBank.toLowerCase()}</h3>
+          <p>{challengeSubtitle(challenge, copy)}</p>
         </div>
         <div className={styles.cardActions}>
           <button type="button" onClick={() => loadChallenge(challenge)}>
-            Open
+            {copy.open}
           </button>
           {scope === "open" && (
             <button
@@ -559,7 +752,7 @@ export default function ChallengePage() {
               onClick={() => handleJoin(challenge)}
               disabled={!!busy || CONTRACT_NOT_SET}
             >
-              {busy === `join:${challenge.id}` ? "Joining..." : `Attack ticket - ${formatUsdc(challenge.entryFee)}`}
+              {busy === `join:${challenge.id}` ? copy.joining : `${copy.attackTicket} - ${formatUsdc(challenge.entryFee)}`}
             </button>
           )}
           {mineCreator && challenge.status === "open" && (
@@ -569,12 +762,12 @@ export default function ChallengePage() {
               onClick={() => handleCancel(challenge)}
               disabled={!!busy}
             >
-              {busy === `cancel:${challenge.id}` ? "Cancel..." : "Cancel"}
+              {busy === `cancel:${challenge.id}` ? copy.cancelling : copy.cancel}
             </button>
           )}
           {(mineCreator || mineChallenger) && isFinalChallengeStatus(challenge.status) && !challenge.settledAt && (
             <button type="button" className={styles.primarySmall} onClick={() => loadChallenge(challenge)}>
-              Settle
+              {copy.settle}
             </button>
           )}
         </div>
@@ -586,48 +779,44 @@ export default function ChallengePage() {
     <main className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <span className={styles.eyebrow}>Async 5x5 challenge mode</span>
-          <h1>Sea Challenge</h1>
-          <p>
-            Fund a prize bank, hide a compact 5x5 fleet, and let one attacker buy a fixed shot run.
-            Every hit raises the cashout coefficient. Full clear pays the biggest multiplier, while drops
-            always receive 10% of the pot.
-          </p>
+          <span className={styles.eyebrow}>{copy.heroEyebrow}</span>
+          <h1>{copy.heroTitle}</h1>
+          <p>{copy.heroText}</p>
           <div className={styles.heroTags}>
-            <span>5x5 grid</span>
-            <span>8 ship cells</span>
-            <span>cashout any time</span>
+            <span>{copy.tagGrid}</span>
+            <span>{copy.tagShips}</span>
+            <span>{copy.tagCashout}</span>
           </div>
         </div>
         <div className={styles.heroStats}>
-          <span>Pot split</span>
+          <span>{copy.potSplit}</span>
           <strong>90 / 10</strong>
-          <span>Prize bank + attack ticket</span>
+          <span>{copy.potSplitSub}</span>
         </div>
       </header>
 
       {wallet && (
         <section className={styles.claimPanel}>
           <div>
-            <span className={styles.eyebrow}>Payout vault</span>
+            <span className={styles.eyebrow}>{copy.payoutVault}</span>
             <strong>{formatUsdc(pendingPayout)}</strong>
-            <p>All finished challenge payouts stack here and can be claimed together.</p>
+            <p>{copy.payoutVaultDesc}</p>
           </div>
           <button
             type="button"
             onClick={handleClaimPayout}
             disabled={!!busy || pendingPayout <= BigInt(0)}
           >
-            {busy === "claim" ? "Claiming..." : "Claim all payouts"}
+            {busy === "claim" ? copy.claiming : copy.claimAll}
           </button>
         </section>
       )}
 
       {CONTRACT_NOT_SET && (
-        <div className={styles.banner}>Challenge contract is being activated. The mode preview is visible now.</div>
+        <div className={styles.banner}>{copy.contractActivating}</div>
       )}
       {!isConnected && (
-        <div className={styles.banner}>Connect wallet on the main screen to create or join challenges.</div>
+        <div className={styles.banner}>{copy.connectWallet}</div>
       )}
       {(message || error) && (
         <div className={`${styles.banner} ${error ? styles.errorBanner : ""}`}>
@@ -639,37 +828,41 @@ export default function ChallengePage() {
         <aside className={styles.leftColumn}>
           <section className={styles.panel}>
             <div className={styles.panelHead}>
-              <span className={styles.eyebrow}>Create</span>
-              <h2>Build a challenge</h2>
+              <span className={styles.eyebrow}>{copy.create}</span>
+              <h2>{copy.buildChallenge}</h2>
             </div>
             <div className={styles.choiceSection}>
               <div className={styles.choiceHead}>
-                <span>Prize bank</span>
-                <b>Creator funds this amount</b>
+                <span>{copy.prizeBank}</span>
+                <b>{copy.creatorFunds}</b>
               </div>
               <div className={styles.presetGrid}>
-                {PRIZE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={`${styles.presetCard} ${selectedPrizeId === preset.id ? styles.selectedPreset : ""}`}
-                    onClick={() => setSelectedPrizeId(preset.id)}
-                  >
-                    <span>{preset.label}</span>
-                    <strong>{preset.amount} USDC</strong>
-                    <small>{preset.note}</small>
-                  </button>
-                ))}
+                {PRIZE_PRESETS.map((preset) => {
+                  const presetCopy = (copy.prizePresets as Record<string, { label: string; note: string }>)[preset.id] ?? preset;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={`${styles.presetCard} ${selectedPrizeId === preset.id ? styles.selectedPreset : ""}`}
+                      onClick={() => setSelectedPrizeId(preset.id)}
+                    >
+                      <span>{presetCopy.label}</span>
+                      <strong>{preset.amount} USDC</strong>
+                      <small>{presetCopy.note}</small>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className={styles.choiceSection}>
               <div className={styles.choiceHead}>
-                <span>Attack format</span>
-                <b>Fixed shot variants</b>
+                <span>{copy.attackFormat}</span>
+                <b>{copy.fixedVariants}</b>
               </div>
               <div className={styles.formatGrid}>
                 {MOVE_PRESETS.map((preset) => {
+                  const presetCopy = (copy.movePresets as Record<string, { label: string; note: string }>)[preset.id] ?? preset;
                   const payout = calculateChallengePayouts(
                     selectedCreatorAmount,
                     parseUsdcInput(preset.entryFee),
@@ -682,28 +875,28 @@ export default function ChallengePage() {
                       className={`${styles.formatCard} ${selectedMoveId === preset.id ? styles.selectedPreset : ""}`}
                       onClick={() => setSelectedMoveId(preset.id)}
                     >
-                      <span>{preset.label}</span>
-                      <strong>{preset.moves} shots</strong>
-                      <small>Attack ticket {preset.entryFee} USDC</small>
-                      <em>Full clear {formatMultiplier(payout.challengerPayout, parseUsdcInput(preset.entryFee))}</em>
+                      <span>{presetCopy.label}</span>
+                      <strong>{preset.moves} {copy.shots}</strong>
+                      <small>{copy.attackTicket} {preset.entryFee} USDC</small>
+                      <em>{copy.fullClear} {formatMultiplier(payout.challengerPayout, parseUsdcInput(preset.entryFee))}</em>
                     </button>
                   );
                 })}
               </div>
             </div>
             <div className={styles.economyBox}>
-              <span>Selected setup</span>
+              <span>{copy.selectedSetup}</span>
               <b>
-                {formatUsdc(selectedCreatorAmount)} bank / {formatUsdc(selectedEntryAmount)} ticket / {selectedMovePreset.moves} shots
+                {formatUsdc(selectedCreatorAmount)} {copy.bank} / {formatUsdc(selectedEntryAmount)} {copy.ticket} / {selectedMovePreset.moves} {copy.shots}
               </b>
               <small>
-                Full clear pays {formatUsdc(selectedFullClear.challengerPayout)} to the attacker.
-                Drops receive {formatUsdc(selectedFullClear.dropFee)}.
+                {copy.fullClearPays} {formatUsdc(selectedFullClear.challengerPayout)} {copy.toAttacker}.
+                {copy.dropsReceive} {formatUsdc(selectedFullClear.dropFee)}.
               </small>
             </div>
             <div className={styles.ladderHead}>
-              <span>Cashout ladder</span>
-              <b>90% pot x (hits / 8)^2</b>
+              <span>{copy.cashoutLadder}</span>
+              <b>{copy.formula}</b>
             </div>
             <div className={styles.previewLadder}>
               {Array.from({ length: CHALLENGE_TOTAL_SHIP_CELLS }, (_, index) => {
@@ -711,7 +904,7 @@ export default function ChallengePage() {
                 const payout = calculateChallengePayouts(selectedCreatorAmount, selectedEntryAmount, hits);
                 return (
                   <span key={hits}>
-                    <b>{hits} hit</b>
+                    <b>{hits} {copy.hit}</b>
                     <em>{formatUsdc(payout.challengerPayout)}</em>
                     <small>{formatMultiplier(payout.challengerPayout, selectedEntryAmount)} - {cashoutPercent(hits)}</small>
                   </span>
@@ -722,8 +915,8 @@ export default function ChallengePage() {
 
           <section className={styles.panel}>
             <div className={styles.panelHead}>
-              <span className={styles.eyebrow}>Your fleet</span>
-              <h2>Place 5x5 ships</h2>
+              <span className={styles.eyebrow}>{copy.yourFleet}</span>
+              <h2>{copy.placeShips}</h2>
             </div>
             <ChallengeShipPlacement
               onConfirm={handleCreate}
@@ -735,12 +928,12 @@ export default function ChallengePage() {
           {wallet && (
             <section className={styles.panel}>
               <div className={styles.panelHead}>
-                <span className={styles.eyebrow}>Reconnect</span>
-                <h2>Your runs</h2>
+                <span className={styles.eyebrow}>{copy.reconnect}</span>
+                <h2>{copy.yourRuns}</h2>
               </div>
               <div className={styles.list}>
                 {myChallenges.length === 0 ? (
-                  <p className={styles.empty}>No active runs yet.</p>
+                  <p className={styles.empty}>{copy.noRuns}</p>
                 ) : (
                   myChallenges.map((challenge) => renderChallengeCard(challenge, "mine"))
                 )}
@@ -753,16 +946,16 @@ export default function ChallengePage() {
           <section className={styles.panel}>
             <div className={styles.panelHeadRow}>
               <div>
-                <span className={styles.eyebrow}>Targets</span>
-                <h2>Open targets</h2>
+                <span className={styles.eyebrow}>{copy.targets}</span>
+                <h2>{copy.openTargets}</h2>
               </div>
               <button type="button" className={styles.refresh} onClick={loadLists}>
-                Refresh
+                {copy.refresh}
               </button>
             </div>
             <div className={styles.list}>
               {openChallenges.length === 0 ? (
-                <p className={styles.empty}>No open targets right now.</p>
+                <p className={styles.empty}>{copy.noTargets}</p>
               ) : (
                 openChallenges.map((challenge) => renderChallengeCard(challenge, "open"))
               )}
@@ -772,12 +965,12 @@ export default function ChallengePage() {
           <section className={`${styles.panel} ${styles.attackPanel}`}>
             <div className={styles.panelHeadRow}>
               <div>
-                <span className={styles.eyebrow}>Attack board</span>
-                <h2>{selected ? `Target #${selected.onchainChallengeId}` : "Select a target"}</h2>
+                <span className={styles.eyebrow}>{copy.attackBoard}</span>
+                <h2>{selected ? `${copy.target} #${selected.onchainChallengeId}` : copy.selectTarget}</h2>
               </div>
               {selected && (
                 <div className={styles.counter}>
-                  <b>{selected.hits}</b> hits - <b>{selected.movesUsed}</b>/{selected.maxMoves} shots
+                  <b>{selected.hits}</b> {copy.hit} - <b>{selected.movesUsed}</b>/{selected.maxMoves} {copy.shots}
                 </div>
               )}
             </div>
@@ -789,13 +982,13 @@ export default function ChallengePage() {
                     cells={targetCells}
                     onCellClick={handleShot}
                     isInteractive={selected.status === "joined" && selected.challenger === wallet && !busy}
-                    label="Challenge Grid"
+                    label={copy.challengeGrid}
                     variant="target"
                     cellSize="48px"
                   />
                 </div>
                 <div className={styles.attackFooter}>
-                  <p>{challengeSubtitle(selected)}</p>
+                  <p>{challengeSubtitle(selected, copy)}</p>
                   {settlement && !selected.settledAt && (
                     <button
                       type="button"
@@ -803,16 +996,16 @@ export default function ChallengePage() {
                       onClick={() => handleSettle()}
                       disabled={!!busy}
                     >
-                      {busy === `settle:${selected.id}` ? "Locking..." : "Lock payout"}
+                      {busy === `settle:${selected.id}` ? copy.locking : copy.lockPayout}
                     </button>
                   )}
-                  {selected.settledAt && <span className={styles.settledBadge}>Payout settled</span>}
+                  {selected.settledAt && <span className={styles.settledBadge}>{copy.payoutSettled}</span>}
                 </div>
                 <div className={styles.cashoutBox}>
                   <div className={styles.cashoutTop}>
                     <div>
-                      <span className={styles.eyebrow}>Cashout ladder</span>
-                      <h3>Coefficient grows with hits</h3>
+                      <span className={styles.eyebrow}>{copy.cashoutLadder}</span>
+                      <h3>{copy.coefficientGrows}</h3>
                     </div>
                     {selectedCashout && (
                       <strong>{formatUsdc(selectedCashout.challengerPayout)}</strong>
@@ -831,7 +1024,7 @@ export default function ChallengePage() {
                           key={hits}
                           className={hits <= selected.hits ? styles.cashoutActive : ""}
                         >
-                          <b>{hits} hit</b>
+                          <b>{hits} {copy.hit}</b>
                           <em>{formatUsdc(payout.challengerPayout)} / {formatMultiplier(payout.challengerPayout, BigInt(selected.entryFee))}</em>
                         </span>
                       );
@@ -844,19 +1037,18 @@ export default function ChallengePage() {
                       onClick={handleCashout}
                       disabled={!!busy || selected.movesUsed <= 0}
                     >
-                      {busy === `cashout:${selected.id}` ? "Cashout..." : "Cash out now"}
+                      {busy === `cashout:${selected.id}` ? copy.cashingOut : copy.cashOutNow}
                     </button>
                   )}
                   <p>
-                    10% of the full pot goes to drops. The remaining 90% is split by the ladder:
-                    attacker receives the current cashout, bank owner receives the rest.
+                    {copy.cashoutDesc}
                   </p>
                 </div>
               </>
             ) : (
               <div className={styles.emptyState}>
-                <b>No target selected</b>
-                <span>Pick an open target or reopen one of your runs from the left panel.</span>
+                <b>{copy.noTargetTitle}</b>
+                <span>{copy.noTargetDesc}</span>
               </div>
             )}
           </section>

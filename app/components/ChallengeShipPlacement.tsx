@@ -7,6 +7,7 @@ import {
   CHALLENGE_GRID_SIZE,
   CHALLENGE_SHIP_SIZES,
 } from "../lib/challengeShared";
+import { useSettings, type Lang } from "../lib/settings";
 import styles from "./ChallengeShipPlacement.module.css";
 
 type Orientation = "h" | "v";
@@ -28,6 +29,44 @@ const SHIPS: Ship[] = CHALLENGE_SHIP_SIZES.map((size, index) => ({
   size,
   name: size === 3 ? "Frigate (3)" : size === 2 ? "Cutter (2)" : "Scout (1)",
 }));
+
+const COPY: Record<Lang, {
+  summary: string;
+  rotate: string;
+  random: string;
+  clear: string;
+  boardLabel: string;
+  confirmWallet: string;
+  saving: string;
+  create: string;
+  place: (count: number) => string;
+  shipName: (size: number) => string;
+}> = {
+  en: {
+    summary: "Quick 5x5 fleet",
+    rotate: "Rotate",
+    random: "Random",
+    clear: "Clear",
+    boardLabel: "Challenge Fleet",
+    confirmWallet: "Confirm in wallet...",
+    saving: "Saving challenge...",
+    create: "Create 5x5 Challenge",
+    place: (count) => `Place ${count} ship(s)`,
+    shipName: (size) => (size === 3 ? "Frigate (3)" : size === 2 ? "Cutter (2)" : "Scout (1)"),
+  },
+  ru: {
+    summary: "Быстрый флот 5x5",
+    rotate: "Повернуть",
+    random: "Случайно",
+    clear: "Очистить",
+    boardLabel: "Флот челленджа",
+    confirmWallet: "Подтверди в кошельке...",
+    saving: "Сохраняем челлендж...",
+    create: "Создать челлендж 5x5",
+    place: (count) => `Расставь корабли: ${count}`,
+    shipName: (size) => (size === 3 ? "Фрегат (3)" : size === 2 ? "Катер (2)" : "Разведчик (1)"),
+  },
+};
 
 interface ChallengeShipPlacementProps {
   onConfirm: (boardLayout: number[]) => void;
@@ -113,6 +152,8 @@ export function ChallengeShipPlacement({
   isPending,
   isConfirming,
 }: ChallengeShipPlacementProps) {
+  const { lang } = useSettings();
+  const copy = COPY[lang];
   const [placedShips, setPlacedShips] = useState<PlacedShip[]>([]);
   const [selectedShipId, setSelectedShipId] = useState<string | null>(SHIPS[0]?.id ?? null);
   const [orientation, setOrientation] = useState<Orientation>("h");
@@ -152,7 +193,7 @@ export function ChallengeShipPlacement({
   return (
     <div className={styles.container}>
       <div className={styles.summary}>
-        <span>Quick 5x5 fleet</span>
+        <span>{copy.summary}</span>
         <b>{CHALLENGE_SHIP_SIZES.join(" / ")}</b>
       </div>
 
@@ -169,7 +210,7 @@ export function ChallengeShipPlacement({
                 <span key={index} className={styles.shipBlock} />
               ))}
             </span>
-            <span>{ship.name}</span>
+            <span>{copy.shipName(ship.size)}</span>
           </button>
         ))}
       </div>
@@ -181,7 +222,7 @@ export function ChallengeShipPlacement({
           onClick={() => setOrientation((value) => (value === "h" ? "v" : "h"))}
           disabled={!selectedShip}
         >
-          Rotate {orientation.toUpperCase()}
+          {copy.rotate} {orientation.toUpperCase()}
         </button>
         <button
           type="button"
@@ -194,7 +235,7 @@ export function ChallengeShipPlacement({
             }
           }}
         >
-          Random
+          {copy.random}
         </button>
         <button
           type="button"
@@ -204,7 +245,7 @@ export function ChallengeShipPlacement({
             setSelectedShipId(SHIPS[0]?.id ?? null);
           }}
         >
-          Clear
+          {copy.clear}
         </button>
       </div>
 
@@ -212,7 +253,7 @@ export function ChallengeShipPlacement({
         cells={cells}
         onCellClick={handleCellClick}
         isInteractive
-        label="Bounty Fleet"
+        label={copy.boardLabel}
         variant="placement"
         cellSize="42px"
       />
@@ -224,12 +265,12 @@ export function ChallengeShipPlacement({
         onClick={() => onConfirm(boardFromPlaced(placedShips))}
       >
         {isPending
-          ? "Confirm in wallet..."
+          ? copy.confirmWallet
           : isConfirming
-            ? "Saving challenge..."
+            ? copy.saving
             : allPlaced
-              ? "Create 5x5 Challenge"
-              : `Place ${SHIPS.length - placedShips.length} ship(s)`}
+              ? copy.create
+              : copy.place(SHIPS.length - placedShips.length)}
       </button>
     </div>
   );

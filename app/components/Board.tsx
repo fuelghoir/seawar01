@@ -14,23 +14,21 @@ interface BoardProps {
   cellSize?: string;
 }
 
-const COL_LABELS_RU = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И"];
 const COL_LABELS_EN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 export function Board({ cells, onCellClick, isInteractive, label, variant, cellSize }: BoardProps) {
   const { lang } = useSettings();
-  const baseColLabels = lang === "ru" ? COL_LABELS_RU : COL_LABELS_EN;
   const rowCount = cells.length;
   const colCount = cells.reduce((max, row) => Math.max(max, row.length), 0);
-  const COL_LABELS = baseColLabels.slice(0, colCount);
+  const COL_LABELS = COL_LABELS_EN.slice(0, colCount);
   const boardVariant = variant ?? "fleet";
   const wrapperStyle = cellSize ? ({ "--cell": cellSize } as CSSProperties) : undefined;
   const kicker =
     boardVariant === "target"
-      ? "TARGET GRID"
+      ? lang === "ru" ? "СЕТКА ЦЕЛИ" : "TARGET GRID"
       : boardVariant === "placement"
-        ? "DEPLOYMENT GRID"
-        : "FLEET GRID";
+        ? lang === "ru" ? "РАССТАНОВКА" : "DEPLOYMENT GRID"
+        : lang === "ru" ? "СЕТКА ФЛОТА" : "FLEET GRID";
 
   return (
     <section

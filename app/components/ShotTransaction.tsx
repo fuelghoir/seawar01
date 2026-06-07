@@ -1,5 +1,6 @@
 "use client";
 
+import { useSettings, type Lang } from "../lib/settings";
 import styles from "./ShotTransaction.module.css";
 
 interface ShotTransactionProps {
@@ -12,6 +13,38 @@ interface ShotTransactionProps {
   disabled: boolean;
 }
 
+const COPY: Record<Lang, {
+  confirmingResult: string;
+  processing: string;
+  autoReporting: string;
+  selectTarget: string;
+  confirmWallet: string;
+  shotInFlight: (cell: string) => string;
+  hitConfirmed: string;
+  fireAt: (cell: string) => string;
+}> = {
+  en: {
+    confirmingResult: "Confirming shot result...",
+    processing: "Processing...",
+    autoReporting: "Auto-reporting shot result...",
+    selectTarget: "Select a target",
+    confirmWallet: "Confirm in wallet...",
+    shotInFlight: (cell) => `Shot at ${cell} in flight...`,
+    hitConfirmed: "Hit confirmed!",
+    fireAt: (cell) => `Fire at ${cell}`,
+  },
+  ru: {
+    confirmingResult: "Подтверждаем результат выстрела...",
+    processing: "Обработка...",
+    autoReporting: "Автоматически отправляем результат...",
+    selectTarget: "Выбери цель",
+    confirmWallet: "Подтверди в кошельке...",
+    shotInFlight: (cell) => `Выстрел по ${cell} летит...`,
+    hitConfirmed: "Попадание подтверждено!",
+    fireAt: (cell) => `Огонь по ${cell}`,
+  },
+};
+
 export function ShotTransaction({
   selectedCell,
   isPending,
@@ -21,7 +54,9 @@ export function ShotTransaction({
   needsReport,
   disabled,
 }: ShotTransactionProps) {
-  const colLabels = "АБВГДЕЁЖЗИ";
+  const { lang } = useSettings();
+  const copy = COPY[lang];
+  const colLabels = "ABCDEFGHIJ";
 
   if (needsReport) {
     return (
@@ -30,10 +65,10 @@ export function ShotTransaction({
         disabled
       >
         {isPending
-          ? "Confirming shot result..."
+          ? copy.confirmingResult
           : isConfirming
-            ? "Processing..."
-            : "Auto-reporting shot result..."}
+            ? copy.processing
+            : copy.autoReporting}
       </button>
     );
   }
@@ -41,7 +76,7 @@ export function ShotTransaction({
   if (!selectedCell) {
     return (
       <button className={styles.button} disabled>
-        Select a target
+        {copy.selectTarget}
       </button>
     );
   }
@@ -55,12 +90,12 @@ export function ShotTransaction({
       disabled={disabled || isPending || isConfirming}
     >
       {isPending
-        ? "Confirm in wallet..."
+        ? copy.confirmWallet
         : isConfirming
-          ? `Shot at ${cellLabel} in flight...`
+          ? copy.shotInFlight(cellLabel)
           : isSuccess
-            ? "Hit confirmed!"
-            : `Fire at ${cellLabel}`}
+            ? copy.hitConfirmed
+            : copy.fireAt(cellLabel)}
     </button>
   );
 }

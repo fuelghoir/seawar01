@@ -118,10 +118,8 @@ function deleteSave() {
   }
 }
 
-function formatCellLabel(cell: { x: number; y: number }, lang: "en" | "ru") {
-  const col = lang === "ru"
-    ? String.fromCharCode(1040 + cell.x)
-    : String.fromCharCode(65 + cell.x);
+function formatCellLabel(cell: { x: number; y: number }, _lang?: "en" | "ru") {
+  const col = String.fromCharCode(65 + cell.x);
   return `${col}${cell.y + 1}`;
 }
 
