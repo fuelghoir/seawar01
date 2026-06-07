@@ -234,32 +234,68 @@ interface UserMetrics {
   checkin_streak: number;
   wager_wins: number;
   wager_games: number;
+  weekly_total_wins: number;
+  weekly_total_games: number;
+  weekly_total_hits: number;
+  weekly_wager_wins: number;
+  weekly_wager_games: number;
 }
+
+type QuestGameMetricRow = {
+  id: number;
+  player1: string;
+  player2: string | null;
+  winner: string | null;
+  state: number;
+  game_mode: string | null;
+  player1_hits: number | null;
+  player2_hits: number | null;
+  created_at: string;
+};
 
 async function getUserMetrics(wallet: string): Promise<UserMetrics> {
   const addr = wallet.toLowerCase();
+  const weekStartMs = getWeekStartUTC().getTime();
 
-  const [statsResult, wagerResult] = await Promise.all([
+  const [statsResult, gamesResult] = await Promise.all([
     supabase
       .from("player_stats")
       .select("wins, games_played, total_hits, total_checkins, checkin_streak, last_checkin")
       .eq("wallet", addr)
-      .single(),
+      .maybeSingle(),
     supabase
       .from("games")
-      .select("winner")
-      .eq("game_mode", "wager")
-      .eq("state", 3)
+      .select("id, player1, player2, winner, state, game_mode, player1_hits, player2_hits, created_at")
       .or(`player1.eq.${addr},player2.eq.${addr}`),
   ]);
 
   const stats = statsResult.data;
-  const wagerRows = wagerResult.data || [];
+  const gameRows = (gamesResult.data || []) as QuestGameMetricRow[];
+  const playableRows = gameRows.filter((game) => game.state !== 4);
+  const finishedRows = playableRows.filter((game) => game.state === 3);
+  const weeklyRows = playableRows.filter(
+    (game) => new Date(game.created_at).getTime() >= weekStartMs
+  );
+  const weeklyFinishedRows = weeklyRows.filter((game) => game.state === 3);
+  const wagerRows = finishedRows.filter((game) => game.game_mode === "wager");
+  const weeklyWagerRows = weeklyFinishedRows.filter((game) => game.game_mode === "wager");
+  const gameWins = finishedRows.filter((game) => game.winner === addr).length;
+  const gameHits = playableRows.reduce((sum, game) => {
+    if (game.player1 === addr) return sum + Number(game.player1_hits ?? 0);
+    if (game.player2 === addr) return sum + Number(game.player2_hits ?? 0);
+    return sum;
+  }, 0);
+  const weeklyGameWins = weeklyFinishedRows.filter((game) => game.winner === addr).length;
+  const weeklyGameHits = weeklyRows.reduce((sum, game) => {
+    if (game.player1 === addr) return sum + Number(game.player1_hits ?? 0);
+    if (game.player2 === addr) return sum + Number(game.player2_hits ?? 0);
+    return sum;
+  }, 0);
 
   return {
-    total_wins: stats?.wins ?? 0,
-    total_games: stats?.games_played ?? 0,
-    total_hits: stats?.total_hits ?? 0,
+    total_wins: Math.max(stats?.wins ?? 0, gameWins),
+    total_games: Math.max(stats?.games_played ?? 0, finishedRows.length),
+    total_hits: Math.max(stats?.total_hits ?? 0, gameHits),
     total_checkins: getWeeklyCheckinCount(
       stats?.total_checkins ?? 0,
       stats?.checkin_streak ?? 0,
@@ -268,6 +304,11 @@ async function getUserMetrics(wallet: string): Promise<UserMetrics> {
     checkin_streak: getWeeklyCheckinStreak(stats?.checkin_streak ?? 0, stats?.last_checkin),
     wager_wins: wagerRows.filter(g => g.winner === addr).length,
     wager_games: wagerRows.length,
+    weekly_total_wins: weeklyGameWins,
+    weekly_total_games: weeklyFinishedRows.length,
+    weekly_total_hits: weeklyGameHits,
+    weekly_wager_wins: weeklyWagerRows.filter(g => g.winner === addr).length,
+    weekly_wager_games: weeklyWagerRows.length,
   };
 }
 
@@ -283,9 +324,27 @@ export interface UserQuestState {
 
 function getQuestProgress(def: QuestDefinition, metrics: UserMetrics, baseline: number) {
   const currentValue = metrics[def.metric] ?? 0;
-  return def.metric === "checkin_streak" || def.metric === "total_checkins"
-    ? currentValue
-    : Math.max(0, currentValue - baseline);
+  if (def.metric === "checkin_streak" || def.metric === "total_checkins") {
+    return currentValue;
+  }
+
+  const baselineDelta = Math.max(0, currentValue - baseline);
+  if (def.metric === "total_wins") {
+    return Math.max(baselineDelta, metrics.weekly_total_wins);
+  }
+  if (def.metric === "total_games") {
+    return Math.max(baselineDelta, metrics.weekly_total_games);
+  }
+  if (def.metric === "total_hits") {
+    return Math.max(baselineDelta, metrics.weekly_total_hits);
+  }
+  if (def.metric === "wager_wins") {
+    return Math.max(baselineDelta, metrics.weekly_wager_wins);
+  }
+  if (def.metric === "wager_games") {
+    return Math.max(baselineDelta, metrics.weekly_wager_games);
+  }
+  return baselineDelta;
 }
 
 export async function getUserQuestsWithProgress(wallet: string): Promise<UserQuestState[]> {
