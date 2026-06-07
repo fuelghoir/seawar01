@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RobotIcon, UsersIcon, DollarIcon, ChevronRightIcon } from "./Icons";
+import { RobotIcon, UsersIcon, DollarIcon, TrophyIcon, ChevronRightIcon } from "./Icons";
 import { useSettings, TR } from "../lib/settings";
 import styles from "./PlayModal.module.css";
 
@@ -51,6 +51,14 @@ export function PlayModal({ open, onClose }: PlayModalProps) {
       accent: "#a855f7",
       Icon: DollarIcon,
       onSelect: () => router.push("/play?mode=wager"),
+    },
+    {
+      id: "challenge" as const,
+      label: tr.home_play_challenge,
+      sub: tr.home_play_challenge_sub,
+      accent: "#f59e0b",
+      Icon: TrophyIcon,
+      onSelect: () => router.push("/challenge"),
     },
   ];
 

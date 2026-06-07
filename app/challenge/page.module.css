@@ -1,0 +1,400 @@
+.page {
+  min-height: 100vh;
+  padding: 28px clamp(14px, 3vw, 42px) 54px;
+  color: #eef8ff;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(0, 220, 180, 0.2), transparent 28%),
+    radial-gradient(circle at 78% 18%, rgba(168, 85, 247, 0.22), transparent 30%),
+    linear-gradient(145deg, #060914, #0d1830 48%, #120a25);
+}
+
+.hero,
+.panel {
+  border: 1px solid rgba(114, 226, 255, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(5, 11, 24, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 22px 60px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: clamp(22px, 4vw, 42px);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -45% 35%;
+  height: 180px;
+  background: radial-gradient(closest-side, rgba(255, 206, 84, 0.18), transparent);
+  pointer-events: none;
+}
+
+.eyebrow,
+.cardKicker {
+  display: inline-flex;
+  align-items: center;
+  color: #67e8f9;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.panel h2,
+.challengeCard h3 {
+  margin: 0;
+  font-family: var(--font-orbitron), monospace;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin-top: 8px;
+  font-size: clamp(34px, 6vw, 76px);
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 24px rgba(168, 85, 247, 0.5);
+}
+
+.hero p {
+  max-width: 760px;
+  margin: 14px 0 0;
+  color: rgba(238, 248, 255, 0.72);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.heroStats {
+  min-width: 210px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 206, 84, 0.28);
+  background: linear-gradient(160deg, rgba(255, 206, 84, 0.16), rgba(168, 85, 247, 0.12));
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.heroStats strong {
+  color: #ffce54;
+  font-size: 42px;
+  letter-spacing: 0.04em;
+}
+
+.banner {
+  margin-top: 16px;
+  border: 1px solid rgba(103, 232, 249, 0.28);
+  border-radius: 16px;
+  padding: 12px 16px;
+  background: rgba(8, 16, 34, 0.86);
+  color: #c8f7ff;
+  font-weight: 700;
+}
+
+.errorBanner {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.25fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.leftColumn,
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel {
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.panelHead,
+.panelHeadRow {
+  margin-bottom: 14px;
+}
+
+.panelHeadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.panel h2 {
+  margin-top: 5px;
+  color: #fff;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formGrid label {
+  display: grid;
+  gap: 7px;
+  color: rgba(238, 248, 255, 0.62);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.formGrid input {
+  width: 100%;
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(4, 8, 18, 0.78);
+  color: #fff;
+  font: 800 14px var(--font-mono-raw), monospace;
+  outline: none;
+}
+
+.formGrid input:focus {
+  border-color: rgba(103, 232, 249, 0.72);
+  box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.1);
+}
+
+.economyBox {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(0, 220, 180, 0.12), rgba(255, 206, 84, 0.1));
+  color: rgba(238, 248, 255, 0.68);
+  font-size: 12px;
+}
+
+.economyBox b {
+  color: #ffce54;
+  font-family: var(--font-orbitron), monospace;
+  letter-spacing: 0.04em;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.challengeCard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(103, 232, 249, 0.08), rgba(168, 85, 247, 0.08)),
+    rgba(4, 8, 18, 0.66);
+}
+
+.activeCard {
+  border-color: rgba(255, 206, 84, 0.48);
+  box-shadow: 0 0 28px rgba(255, 206, 84, 0.12);
+}
+
+.challengeCard h3 {
+  margin-top: 5px;
+  color: #fff;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+}
+
+.challengeCard p {
+  margin: 6px 0 0;
+  color: rgba(238, 248, 255, 0.62);
+  font-size: 12px;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cardActions button,
+.refresh,
+.primarySmall,
+.dangerSmall,
+.settleButton {
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(9, 18, 38, 0.88);
+  color: #dffaff;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cardActions button:disabled,
+.settleButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primarySmall,
+.settleButton {
+  border-color: rgba(255, 206, 84, 0.45) !important;
+  background: linear-gradient(135deg, rgba(255, 206, 84, 0.28), rgba(168, 85, 247, 0.25)) !important;
+  color: #fff !important;
+}
+
+.dangerSmall {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #fecaca !important;
+}
+
+.empty,
+.emptyState {
+  color: rgba(238, 248, 255, 0.56);
+}
+
+.attackPanel {
+  min-height: 560px;
+}
+
+.counter {
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(103, 232, 249, 0.08);
+  color: rgba(238, 248, 255, 0.72);
+  font: 800 12px var(--font-orbitron), monospace;
+  text-transform: uppercase;
+}
+
+.counter b {
+  color: #ffce54;
+}
+
+.boardStage {
+  display: flex;
+  justify-content: center;
+  padding: 16px 4px 8px;
+  perspective: 1100px;
+}
+
+.boardStage > section {
+  transform: rotateX(4deg);
+  transform-origin: center;
+}
+
+.attackFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
+  color: rgba(238, 248, 255, 0.62);
+  font-size: 13px;
+}
+
+.settleButton {
+  padding: 13px 16px;
+}
+
+.settledBadge {
+  border: 1px solid rgba(0, 220, 180, 0.34);
+  border-radius: 999px;
+  padding: 10px 12px;
+  color: #7fffe7;
+  font: 900 10px var(--font-orbitron), monospace;
+  text-transform: uppercase;
+}
+
+.emptyState {
+  min-height: 360px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.emptyState b {
+  color: #fff;
+  font-family: var(--font-orbitron), monospace;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1120px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px 10px 34px;
+  }
+
+  .hero {
+    flex-direction: column;
+    border-radius: 22px;
+  }
+
+  .heroStats {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .formGrid,
+  .challengeCard {
+    grid-template-columns: 1fr;
+  }
+
+  .cardActions,
+  .attackFooter {
+    align-items: stretch;
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .cardActions button,
+  .settleButton,
+  .refresh {
+    width: 100%;
+  }
+
+  .boardStage {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-left: max(6px, calc((100vw - 340px) / 2));
+  }
+
+  .boardStage > section {
+    transform: none;
+  }
+}
