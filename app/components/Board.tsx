@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Cell, CellState } from "./Cell";
 import { useSettings } from "../lib/settings";
 import styles from "./Board.module.css";
@@ -10,15 +11,20 @@ interface BoardProps {
   isInteractive: boolean;
   label: string;
   variant?: "target" | "fleet" | "placement";
+  cellSize?: string;
 }
 
 const COL_LABELS_RU = ["А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И"];
 const COL_LABELS_EN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-export function Board({ cells, onCellClick, isInteractive, label, variant }: BoardProps) {
+export function Board({ cells, onCellClick, isInteractive, label, variant, cellSize }: BoardProps) {
   const { lang } = useSettings();
-  const COL_LABELS = lang === "ru" ? COL_LABELS_RU : COL_LABELS_EN;
+  const baseColLabels = lang === "ru" ? COL_LABELS_RU : COL_LABELS_EN;
+  const rowCount = cells.length;
+  const colCount = cells.reduce((max, row) => Math.max(max, row.length), 0);
+  const COL_LABELS = baseColLabels.slice(0, colCount);
   const boardVariant = variant ?? "fleet";
+  const wrapperStyle = cellSize ? ({ "--cell": cellSize } as CSSProperties) : undefined;
   const kicker =
     boardVariant === "target"
       ? "TARGET GRID"
@@ -27,13 +33,16 @@ export function Board({ cells, onCellClick, isInteractive, label, variant }: Boa
         : "FLEET GRID";
 
   return (
-    <section className={`${styles.boardWrapper} ${styles[`${boardVariant}Board`]}`}>
+    <section
+      className={`${styles.boardWrapper} ${styles[`${boardVariant}Board`]}`}
+      style={wrapperStyle}
+    >
       <div className={styles.boardHeading}>
         <div>
           <span className={styles.kicker}>{kicker}</span>
           <h3 className={styles.label}>{label}</h3>
         </div>
-        <span className={styles.gridCode}>10 x 10</span>
+        <span className={styles.gridCode}>{colCount} x {rowCount}</span>
       </div>
       <div className={styles.frame}>
         <div className={styles.colHeader}>
@@ -58,7 +67,7 @@ export function Board({ cells, onCellClick, isInteractive, label, variant }: Boa
                     state={cellState}
                     onClick={() => onCellClick?.(x, y)}
                     isInteractive={isInteractive}
-                    label={`${COL_LABELS[x]}${y + 1}`}
+                    label={`${COL_LABELS[x] ?? x + 1}${y + 1}`}
                   />
                 ))}
               </div>

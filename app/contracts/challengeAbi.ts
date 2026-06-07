@@ -35,7 +35,6 @@ export const challengeAbi = [
     name: "settleChallenge",
     inputs: [
       { type: "uint256", name: "challengeId" },
-      { type: "address", name: "winner" },
       { type: "uint16", name: "movesUsed" },
       { type: "uint16", name: "hits" },
       { type: "bytes", name: "signature" },
@@ -71,6 +70,35 @@ export const challengeAbi = [
   },
   {
     type: "function",
+    name: "previewPayout",
+    inputs: [
+      { type: "uint256", name: "challengeId" },
+      { type: "uint16", name: "hits" },
+    ],
+    outputs: [
+      { type: "uint256", name: "creatorPayout" },
+      { type: "uint256", name: "challengerPayout" },
+      { type: "uint256", name: "dropFee" },
+      { type: "uint16", name: "cashoutBps" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "pendingPayouts",
+    inputs: [{ type: "address", name: "player" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "claimPayout",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "dropFundingTotal",
     inputs: [],
     outputs: [{ type: "uint256", name: "" }],
@@ -102,8 +130,19 @@ export const challengeAbi = [
     inputs: [
       { type: "uint256", name: "challengeId", indexed: true },
       { type: "address", name: "winner", indexed: true },
-      { type: "uint256", name: "prize", indexed: false },
+      { type: "uint256", name: "creatorPayout", indexed: false },
+      { type: "uint256", name: "challengerPayout", indexed: false },
       { type: "uint256", name: "dropFee", indexed: false },
+      { type: "uint16", name: "hits", indexed: false },
+      { type: "uint16", name: "cashoutBps", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PayoutClaimed",
+    inputs: [
+      { type: "address", name: "player", indexed: true },
+      { type: "uint256", name: "amount", indexed: false },
     ],
   },
 ] as const;

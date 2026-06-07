@@ -3,12 +3,18 @@ import {
   ChallengeDbRow,
   PUBLIC_CHALLENGE_SELECT,
   awardChallengeRewards,
+  challengePayoutPatch,
   challengeAdmin,
   finalizeChallengeStatsGame,
   signChallengeSettlement,
   toPublicChallenge,
 } from "../../../../lib/challengeServer";
-import { normalizeBoard, normalizeWallet } from "../../../../lib/challengeShared";
+import {
+  CHALLENGE_GRID_SIZE,
+  CHALLENGE_TOTAL_SHIP_CELLS,
+  normalizeBoard,
+  normalizeWallet,
+} from "../../../../lib/challengeShared";
 
 export const runtime = "nodejs";
 
@@ -30,7 +36,14 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
     const y = Number(body?.y);
 
     if (!challenger) return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
-    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 9 || y < 0 || y > 9) {
+    if (
+      !Number.isInteger(x) ||
+      !Number.isInteger(y) ||
+      x < 0 ||
+      x >= CHALLENGE_GRID_SIZE ||
+      y < 0 ||
+      y >= CHALLENGE_GRID_SIZE
+    ) {
       return NextResponse.json({ error: "Invalid shot" }, { status: 400 });
     }
 
@@ -56,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
     const board = normalizeBoard(boardRow.board);
     if (!board) return NextResponse.json({ error: "Stored board is invalid" }, { status: 500 });
 
-    const isHit = board[y * 10 + x] === 1;
+    const isHit = board[y * CHALLENGE_GRID_SIZE + x] === 1;
     const { error: insertError } = await admin.from("challenge_shots").insert({
       challenge_id: id,
       x,
@@ -78,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
     const shotRows = (shots || []) as ShotRow[];
     const movesUsed = shotRows.length;
     const hits = shotRows.filter((shot) => shot.is_hit === true).length;
-    const challengerWon = hits >= 20;
+    const challengerWon = hits >= CHALLENGE_TOTAL_SHIP_CELLS;
     const creatorWon = !challengerWon && movesUsed >= Number(row.max_moves);
     const winner = challengerWon ? row.challenger : creatorWon ? row.creator : null;
 
@@ -90,6 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
       updates.status = challengerWon ? "challenger_won" : "creator_won";
       updates.winner = winner;
       updates.finished_at = new Date().toISOString();
+      Object.assign(updates, challengePayoutPatch(row, hits));
     }
 
     const { data: updated, error: updateError } = await admin

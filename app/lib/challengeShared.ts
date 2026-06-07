@@ -1,13 +1,16 @@
 import { keccak256, toBytes } from "viem";
 
-export const CHALLENGE_GRID_SIZE = 10;
+export const CHALLENGE_GRID_SIZE = 5;
 export const CHALLENGE_BOARD_CELLS = CHALLENGE_GRID_SIZE * CHALLENGE_GRID_SIZE;
-export const CHALLENGE_SHIP_SIZES = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+export const CHALLENGE_SHIP_SIZES = [3, 2, 2, 1];
 export const CHALLENGE_TOTAL_SHIP_CELLS = CHALLENGE_SHIP_SIZES.reduce((sum, size) => sum + size, 0);
+export const CHALLENGE_BPS = 10_000;
+export const CHALLENGE_DROP_FEE_BPS = 1_000;
 
 export type ChallengeStatus =
   | "open"
   | "joined"
+  | "cashed_out"
   | "challenger_won"
   | "creator_won"
   | "settled"
@@ -33,6 +36,10 @@ export type PublicChallenge = {
   winner: string | null;
   movesUsed: number;
   hits: number;
+  creatorPayout: string;
+  challengerPayout: string;
+  dropFee: string;
+  cashoutBps: number;
   createdAt: string;
   joinedAt: string | null;
   finishedAt: string | null;
@@ -42,9 +49,12 @@ export type PublicChallenge = {
 
 export type ChallengeSettlement = {
   onchainChallengeId: number;
-  winner: `0x${string}`;
   movesUsed: number;
   hits: number;
+  creatorPayout: string;
+  challengerPayout: string;
+  dropFee: string;
+  cashoutBps: number;
   signature: `0x${string}`;
 };
 
@@ -143,6 +153,33 @@ export function computeBoardCommitment(board: number[], salt: string): `0x${stri
   return keccak256(toBytes(`${board.join("")}:${salt}`));
 }
 
+export function challengeCashoutBps(hits: number) {
+  const safeHits = Math.max(0, Math.min(CHALLENGE_TOTAL_SHIP_CELLS, Math.floor(hits)));
+  return Math.floor(
+    (safeHits * safeHits * CHALLENGE_BPS) /
+      (CHALLENGE_TOTAL_SHIP_CELLS * CHALLENGE_TOTAL_SHIP_CELLS)
+  );
+}
+
+export function calculateChallengePayouts(
+  creatorAmount: bigint,
+  entryFee: bigint,
+  hits: number
+) {
+  const pot = creatorAmount + entryFee;
+  const dropFee = (pot * BigInt(CHALLENGE_DROP_FEE_BPS)) / BigInt(CHALLENGE_BPS);
+  const distributable = pot - dropFee;
+  const cashoutBps = challengeCashoutBps(hits);
+  const challengerPayout = (distributable * BigInt(cashoutBps)) / BigInt(CHALLENGE_BPS);
+  const creatorPayout = distributable - challengerPayout;
+  return { pot, dropFee, distributable, cashoutBps, challengerPayout, creatorPayout };
+}
+
 export function isFinalChallengeStatus(status: ChallengeStatus) {
-  return status === "challenger_won" || status === "creator_won" || status === "settled";
+  return (
+    status === "cashed_out" ||
+    status === "challenger_won" ||
+    status === "creator_won" ||
+    status === "settled"
+  );
 }

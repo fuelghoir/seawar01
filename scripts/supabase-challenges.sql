@@ -16,14 +16,18 @@ create table if not exists challenge_games (
   challenger text check (challenger is null or challenger ~ '^0x[a-f0-9]{40}$'),
   creator_amount bigint not null check (creator_amount > 0),
   entry_fee bigint not null check (entry_fee > 0),
-  max_moves smallint not null check (max_moves between 1 and 100),
+  max_moves smallint not null check (max_moves between 1 and 25),
   board_commitment text not null check (board_commitment ~ '^0x[a-fA-F0-9]{64}$'),
   status text not null default 'open' check (
-    status in ('open', 'joined', 'challenger_won', 'creator_won', 'settled', 'cancelled')
+    status in ('open', 'joined', 'cashed_out', 'challenger_won', 'creator_won', 'settled', 'cancelled')
   ),
   winner text check (winner is null or winner ~ '^0x[a-f0-9]{40}$'),
-  moves_used smallint not null default 0 check (moves_used between 0 and 100),
-  hits smallint not null default 0 check (hits between 0 and 20),
+  moves_used smallint not null default 0 check (moves_used between 0 and 25),
+  hits smallint not null default 0 check (hits between 0 and 8),
+  creator_payout bigint not null default 0 check (creator_payout >= 0),
+  challenger_payout bigint not null default 0 check (challenger_payout >= 0),
+  drop_fee bigint not null default 0 check (drop_fee >= 0),
+  cashout_bps smallint not null default 0 check (cashout_bps between 0 and 10000),
   points_awarded boolean not null default false,
   settled_tx_hash text,
   created_at timestamptz not null default now(),
@@ -34,7 +38,7 @@ create table if not exists challenge_games (
 
 create table if not exists challenge_boards (
   challenge_id uuid primary key references challenge_games(id) on delete cascade,
-  board jsonb not null check (jsonb_typeof(board) = 'array' and jsonb_array_length(board) = 100),
+  board jsonb not null check (jsonb_typeof(board) = 'array' and jsonb_array_length(board) = 25),
   salt text not null check (length(salt) between 12 and 160),
   created_at timestamptz not null default now()
 );

@@ -12,6 +12,7 @@ interface IERC20Challenge {
 contract SeaBattleChallengeV1 {
     uint256 public constant BPS = 10_000;
     uint256 public constant DROP_FEE_BPS = 1_000; // 10% of the total pot
+    uint16 public constant TOTAL_SHIP_CELLS = 8;
     uint256 public constant JOINED_TIMEOUT = 24 hours;
 
     address public owner;
@@ -20,6 +21,7 @@ contract SeaBattleChallengeV1 {
     IERC20Challenge public immutable usdc;
     uint256 public nextChallengeId = 1;
     uint256 public dropFundingTotal;
+    mapping(address => uint256) public pendingPayouts;
 
     struct Challenge {
         address creator;
@@ -31,6 +33,12 @@ contract SeaBattleChallengeV1 {
         bool joined;
         bool settled;
         address winner;
+        uint256 creatorPayout;
+        uint256 challengerPayout;
+        uint256 dropFee;
+        uint16 movesUsed;
+        uint16 hits;
+        uint16 cashoutBps;
         uint64 createdAt;
         uint64 joinedAt;
     }
@@ -49,10 +57,14 @@ contract SeaBattleChallengeV1 {
     event ChallengeSettled(
         uint256 indexed challengeId,
         address indexed winner,
-        uint256 prize,
-        uint256 dropFee
+        uint256 creatorPayout,
+        uint256 challengerPayout,
+        uint256 dropFee,
+        uint16 hits,
+        uint16 cashoutBps
     );
     event ChallengeCancelled(uint256 indexed challengeId, address indexed creator, uint256 refund);
+    event PayoutClaimed(address indexed player, uint256 amount);
     event DropVaultUpdated(address indexed dropVault);
     event SignerUpdated(address indexed signer);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -98,6 +110,12 @@ contract SeaBattleChallengeV1 {
             joined: false,
             settled: false,
             winner: address(0),
+            creatorPayout: 0,
+            challengerPayout: 0,
+            dropFee: 0,
+            movesUsed: 0,
+            hits: 0,
+            cashoutBps: 0,
             createdAt: uint64(block.timestamp),
             joinedAt: 0
         });
@@ -133,7 +151,6 @@ contract SeaBattleChallengeV1 {
 
     function settleChallenge(
         uint256 challengeId,
-        address winner,
         uint16 movesUsed,
         uint16 hits,
         bytes calldata signature
@@ -142,14 +159,15 @@ contract SeaBattleChallengeV1 {
         require(challenge.creator != address(0), "Challenge not found");
         require(challenge.joined, "Not joined");
         require(!challenge.settled, "Already settled");
-        require(winner == challenge.creator || winner == challenge.challenger, "Invalid winner");
         require(msg.sender == challenge.creator || msg.sender == challenge.challenger, "Not participant");
+        require(hits <= TOTAL_SHIP_CELLS, "Too many hits");
+        require(movesUsed <= challenge.maxMoves, "Too many moves");
         require(
-            _recover(_settlementHash(challengeId, winner, movesUsed, hits), signature) == signer,
+            _recover(_settlementHash(challengeId, movesUsed, hits), signature) == signer,
             "Bad signature"
         );
 
-        _payout(challenge, challengeId, winner);
+        _settle(challenge, challengeId, movesUsed, hits);
     }
 
     function claimExpiredChallenge(uint256 challengeId) external {
@@ -160,7 +178,15 @@ contract SeaBattleChallengeV1 {
         require(block.timestamp >= uint256(challenge.joinedAt) + JOINED_TIMEOUT, "Timeout not ready");
         require(msg.sender == challenge.creator || msg.sender == challenge.challenger, "Not participant");
 
-        _payout(challenge, challengeId, challenge.creator);
+        _settle(challenge, challengeId, 0, 0);
+    }
+
+    function claimPayout() external {
+        uint256 amount = pendingPayouts[msg.sender];
+        require(amount > 0, "Nothing to claim");
+        pendingPayouts[msg.sender] = 0;
+        require(usdc.transfer(msg.sender, amount), "Claim failed");
+        emit PayoutClaimed(msg.sender, amount);
     }
 
     function getChallenge(uint256 challengeId)
@@ -216,30 +242,76 @@ contract SeaBattleChallengeV1 {
 
     function settlementHash(
         uint256 challengeId,
-        address winner,
         uint16 movesUsed,
         uint16 hits
     ) external view returns (bytes32) {
-        return _settlementHash(challengeId, winner, movesUsed, hits);
+        return _settlementHash(challengeId, movesUsed, hits);
     }
 
-    function _payout(Challenge storage challenge, uint256 challengeId, address winner) internal {
-        challenge.settled = true;
-        challenge.winner = winner;
+    function cashoutBpsForHits(uint16 hits) public pure returns (uint16) {
+        if (hits >= TOTAL_SHIP_CELLS) return uint16(BPS);
+        return uint16((uint256(hits) * uint256(hits) * BPS) / (uint256(TOTAL_SHIP_CELLS) * uint256(TOTAL_SHIP_CELLS)));
+    }
 
-        uint256 pot = challenge.creatorAmount + challenge.entryFee;
-        uint256 dropFee = (pot * DROP_FEE_BPS) / BPS;
-        uint256 prize = pot - dropFee;
+    function previewPayout(uint256 challengeId, uint16 hits)
+        external
+        view
+        returns (uint256 creatorPayout, uint256 challengerPayout, uint256 dropFee, uint16 cashoutBps)
+    {
+        Challenge storage challenge = challenges[challengeId];
+        require(challenge.creator != address(0), "Challenge not found");
+        return _calculatePayout(challenge, hits);
+    }
+
+    function _settle(
+        Challenge storage challenge,
+        uint256 challengeId,
+        uint16 movesUsed,
+        uint16 hits
+    ) internal {
+        challenge.settled = true;
+        challenge.winner = hits >= TOTAL_SHIP_CELLS ? challenge.challenger : challenge.creator;
+        challenge.movesUsed = movesUsed;
+        challenge.hits = hits;
+
+        (uint256 creatorPayout, uint256 challengerPayout, uint256 dropFee, uint16 cashoutBps) =
+            _calculatePayout(challenge, hits);
+        challenge.creatorPayout = creatorPayout;
+        challenge.challengerPayout = challengerPayout;
+        challenge.dropFee = dropFee;
+        challenge.cashoutBps = cashoutBps;
         dropFundingTotal += dropFee;
 
         require(usdc.transfer(dropVault, dropFee), "Drop fee failed");
-        require(usdc.transfer(winner, prize), "Prize failed");
-        emit ChallengeSettled(challengeId, winner, prize, dropFee);
+        if (creatorPayout > 0) pendingPayouts[challenge.creator] += creatorPayout;
+        if (challengerPayout > 0) pendingPayouts[challenge.challenger] += challengerPayout;
+
+        emit ChallengeSettled(
+            challengeId,
+            challenge.winner,
+            creatorPayout,
+            challengerPayout,
+            dropFee,
+            hits,
+            cashoutBps
+        );
+    }
+
+    function _calculatePayout(Challenge storage challenge, uint16 hits)
+        internal
+        view
+        returns (uint256 creatorPayout, uint256 challengerPayout, uint256 dropFee, uint16 cashoutBps)
+    {
+        uint256 pot = challenge.creatorAmount + challenge.entryFee;
+        dropFee = (pot * DROP_FEE_BPS) / BPS;
+        uint256 distributable = pot - dropFee;
+        cashoutBps = cashoutBpsForHits(hits);
+        challengerPayout = (distributable * cashoutBps) / BPS;
+        creatorPayout = distributable - challengerPayout;
     }
 
     function _settlementHash(
         uint256 challengeId,
-        address winner,
         uint16 movesUsed,
         uint16 hits
     ) internal view returns (bytes32) {
@@ -252,7 +324,6 @@ contract SeaBattleChallengeV1 {
                 challengeId,
                 challenge.creator,
                 challenge.challenger,
-                winner,
                 movesUsed,
                 hits,
                 challenge.maxMoves,

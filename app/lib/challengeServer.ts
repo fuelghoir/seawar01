@@ -8,6 +8,7 @@ import {
   ChallengeSettlement,
   ChallengeStatus,
   PublicChallenge,
+  calculateChallengePayouts,
   computeBoardCommitment,
   isFinalChallengeStatus,
 } from "./challengeShared";
@@ -35,6 +36,10 @@ export const PUBLIC_CHALLENGE_SELECT = [
   "winner",
   "moves_used",
   "hits",
+  "creator_payout",
+  "challenger_payout",
+  "drop_fee",
+  "cashout_bps",
   "created_at",
   "joined_at",
   "finished_at",
@@ -57,6 +62,10 @@ export type ChallengeDbRow = {
   winner: string | null;
   moves_used: number | null;
   hits: number | null;
+  creator_payout: number | string | null;
+  challenger_payout: number | string | null;
+  drop_fee: number | string | null;
+  cashout_bps: number | null;
   created_at: string;
   joined_at: string | null;
   finished_at: string | null;
@@ -103,6 +112,10 @@ export function toPublicChallenge(row: ChallengeDbRow): PublicChallenge {
     winner: row.winner,
     movesUsed: Number(row.moves_used ?? 0),
     hits: Number(row.hits ?? 0),
+    creatorPayout: String(row.creator_payout ?? "0"),
+    challengerPayout: String(row.challenger_payout ?? "0"),
+    dropFee: String(row.drop_fee ?? "0"),
+    cashoutBps: Number(row.cashout_bps ?? 0),
     createdAt: row.created_at,
     joinedAt: row.joined_at,
     finishedAt: row.finished_at,
@@ -121,8 +134,8 @@ export function parsePositiveMicroAmount(value: unknown, field: string): bigint 
 
 export function parseMaxMoves(value: unknown): number {
   const moves = Number(value);
-  if (!Number.isInteger(moves) || moves < 1 || moves > 100) {
-    throw new Error("Max moves must be between 1 and 100");
+  if (!Number.isInteger(moves) || moves < 1 || moves > 25) {
+    throw new Error("Max moves must be between 1 and 25");
   }
   return moves;
 }
@@ -202,8 +215,8 @@ export async function assertOnchainJoined(params: {
 
 export async function signChallengeSettlement(row: ChallengeDbRow): Promise<ChallengeSettlement | null> {
   const publicRow = toPublicChallenge(row);
-  if (!isFinalChallengeStatus(publicRow.status) || !row.challenger || !row.winner) return null;
-  if (!isAddress(row.creator) || !isAddress(row.challenger) || !isAddress(row.winner)) return null;
+  if (!isFinalChallengeStatus(publicRow.status) || !row.challenger) return null;
+  if (!isAddress(row.creator) || !isAddress(row.challenger)) return null;
 
   const privateKey =
     process.env.CHALLENGE_SIGNER_PRIVATE_KEY ||
@@ -224,7 +237,6 @@ export async function signChallengeSettlement(row: ChallengeDbRow): Promise<Chal
         { type: "uint256" },
         { type: "address" },
         { type: "address" },
-        { type: "address" },
         { type: "uint16" },
         { type: "uint16" },
         { type: "uint16" },
@@ -237,7 +249,6 @@ export async function signChallengeSettlement(row: ChallengeDbRow): Promise<Chal
         BigInt(publicRow.onchainChallengeId),
         row.creator as `0x${string}`,
         row.challenger as `0x${string}`,
-        row.winner as `0x${string}`,
         publicRow.movesUsed,
         publicRow.hits,
         publicRow.maxMoves,
@@ -249,10 +260,27 @@ export async function signChallengeSettlement(row: ChallengeDbRow): Promise<Chal
   const signature = await account.signMessage({ message: { raw: hash } });
   return {
     onchainChallengeId: publicRow.onchainChallengeId,
-    winner: row.winner as `0x${string}`,
     movesUsed: publicRow.movesUsed,
     hits: publicRow.hits,
+    creatorPayout: publicRow.creatorPayout,
+    challengerPayout: publicRow.challengerPayout,
+    dropFee: publicRow.dropFee,
+    cashoutBps: publicRow.cashoutBps,
     signature,
+  };
+}
+
+export function challengePayoutPatch(row: ChallengeDbRow, hits: number) {
+  const payout = calculateChallengePayouts(
+    BigInt(row.creator_amount),
+    BigInt(row.entry_fee),
+    hits,
+  );
+  return {
+    creator_payout: payout.creatorPayout.toString(),
+    challenger_payout: payout.challengerPayout.toString(),
+    drop_fee: payout.dropFee.toString(),
+    cashout_bps: payout.cashoutBps,
   };
 }
 

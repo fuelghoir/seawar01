@@ -111,6 +111,54 @@
   color: #fecaca;
 }
 
+.claimPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  border: 1px solid rgba(255, 206, 84, 0.22);
+  border-radius: 20px;
+  padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 206, 84, 0.14), rgba(103, 232, 249, 0.08)),
+    rgba(5, 11, 24, 0.82);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22);
+}
+
+.claimPanel strong {
+  display: block;
+  margin-top: 4px;
+  color: #ffce54;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 22px;
+}
+
+.claimPanel p {
+  margin: 4px 0 0;
+  color: rgba(238, 248, 255, 0.58);
+  font-size: 12px;
+}
+
+.claimPanel button,
+.cashoutButton {
+  border: 1px solid rgba(255, 206, 84, 0.45);
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(255, 206, 84, 0.32), rgba(168, 85, 247, 0.2));
+  color: #fff;
+  font: 900 10px var(--font-orbitron), monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.claimPanel button:disabled,
+.cashoutButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.25fr);
@@ -335,6 +383,73 @@
   text-transform: uppercase;
 }
 
+.cashoutBox {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 206, 84, 0.16);
+  border-radius: 18px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(255, 206, 84, 0.12), transparent 42%),
+    rgba(4, 8, 18, 0.58);
+}
+
+.cashoutTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cashoutTop h3 {
+  margin: 5px 0 0;
+  color: #fff;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.cashoutTop strong {
+  color: #ffce54;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.cashoutGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cashoutGrid span {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 9px 8px;
+  background: rgba(9, 18, 38, 0.74);
+  color: rgba(238, 248, 255, 0.54);
+  font: 800 10px var(--font-mono-raw), monospace;
+}
+
+.cashoutGrid .cashoutActive {
+  border-color: rgba(103, 232, 249, 0.5);
+  color: #cffafe;
+  box-shadow: 0 0 16px rgba(103, 232, 249, 0.12);
+}
+
+.cashoutButton {
+  width: 100%;
+  padding-block: 14px;
+}
+
+.cashoutBox p {
+  margin: 0;
+  color: rgba(238, 248, 255, 0.56);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .emptyState {
   min-height: 360px;
   display: grid;
@@ -375,7 +490,9 @@
     grid-template-columns: 1fr;
   }
 
+  .claimPanel,
   .cardActions,
+  .cashoutTop,
   .attackFooter {
     align-items: stretch;
     justify-content: stretch;
@@ -383,9 +500,14 @@
   }
 
   .cardActions button,
+  .claimPanel button,
   .settleButton,
   .refresh {
     width: 100%;
+  }
+
+  .cashoutGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .boardStage {

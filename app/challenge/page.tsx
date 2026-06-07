@@ -6,14 +6,17 @@ import { decodeEventLog, formatUnits, parseUnits } from "viem";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { Board } from "../components/Board";
+import { ChallengeShipPlacement } from "../components/ChallengeShipPlacement";
 import { CellState } from "../components/Cell";
-import { ShipPlacement } from "../components/ShipPlacement";
 import { challengeAbi, CHALLENGE_CONTRACT_ADDRESS } from "../contracts/challengeAbi";
 import { erc20Abi, USDC_ADDRESS } from "../contracts/seaBattleAbi";
 import {
+  CHALLENGE_GRID_SIZE,
+  CHALLENGE_TOTAL_SHIP_CELLS,
   ChallengeSettlement,
   ChallengeShot,
   PublicChallenge,
+  calculateChallengePayouts,
   computeBoardCommitment,
   isFinalChallengeStatus,
 } from "../lib/challengeShared";
@@ -67,8 +70,8 @@ function shotKey(x: number, y: number) {
 
 function buildTargetCells(shots: ChallengeShot[], final: boolean): CellState[][] {
   const shotMap = new Map(shots.map((shot) => [shotKey(shot.x, shot.y), shot]));
-  return Array.from({ length: 10 }, (_, y) =>
-    Array.from({ length: 10 }, (_, x) => {
+  return Array.from({ length: CHALLENGE_GRID_SIZE }, (_, y) =>
+    Array.from({ length: CHALLENGE_GRID_SIZE }, (_, x) => {
       const shot = shotMap.get(shotKey(x, y));
       if (!shot) return "empty" as CellState;
       if (!shot.isHit) return "miss" as CellState;
@@ -91,12 +94,13 @@ export default function ChallengePage() {
 
   const [rewardAmount, setRewardAmount] = useState("1");
   const [entryFee, setEntryFee] = useState("0.1");
-  const [maxMoves, setMaxMoves] = useState("35");
+  const [maxMoves, setMaxMoves] = useState("12");
   const [openChallenges, setOpenChallenges] = useState<PublicChallenge[]>([]);
   const [myChallenges, setMyChallenges] = useState<PublicChallenge[]>([]);
   const [selected, setSelected] = useState<PublicChallenge | null>(null);
   const [shots, setShots] = useState<ChallengeShot[]>([]);
   const [settlement, setSettlement] = useState<ChallengeSettlement | null>(null);
+  const [pendingPayout, setPendingPayout] = useState<bigint>(BigInt(0));
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -105,6 +109,14 @@ export default function ChallengePage() {
   const selectedFinal = selected ? isFinalChallengeStatus(selected.status) : false;
   const targetCells = useMemo(() => buildTargetCells(shots, selectedFinal), [shots, selectedFinal]);
   const shotCells = useMemo(() => new Set(shots.map((shot) => shotKey(shot.x, shot.y))), [shots]);
+  const selectedCashout = useMemo(() => {
+    if (!selected) return null;
+    return calculateChallengePayouts(
+      BigInt(selected.creatorAmount),
+      BigInt(selected.entryFee),
+      selected.hits,
+    );
+  }, [selected]);
 
   const loadLists = useCallback(async () => {
     try {
@@ -142,6 +154,28 @@ export default function ChallengePage() {
   useEffect(() => {
     loadLists();
   }, [loadLists]);
+
+  const loadPendingPayout = useCallback(async () => {
+    if (!address || CONTRACT_NOT_SET) {
+      setPendingPayout(BigInt(0));
+      return;
+    }
+    try {
+      const amount = (await readContract(config, {
+        address: CHALLENGE_CONTRACT_ADDRESS,
+        abi: challengeAbi,
+        functionName: "pendingPayouts",
+        args: [address],
+      })) as bigint;
+      setPendingPayout(amount);
+    } catch {
+      setPendingPayout(BigInt(0));
+    }
+  }, [address, config]);
+
+  useEffect(() => {
+    loadPendingPayout();
+  }, [loadPendingPayout]);
 
   async function ensureReady() {
     if (!isConnected || !address) throw new Error("Connect wallet first");
@@ -201,8 +235,8 @@ export default function ChallengePage() {
       const creatorAmount = parseUsdcInput(rewardAmount);
       const entryAmount = parseUsdcInput(entryFee);
       const moves = Number(maxMoves);
-      if (!Number.isInteger(moves) || moves < 1 || moves > 100) {
-        throw new Error("Max moves must be between 1 and 100");
+      if (!Number.isInteger(moves) || moves < 1 || moves > 25) {
+        throw new Error("Max moves must be between 1 and 25");
       }
 
       const salt = makeSalt();
@@ -326,7 +360,6 @@ export default function ChallengePage() {
         functionName: "settleChallenge",
         args: [
           BigInt(nextSettlement.onchainChallengeId),
-          nextSettlement.winner,
           nextSettlement.movesUsed,
           nextSettlement.hits,
           nextSettlement.signature,
@@ -341,10 +374,58 @@ export default function ChallengePage() {
       });
       setSelected(data.challenge);
       setSettlement(null);
-      setMessage("Payout settled. 90% to winner, 10% to drops.");
+      await loadPendingPayout();
+      setMessage("Payout locked. Use Claim all payouts whenever you want.");
       await loadLists();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not settle challenge");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleCashout() {
+    if (!selected) return;
+    try {
+      setBusy(`cashout:${selected.id}`);
+      setError("");
+      setMessage("Calculating cashout...");
+      const data = await requestJson<ChallengeResponse>(`/api/challenges/${selected.id}/cashout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet }),
+      });
+      setSelected(data.challenge);
+      setSettlement(data.settlement || null);
+      if (data.settlement) {
+        await handleSettle(data.settlement);
+      } else {
+        setMessage("Cashout saved. Settlement signature is not ready.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cash out");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleClaimPayout() {
+    try {
+      await ensureReady();
+      setBusy("claim");
+      setError("");
+      setMessage("Claiming all payouts...");
+      const hash = await writeContractAsync({
+        address: CHALLENGE_CONTRACT_ADDRESS,
+        abi: challengeAbi,
+        functionName: "claimPayout",
+      });
+      const receipt = await waitForReceipt(config, { hash });
+      if (receipt.status !== "success") throw new Error("Claim reverted");
+      await loadPendingPayout();
+      setMessage("All available challenge payouts claimed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not claim payouts");
     } finally {
       setBusy(null);
     }
@@ -430,10 +511,10 @@ export default function ChallengePage() {
     <main className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <span className={styles.eyebrow}>Async bounty mode</span>
+          <span className={styles.eyebrow}>Async 5x5 bounty mode</span>
           <h1>Sea Challenge</h1>
           <p>
-            Create a hidden fleet, lock a reward, and let one challenger try to sink every ship.
+            Create a compact 5x5 hidden fleet, lock a reward, and let one challenger try to sink every ship.
             Winner gets 90% of the pot. Drops vault receives 10%.
           </p>
         </div>
@@ -443,6 +524,23 @@ export default function ChallengePage() {
           <span>Creator reward + entry fee</span>
         </div>
       </header>
+
+      {wallet && (
+        <section className={styles.claimPanel}>
+          <div>
+            <span className={styles.eyebrow}>Challenge vault</span>
+            <strong>{formatUsdc(pendingPayout)}</strong>
+            <p>Creator and challenger payouts stack here across all challenges.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClaimPayout}
+            disabled={!!busy || pendingPayout <= BigInt(0)}
+          >
+            {busy === "claim" ? "Claiming..." : "Claim all payouts"}
+          </button>
+        </section>
+      )}
 
       {CONTRACT_NOT_SET && (
         <div className={styles.banner}>Challenge contract is not deployed yet.</div>
@@ -495,9 +593,9 @@ export default function ChallengePage() {
           <section className={styles.panel}>
             <div className={styles.panelHead}>
               <span className={styles.eyebrow}>Your fleet</span>
-              <h2>Place ships</h2>
+              <h2>Place 5x5 ships</h2>
             </div>
-            <ShipPlacement
+            <ChallengeShipPlacement
               onConfirm={handleCreate}
               isPending={busy === "create"}
               isConfirming={busy === "create"}
@@ -563,6 +661,7 @@ export default function ChallengePage() {
                     isInteractive={selected.status === "joined" && selected.challenger === wallet && !busy}
                     label="Challenge Grid"
                     variant="target"
+                    cellSize="48px"
                   />
                 </div>
                 <div className={styles.attackFooter}>
@@ -574,10 +673,53 @@ export default function ChallengePage() {
                       onClick={() => handleSettle()}
                       disabled={!!busy}
                     >
-                      {busy === `settle:${selected.id}` ? "Settling..." : "Settle payout"}
+                      {busy === `settle:${selected.id}` ? "Locking..." : "Lock payout"}
                     </button>
                   )}
                   {selected.settledAt && <span className={styles.settledBadge}>Payout settled</span>}
+                </div>
+                <div className={styles.cashoutBox}>
+                  <div className={styles.cashoutTop}>
+                    <div>
+                      <span className={styles.eyebrow}>Cashout curve</span>
+                      <h3>Hits pay progressively</h3>
+                    </div>
+                    {selectedCashout && (
+                      <strong>{formatUsdc(selectedCashout.challengerPayout)}</strong>
+                    )}
+                  </div>
+                  <div className={styles.cashoutGrid}>
+                    {Array.from({ length: CHALLENGE_TOTAL_SHIP_CELLS }, (_, index) => {
+                      const hits = index + 1;
+                      const payout = calculateChallengePayouts(
+                        BigInt(selected.creatorAmount),
+                        BigInt(selected.entryFee),
+                        hits,
+                      );
+                      return (
+                        <span
+                          key={hits}
+                          className={hits <= selected.hits ? styles.cashoutActive : ""}
+                        >
+                          {hits} hit: {formatUsdc(payout.challengerPayout)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {selected.status === "joined" && selected.challenger === wallet && (
+                    <button
+                      type="button"
+                      className={styles.cashoutButton}
+                      onClick={handleCashout}
+                      disabled={!!busy || selected.movesUsed <= 0}
+                    >
+                      {busy === `cashout:${selected.id}` ? "Cashout..." : "Cash out now"}
+                    </button>
+                  )}
+                  <p>
+                    10% of the full pot goes to drops. The remaining 90% is split:
+                    challenger gets the cashout amount, creator gets the rest.
+                  </p>
                 </div>
               </>
             ) : (
