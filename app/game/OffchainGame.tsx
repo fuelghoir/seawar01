@@ -537,10 +537,18 @@ export function OffchainGameContent({
     if (data) setGame(data as OffchainGame);
   }, [gameIdNum]);
 
+  const gameState = game?.state ?? null;
+  const gameTurnPhase = game?.turn_phase ?? null;
+  const gameCurrentTurn = game?.current_turn ?? null;
+  const gamePlayer1 = game?.player1 ?? null;
+  const gamePlayer2 = game?.player2 ?? null;
+
   // Load shots
   const loadShots = useCallback(async () => {
-    if (!address || !game) return;
-    const pNum = game.player1 === address.toLowerCase() ? 1 : 2;
+    if (!address || !gamePlayer1) return;
+    const addr2 = address.toLowerCase();
+    const pNum = gamePlayer1 === addr2 ? 1 : gamePlayer2 === addr2 ? 2 : 0;
+    if (pNum === 0) return;
     const oppNum = pNum === 1 ? 2 : 1;
     const [my, opp] = await Promise.all([
       getPlayerShots(gameIdNum, pNum),
@@ -548,7 +556,7 @@ export function OffchainGameContent({
     ]);
     setMyShots(my);
     setOppShots(opp);
-  }, [gameIdNum, address, game]);
+  }, [gameIdNum, address, gamePlayer1, gamePlayer2]);
 
   // Load sunk reports
   const loadSunkReports = useCallback(async () => {
@@ -593,17 +601,17 @@ export function OffchainGameContent({
   // Auto-fire remaining bomb shots when turn_phase returns to 0
   useEffect(() => {
     if (
-      !game ||
       !address ||
       !bombFiringRef.current ||
       bombQueueRef.current.length === 0 ||
-      game.turn_phase !== 0 ||
-      game.state !== 2
+      !gamePlayer1 ||
+      gameTurnPhase !== 0 ||
+      gameState !== 2
     ) return;
 
     const addr2 = address.toLowerCase();
-    const pNum = game.player1 === addr2 ? 1 : game.player2 === addr2 ? 2 : 0;
-    if (game.current_turn !== pNum) {
+    const pNum = gamePlayer1 === addr2 ? 1 : gamePlayer2 === addr2 ? 2 : 0;
+    if (gameCurrentTurn !== pNum) {
       // Turn switched = bomb sequence ended
       bombFiringRef.current = false;
       bombQueueRef.current = [];
@@ -623,21 +631,21 @@ export function OffchainGameContent({
     if (bombQueueRef.current.length === 0) {
       bombFiringRef.current = false;
     }
-  }, [game?.turn_phase, game?.state, game?.current_turn, address, gameIdNum, loadGame, loadShots]);
+  }, [gameTurnPhase, gameState, gameCurrentTurn, gamePlayer1, gamePlayer2, address, gameIdNum, loadGame, loadShots]);
 
   useEffect(() => {
     if (
-      !game ||
       !address ||
       !torpedoFiringRef.current ||
       torpedoQueueRef.current.length === 0 ||
-      game.turn_phase !== 0 ||
-      game.state !== 2
+      !gamePlayer1 ||
+      gameTurnPhase !== 0 ||
+      gameState !== 2
     ) return;
 
     const addr2 = address.toLowerCase();
-    const pNum = game.player1 === addr2 ? 1 : game.player2 === addr2 ? 2 : 0;
-    if (game.current_turn !== pNum) {
+    const pNum = gamePlayer1 === addr2 ? 1 : gamePlayer2 === addr2 ? 2 : 0;
+    if (gameCurrentTurn !== pNum) {
       torpedoFiringRef.current = false;
       torpedoQueueRef.current = [];
       return;
@@ -657,7 +665,7 @@ export function OffchainGameContent({
     if (torpedoQueueRef.current.length === 0) {
       torpedoFiringRef.current = false;
     }
-  }, [game?.turn_phase, game?.state, game?.current_turn, address, gameIdNum, loadGame, loadShots]);
+  }, [gameTurnPhase, gameState, gameCurrentTurn, gamePlayer1, gamePlayer2, address, gameIdNum, loadGame, loadShots]);
 
   if (!game || !address) {
     return (
