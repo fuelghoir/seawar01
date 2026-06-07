@@ -61,7 +61,7 @@
 
 .hero h1 {
   margin-top: 8px;
-  font-size: clamp(34px, 6vw, 76px);
+  font-size: clamp(34px, 5vw, 64px);
   letter-spacing: 0.12em;
   text-shadow: 0 0 24px rgba(168, 85, 247, 0.5);
 }
@@ -72,6 +72,24 @@
   color: rgba(238, 248, 255, 0.72);
   font-size: 16px;
   line-height: 1.55;
+}
+
+.heroTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.heroTags span {
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: rgba(103, 232, 249, 0.08);
+  color: rgba(216, 250, 255, 0.82);
+  font: 900 10px var(--font-orbitron), monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .heroStats {
@@ -228,6 +246,127 @@
   box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.1);
 }
 
+.choiceSection {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.choiceHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(238, 248, 255, 0.58);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.choiceHead span,
+.choiceHead b {
+  font-family: var(--font-orbitron), monospace;
+  letter-spacing: 0.1em;
+}
+
+.choiceHead b {
+  color: rgba(103, 232, 249, 0.72);
+  font-size: 10px;
+}
+
+.presetGrid,
+.formatGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.presetGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.formatGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.presetCard,
+.formatCard {
+  position: relative;
+  min-height: 112px;
+  display: grid;
+  align-content: space-between;
+  gap: 7px;
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 16px;
+  padding: 13px;
+  background:
+    linear-gradient(145deg, rgba(103, 232, 249, 0.08), rgba(168, 85, 247, 0.06)),
+    rgba(4, 8, 18, 0.72);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.presetCard::after,
+.formatCard::after {
+  content: "";
+  position: absolute;
+  inset: auto 12px 10px 12px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(103, 232, 249, 0.14);
+}
+
+.presetCard span,
+.formatCard span,
+.presetCard small,
+.formatCard small,
+.formatCard em {
+  position: relative;
+  z-index: 1;
+}
+
+.presetCard span,
+.formatCard span {
+  color: #67e8f9;
+  font: 900 10px var(--font-orbitron), monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.presetCard strong,
+.formatCard strong {
+  position: relative;
+  z-index: 1;
+  color: #ffce54;
+  font: 900 22px var(--font-orbitron), monospace;
+  letter-spacing: 0.04em;
+}
+
+.presetCard small,
+.formatCard small,
+.formatCard em {
+  color: rgba(238, 248, 255, 0.58);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.formatCard em {
+  color: rgba(255, 206, 84, 0.86);
+}
+
+.selectedPreset {
+  border-color: rgba(255, 206, 84, 0.62);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 206, 84, 0.12),
+    0 0 24px rgba(255, 206, 84, 0.14);
+}
+
+.selectedPreset::after {
+  background: linear-gradient(90deg, #67e8f9, #ffce54);
+}
+
 .economyBox {
   display: grid;
   gap: 4px;
@@ -244,6 +383,68 @@
   font-family: var(--font-orbitron), monospace;
   letter-spacing: 0.04em;
 }
+
+.economyBox small {
+  color: rgba(238, 248, 255, 0.58);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.ladderHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  color: rgba(238, 248, 255, 0.58);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ladderHead span,
+.ladderHead b {
+  font-family: var(--font-orbitron), monospace;
+  letter-spacing: 0.1em;
+}
+
+.ladderHead b {
+  color: rgba(255, 206, 84, 0.82);
+}
+
+.previewLadder {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.previewLadder span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 9px;
+  background: rgba(9, 18, 38, 0.72);
+}
+
+.previewLadder b {
+  color: #67e8f9;
+  font: 900 11px var(--font-orbitron), monospace;
+}
+
+.previewLadder em {
+  color: #ffce54;
+  font: 900 11px var(--font-mono-raw), monospace;
+  font-style: normal;
+}
+
+.previewLadder small {
+  color: rgba(238, 248, 255, 0.48);
+  font-size: 10px;
+  font-weight: 900;
+}
+
 
 .list {
   display: grid;
@@ -424,6 +625,8 @@
 }
 
 .cashoutGrid span {
+  display: grid;
+  gap: 3px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   padding: 9px 8px;
@@ -432,10 +635,25 @@
   font: 800 10px var(--font-mono-raw), monospace;
 }
 
+.cashoutGrid b {
+  color: rgba(103, 232, 249, 0.78);
+  font-family: var(--font-orbitron), monospace;
+  text-transform: uppercase;
+}
+
+.cashoutGrid em {
+  color: rgba(238, 248, 255, 0.58);
+  font-style: normal;
+}
+
 .cashoutGrid .cashoutActive {
   border-color: rgba(103, 232, 249, 0.5);
   color: #cffafe;
   box-shadow: 0 0 16px rgba(103, 232, 249, 0.12);
+}
+
+.cashoutGrid .cashoutActive em {
+  color: #ffce54;
 }
 
 .cashoutButton {
@@ -485,7 +703,13 @@
     padding: 16px;
   }
 
+  .heroTags {
+    flex-direction: column;
+  }
+
   .formGrid,
+  .presetGrid,
+  .formatGrid,
   .challengeCard {
     grid-template-columns: 1fr;
   }
@@ -508,6 +732,15 @@
 
   .cashoutGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .previewLadder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ladderHead {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .boardStage {

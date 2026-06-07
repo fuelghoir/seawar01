@@ -35,6 +35,18 @@ type ShotResponse = ChallengeResponse & {
   shot: ChallengeShot;
 };
 
+const PRIZE_PRESETS = [
+  { id: "bank-1", label: "Scout", amount: "1", note: "Quick low-risk bank" },
+  { id: "bank-5", label: "Captain", amount: "5", note: "Main prize room" },
+  { id: "bank-10", label: "Admiral", amount: "10", note: "Heavy prize bank" },
+];
+
+const MOVE_PRESETS = [
+  { id: "blitz", label: "Blitz", moves: 8, entryFee: "0.08", note: "Hardest clear" },
+  { id: "raid", label: "Raid", moves: 10, entryFee: "0.12", note: "Balanced hunt" },
+  { id: "siege", label: "Siege", moves: 12, entryFee: "0.18", note: "More shots" },
+];
+
 function makeSalt() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -55,6 +67,63 @@ function formatUsdc(value: string | bigint) {
   const amount = typeof value === "bigint" ? value : BigInt(value || "0");
   const formatted = Number(formatUnits(amount, 6));
   return `${formatted.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`;
+}
+
+function formatMultiplier(payout: bigint, ticket: bigint) {
+  if (ticket <= BigInt(0)) return "0x";
+  const value = Number((payout * BigInt(100)) / ticket) / 100;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}x`;
+}
+
+function challengeSetupErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/challenge_games|schema cache|could not find the table/i.test(message)) {
+    return "Challenge database is being activated. Run the Supabase challenge migration, then open challenges will load here.";
+  }
+  return /challenge contract is not deployed|contract is not deployed/i.test(message)
+    ? "Challenge contract is being activated. The mode preview is visible now."
+    : "";
+}
+
+function challengeDisplayError(error: unknown, fallback: string) {
+  const setupMessage = challengeSetupErrorMessage(error);
+  return setupMessage
+    ? { text: setupMessage, soft: true }
+    : { text: error instanceof Error ? error.message : fallback, soft: false };
+}
+
+function cashoutPercent(hits: number) {
+  const percent =
+    Math.floor((hits * hits * 10000) / (CHALLENGE_TOTAL_SHIP_CELLS * CHALLENGE_TOTAL_SHIP_CELLS)) / 100;
+  return `${percent}%`;
+}
+
+function challengeStatusLabel(status: PublicChallenge["status"]) {
+  return status.replace("_", " ");
+}
+
+function challengeSubtitle(challenge: PublicChallenge) {
+  const fullClear = calculateChallengePayouts(
+    BigInt(challenge.creatorAmount),
+    BigInt(challenge.entryFee),
+    CHALLENGE_TOTAL_SHIP_CELLS,
+  );
+  return `${formatUsdc(fullClear.challengerPayout)} max cashout - ${challenge.maxMoves} shots - ${formatUsdc(fullClear.dropFee)} to drops`;
+}
+
+function showFriendlyError(
+  error: unknown,
+  fallback: string,
+  setError: (value: string) => void,
+  setMessage: (value: string) => void,
+) {
+  const display = challengeDisplayError(error, fallback);
+  if (display.soft) {
+    setMessage(display.text);
+    setError("");
+  } else {
+    setError(display.text);
+  }
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -80,21 +149,14 @@ function buildTargetCells(shots: ChallengeShot[], final: boolean): CellState[][]
   );
 }
 
-function challengeSubtitle(challenge: PublicChallenge) {
-  const pot = BigInt(challenge.creatorAmount) + BigInt(challenge.entryFee);
-  const prize = (pot * BigInt(90)) / BigInt(100);
-  return `${formatUsdc(prize)} prize - ${challenge.maxMoves} moves - 10% to drops`;
-}
-
 export default function ChallengePage() {
   const { address, chainId, isConnected } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const config = useConfig();
 
-  const [rewardAmount, setRewardAmount] = useState("1");
-  const [entryFee, setEntryFee] = useState("0.1");
-  const [maxMoves, setMaxMoves] = useState("12");
+  const [selectedPrizeId, setSelectedPrizeId] = useState(PRIZE_PRESETS[0].id);
+  const [selectedMoveId, setSelectedMoveId] = useState(MOVE_PRESETS[1].id);
   const [openChallenges, setOpenChallenges] = useState<PublicChallenge[]>([]);
   const [myChallenges, setMyChallenges] = useState<PublicChallenge[]>([]);
   const [selected, setSelected] = useState<PublicChallenge | null>(null);
@@ -106,6 +168,14 @@ export default function ChallengePage() {
   const [error, setError] = useState("");
 
   const wallet = address?.toLowerCase() ?? "";
+  const selectedPrize = PRIZE_PRESETS.find((preset) => preset.id === selectedPrizeId) ?? PRIZE_PRESETS[0];
+  const selectedMovePreset = MOVE_PRESETS.find((preset) => preset.id === selectedMoveId) ?? MOVE_PRESETS[1];
+  const selectedCreatorAmount = useMemo(() => parseUsdcInput(selectedPrize.amount), [selectedPrize.amount]);
+  const selectedEntryAmount = useMemo(() => parseUsdcInput(selectedMovePreset.entryFee), [selectedMovePreset.entryFee]);
+  const selectedFullClear = useMemo(
+    () => calculateChallengePayouts(selectedCreatorAmount, selectedEntryAmount, CHALLENGE_TOTAL_SHIP_CELLS),
+    [selectedCreatorAmount, selectedEntryAmount],
+  );
   const selectedFinal = selected ? isFinalChallengeStatus(selected.status) : false;
   const targetCells = useMemo(() => buildTargetCells(shots, selectedFinal), [shots, selectedFinal]);
   const shotCells = useMemo(() => new Set(shots.map((shot) => shotKey(shot.x, shot.y))), [shots]);
@@ -131,7 +201,15 @@ export default function ChallengePage() {
       }
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load challenges");
+      const setupMessage = challengeSetupErrorMessage(err);
+      if (setupMessage) {
+        setOpenChallenges([]);
+        setMyChallenges([]);
+        setMessage(setupMessage);
+        setError("");
+        return;
+      }
+      showFriendlyError(err, "Could not load challenges", setError, setMessage);
     }
   }, [wallet]);
 
@@ -145,7 +223,7 @@ export default function ChallengePage() {
         setSettlement(data.settlement || null);
         setError("");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load challenge");
+        showFriendlyError(err, "Could not load challenge", setError, setMessage);
       }
     },
     [wallet],
@@ -232,12 +310,9 @@ export default function ChallengePage() {
       setError("");
       setMessage("Preparing challenge...");
 
-      const creatorAmount = parseUsdcInput(rewardAmount);
-      const entryAmount = parseUsdcInput(entryFee);
-      const moves = Number(maxMoves);
-      if (!Number.isInteger(moves) || moves < 1 || moves > 25) {
-        throw new Error("Max moves must be between 1 and 25");
-      }
+      const creatorAmount = selectedCreatorAmount;
+      const entryAmount = selectedEntryAmount;
+      const moves = selectedMovePreset.moves;
 
       const salt = makeSalt();
       const commitment = computeBoardCommitment(board, salt);
@@ -272,10 +347,10 @@ export default function ChallengePage() {
       setSelected(data.challenge);
       setShots([]);
       setSettlement(null);
-      setMessage("Challenge is live. One challenger can enter.");
+      setMessage("Challenge is live. One attacker can buy the ticket.");
       await loadLists();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create challenge");
+      showFriendlyError(err, "Could not create challenge", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -304,14 +379,14 @@ export default function ChallengePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet }),
       });
-      setMessage("Challenge joined. Find all ships before moves run out.");
+      setMessage("Attack run started. Sink all ships before shots run out.");
       setSelected(data.challenge);
       setShots([]);
       setSettlement(null);
       await loadChallenge(data.challenge);
       await loadLists();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join challenge");
+      showFriendlyError(err, "Could not join challenge", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -341,7 +416,7 @@ export default function ChallengePage() {
       );
       await loadLists();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not fire shot");
+      showFriendlyError(err, "Could not fire shot", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -378,7 +453,7 @@ export default function ChallengePage() {
       setMessage("Payout locked. Use Claim all payouts whenever you want.");
       await loadLists();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not settle challenge");
+      showFriendlyError(err, "Could not settle challenge", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -403,7 +478,7 @@ export default function ChallengePage() {
         setMessage("Cashout saved. Settlement signature is not ready.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not cash out");
+      showFriendlyError(err, "Could not cash out", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -425,7 +500,7 @@ export default function ChallengePage() {
       await loadPendingPayout();
       setMessage("All available challenge payouts claimed.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not claim payouts");
+      showFriendlyError(err, "Could not claim payouts", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -451,10 +526,10 @@ export default function ChallengePage() {
         body: JSON.stringify({ wallet, txHash: hash }),
       });
       if (selected?.id === challenge.id) setSelected(null);
-      setMessage("Challenge cancelled and reward returned.");
+      setMessage("Challenge cancelled and prize bank returned.");
       await loadLists();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not cancel challenge");
+      showFriendlyError(err, "Could not cancel challenge", setError, setMessage);
     } finally {
       setBusy(null);
     }
@@ -468,9 +543,9 @@ export default function ChallengePage() {
       <article key={challenge.id} className={`${styles.challengeCard} ${active ? styles.activeCard : ""}`}>
         <div>
           <span className={styles.cardKicker}>
-            #{challenge.onchainChallengeId} - {challenge.status.replace("_", " ")}
+            #{challenge.onchainChallengeId} - {challengeStatusLabel(challenge.status)}
           </span>
-          <h3>{formatUsdc(challenge.creatorAmount)} reward</h3>
+          <h3>{formatUsdc(challenge.creatorAmount)} prize bank</h3>
           <p>{challengeSubtitle(challenge)}</p>
         </div>
         <div className={styles.cardActions}>
@@ -484,7 +559,7 @@ export default function ChallengePage() {
               onClick={() => handleJoin(challenge)}
               disabled={!!busy || CONTRACT_NOT_SET}
             >
-              {busy === `join:${challenge.id}` ? "Joining..." : `Join - ${formatUsdc(challenge.entryFee)}`}
+              {busy === `join:${challenge.id}` ? "Joining..." : `Attack ticket - ${formatUsdc(challenge.entryFee)}`}
             </button>
           )}
           {mineCreator && challenge.status === "open" && (
@@ -511,26 +586,32 @@ export default function ChallengePage() {
     <main className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <span className={styles.eyebrow}>Async 5x5 bounty mode</span>
+          <span className={styles.eyebrow}>Async 5x5 challenge mode</span>
           <h1>Sea Challenge</h1>
           <p>
-            Create a compact 5x5 hidden fleet, lock a reward, and let one challenger try to sink every ship.
-            Winner gets 90% of the pot. Drops vault receives 10%.
+            Fund a prize bank, hide a compact 5x5 fleet, and let one attacker buy a fixed shot run.
+            Every hit raises the cashout coefficient. Full clear pays the biggest multiplier, while drops
+            always receive 10% of the pot.
           </p>
+          <div className={styles.heroTags}>
+            <span>5x5 grid</span>
+            <span>8 ship cells</span>
+            <span>cashout any time</span>
+          </div>
         </div>
         <div className={styles.heroStats}>
-          <span>One challenger</span>
-              <strong>90 / 10</strong>
-          <span>Creator reward + entry fee</span>
+          <span>Pot split</span>
+          <strong>90 / 10</strong>
+          <span>Prize bank + attack ticket</span>
         </div>
       </header>
 
       {wallet && (
         <section className={styles.claimPanel}>
           <div>
-            <span className={styles.eyebrow}>Challenge vault</span>
+            <span className={styles.eyebrow}>Payout vault</span>
             <strong>{formatUsdc(pendingPayout)}</strong>
-            <p>Creator and challenger payouts stack here across all challenges.</p>
+            <p>All finished challenge payouts stack here and can be claimed together.</p>
           </div>
           <button
             type="button"
@@ -543,7 +624,7 @@ export default function ChallengePage() {
       )}
 
       {CONTRACT_NOT_SET && (
-        <div className={styles.banner}>Challenge contract is not deployed yet.</div>
+        <div className={styles.banner}>Challenge contract is being activated. The mode preview is visible now.</div>
       )}
       {!isConnected && (
         <div className={styles.banner}>Connect wallet on the main screen to create or join challenges.</div>
@@ -559,34 +640,83 @@ export default function ChallengePage() {
           <section className={styles.panel}>
             <div className={styles.panelHead}>
               <span className={styles.eyebrow}>Create</span>
-              <h2>Lock a bounty</h2>
+              <h2>Build a challenge</h2>
             </div>
-            <div className={styles.formGrid}>
-              <label>
-                Creator reward
-                <input value={rewardAmount} onChange={(e) => setRewardAmount(e.target.value)} inputMode="decimal" />
-              </label>
-              <label>
-                Challenger entry
-                <input value={entryFee} onChange={(e) => setEntryFee(e.target.value)} inputMode="decimal" />
-              </label>
-              <label>
-                Max moves
-                <input value={maxMoves} onChange={(e) => setMaxMoves(e.target.value)} inputMode="numeric" />
-              </label>
+            <div className={styles.choiceSection}>
+              <div className={styles.choiceHead}>
+                <span>Prize bank</span>
+                <b>Creator funds this amount</b>
+              </div>
+              <div className={styles.presetGrid}>
+                {PRIZE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`${styles.presetCard} ${selectedPrizeId === preset.id ? styles.selectedPreset : ""}`}
+                    onClick={() => setSelectedPrizeId(preset.id)}
+                  >
+                    <span>{preset.label}</span>
+                    <strong>{preset.amount} USDC</strong>
+                    <small>{preset.note}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.choiceSection}>
+              <div className={styles.choiceHead}>
+                <span>Attack format</span>
+                <b>Fixed shot variants</b>
+              </div>
+              <div className={styles.formatGrid}>
+                {MOVE_PRESETS.map((preset) => {
+                  const payout = calculateChallengePayouts(
+                    selectedCreatorAmount,
+                    parseUsdcInput(preset.entryFee),
+                    CHALLENGE_TOTAL_SHIP_CELLS,
+                  );
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={`${styles.formatCard} ${selectedMoveId === preset.id ? styles.selectedPreset : ""}`}
+                      onClick={() => setSelectedMoveId(preset.id)}
+                    >
+                      <span>{preset.label}</span>
+                      <strong>{preset.moves} shots</strong>
+                      <small>Attack ticket {preset.entryFee} USDC</small>
+                      <em>Full clear {formatMultiplier(payout.challengerPayout, parseUsdcInput(preset.entryFee))}</em>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className={styles.economyBox}>
-              <span>Example payout</span>
+              <span>Selected setup</span>
               <b>
-                {(() => {
-                  try {
-                    const pot = parseUsdcInput(rewardAmount) + parseUsdcInput(entryFee);
-                    return `${formatUsdc((pot * BigInt(90)) / BigInt(100))} winner / ${formatUsdc((pot * BigInt(10)) / BigInt(100))} drops`;
-                  } catch {
-                    return "Enter valid amounts";
-                  }
-                })()}
+                {formatUsdc(selectedCreatorAmount)} bank / {formatUsdc(selectedEntryAmount)} ticket / {selectedMovePreset.moves} shots
               </b>
+              <small>
+                Full clear pays {formatUsdc(selectedFullClear.challengerPayout)} to the attacker.
+                Drops receive {formatUsdc(selectedFullClear.dropFee)}.
+              </small>
+            </div>
+            <div className={styles.ladderHead}>
+              <span>Cashout ladder</span>
+              <b>90% pot x (hits / 8)^2</b>
+            </div>
+            <div className={styles.previewLadder}>
+              {Array.from({ length: CHALLENGE_TOTAL_SHIP_CELLS }, (_, index) => {
+                const hits = index + 1;
+                const payout = calculateChallengePayouts(selectedCreatorAmount, selectedEntryAmount, hits);
+                return (
+                  <span key={hits}>
+                    <b>{hits} hit</b>
+                    <em>{formatUsdc(payout.challengerPayout)}</em>
+                    <small>{formatMultiplier(payout.challengerPayout, selectedEntryAmount)} - {cashoutPercent(hits)}</small>
+                  </span>
+                );
+              })}
             </div>
           </section>
 
@@ -606,11 +736,11 @@ export default function ChallengePage() {
             <section className={styles.panel}>
               <div className={styles.panelHead}>
                 <span className={styles.eyebrow}>Reconnect</span>
-                <h2>Your challenges</h2>
+                <h2>Your runs</h2>
               </div>
               <div className={styles.list}>
                 {myChallenges.length === 0 ? (
-                  <p className={styles.empty}>No active challenges yet.</p>
+                  <p className={styles.empty}>No active runs yet.</p>
                 ) : (
                   myChallenges.map((challenge) => renderChallengeCard(challenge, "mine"))
                 )}
@@ -624,7 +754,7 @@ export default function ChallengePage() {
             <div className={styles.panelHeadRow}>
               <div>
                 <span className={styles.eyebrow}>Targets</span>
-                <h2>Open challenges</h2>
+                <h2>Open targets</h2>
               </div>
               <button type="button" className={styles.refresh} onClick={loadLists}>
                 Refresh
@@ -632,7 +762,7 @@ export default function ChallengePage() {
             </div>
             <div className={styles.list}>
               {openChallenges.length === 0 ? (
-                <p className={styles.empty}>No open challenges right now.</p>
+                <p className={styles.empty}>No open targets right now.</p>
               ) : (
                 openChallenges.map((challenge) => renderChallengeCard(challenge, "open"))
               )}
@@ -643,11 +773,11 @@ export default function ChallengePage() {
             <div className={styles.panelHeadRow}>
               <div>
                 <span className={styles.eyebrow}>Attack board</span>
-                <h2>{selected ? `Challenge #${selected.onchainChallengeId}` : "Select a challenge"}</h2>
+                <h2>{selected ? `Target #${selected.onchainChallengeId}` : "Select a target"}</h2>
               </div>
               {selected && (
                 <div className={styles.counter}>
-                  <b>{selected.hits}</b> hits - <b>{selected.movesUsed}</b>/{selected.maxMoves} moves
+                  <b>{selected.hits}</b> hits - <b>{selected.movesUsed}</b>/{selected.maxMoves} shots
                 </div>
               )}
             </div>
@@ -681,8 +811,8 @@ export default function ChallengePage() {
                 <div className={styles.cashoutBox}>
                   <div className={styles.cashoutTop}>
                     <div>
-                      <span className={styles.eyebrow}>Cashout curve</span>
-                      <h3>Hits pay progressively</h3>
+                      <span className={styles.eyebrow}>Cashout ladder</span>
+                      <h3>Coefficient grows with hits</h3>
                     </div>
                     {selectedCashout && (
                       <strong>{formatUsdc(selectedCashout.challengerPayout)}</strong>
@@ -701,7 +831,8 @@ export default function ChallengePage() {
                           key={hits}
                           className={hits <= selected.hits ? styles.cashoutActive : ""}
                         >
-                          {hits} hit: {formatUsdc(payout.challengerPayout)}
+                          <b>{hits} hit</b>
+                          <em>{formatUsdc(payout.challengerPayout)} / {formatMultiplier(payout.challengerPayout, BigInt(selected.entryFee))}</em>
                         </span>
                       );
                     })}
@@ -717,15 +848,15 @@ export default function ChallengePage() {
                     </button>
                   )}
                   <p>
-                    10% of the full pot goes to drops. The remaining 90% is split:
-                    challenger gets the cashout amount, creator gets the rest.
+                    10% of the full pot goes to drops. The remaining 90% is split by the ladder:
+                    attacker receives the current cashout, bank owner receives the rest.
                   </p>
                 </div>
               </>
             ) : (
               <div className={styles.emptyState}>
                 <b>No target selected</b>
-                <span>Join one open challenge or reopen yours from the left panel.</span>
+                <span>Pick an open target or reopen one of your runs from the left panel.</span>
               </div>
             )}
           </section>
