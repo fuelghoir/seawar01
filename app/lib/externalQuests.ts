@@ -104,14 +104,14 @@ export const GLOBAL_EXTERNAL_QUESTS = [
       en: {
         title: "Follow 0xHerm on X",
         subtitle:
-          "Open the X app and follow @0xHerm. This quest uses the X app deep link.",
+          "Open the X app and follow @0xHerm. Return here and tap Verify.",
         cardSubtitle: "Follow @0xHerm",
         action: "Open X app",
       },
       ru: {
         title: "Подписка на X",
         subtitle:
-          "Открой приложение X и подпишись на @0xHerm. Квест открывает именно приложение X.",
+          "Открой приложение X и подпишись на @0xHerm. Вернись сюда и нажми Проверить.",
         cardSubtitle: "Подписаться на @0xHerm",
         action: "Открыть X",
       },
@@ -129,14 +129,14 @@ export const GLOBAL_EXTERNAL_QUESTS = [
       en: {
         title: "Like + Repost",
         subtitle:
-          "Open the post in the X app, then like and repost it. Points are granted when you open it.",
+          "Open the post in the X app, then like and repost it. Return here and tap Verify.",
         cardSubtitle: "Like and repost the X post",
         action: "Open post",
       },
       ru: {
         title: "Лайк + репост",
         subtitle:
-          "Открой пост в приложении X, поставь лайк и сделай репост. Очки начисляются при переходе.",
+          "Открой пост в приложении X, поставь лайк и сделай репост. Вернись сюда и нажми Проверить.",
         cardSubtitle: "Лайк и репост поста",
         action: "Открыть пост",
       },
@@ -154,14 +154,14 @@ export const GLOBAL_EXTERNAL_QUESTS = [
       en: {
         title: "Join Telegram",
         subtitle:
-          "Open Telegram and join the channel. This quest uses the Telegram app deep link.",
+          "Open Telegram and join the channel. Return here and tap Verify.",
         cardSubtitle: "Join the Telegram channel",
         action: "Open Telegram",
       },
       ru: {
         title: "Подписка на Telegram",
         subtitle:
-          "Открой Telegram и подпишись на канал. Квест открывает именно приложение Telegram.",
+          "Открой Telegram и подпишись на канал. Вернись сюда и нажми Проверить.",
         cardSubtitle: "Подписаться на канал",
         action: "Открыть Telegram",
       },
@@ -261,29 +261,21 @@ export async function claimExternalQuest(
   if (!quest) throw new Error("Unknown quest");
   if (!isExternalQuestActive(quest)) throw new Error("Quest expired");
 
-  const { data, error } = await supabase.rpc("claim_external_quest", {
-    p_wallet: addr,
-    p_quest_key: quest.key,
+  const res = await fetch("/api/external-quests/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      wallet: addr,
+      questKey: quest.key,
+    }),
   });
 
-  if (error && quest.key === TURBO_GUM_QUEST.key) {
-    const fallback = await supabase.rpc("claim_turbo_gum_quest", {
-      p_wallet: addr,
-    });
-    if (fallback.error) throw new Error(fallback.error.message);
-    const awarded = Boolean(fallback.data);
-    return {
-      reward: awarded ? quest.reward : 0,
-      alreadyClaimed: !awarded,
-    };
-  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Could not verify quest");
 
-  if (error) throw new Error(error.message);
-
-  const awarded = Boolean(data);
   return {
-    reward: awarded ? quest.reward : 0,
-    alreadyClaimed: !awarded,
+    reward: Number(data?.reward ?? 0),
+    alreadyClaimed: Boolean(data?.alreadyClaimed),
   };
 }
 

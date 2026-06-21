@@ -1,8 +1,8 @@
-{
+﻿{
   "name": "Sea Battle Fleet Pass - Abyss Dreadnought - Level 3",
   "description": "A transferable evolving Sea Battle fleet NFT. Upgrades burn the previous token and mint its evolved form while preserving accrued points.",
-  "image": "https://seawar01.vercel.app/nft/fleet-tier-3.png",
-  "external_url": "https://seawar01.vercel.app/shop",
+  "image": "https://seabattle.top/nft/fleet-tier-3.png",
+  "external_url": "https://seabattle.top/shop",
   "attributes": [
     {
       "trait_type": "Tier",

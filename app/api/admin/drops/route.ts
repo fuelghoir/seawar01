@@ -5,6 +5,22 @@ export const runtime = "nodejs";
 
 const ADDR_RE = /^0x[a-f0-9]{40}$/;
 const DROP_ID_RE = /^[a-zA-Z0-9_.:-]{1,80}$/;
+const MIN_ELIGIBLE_POINTS = 3_000;
+const MIN_ELIGIBLE_TRANSACTIONS = 10;
+
+type PlayerStatsRow = {
+  wallet?: string | null;
+  points?: number | string | null;
+  games_played?: number | string | null;
+  total_checkins?: number | string | null;
+};
+
+function seasonTransactionCount(row: PlayerStatsRow) {
+  return (
+    Math.max(0, Math.floor(Number(row.games_played ?? 0))) +
+    Math.max(0, Math.floor(Number(row.total_checkins ?? 0)))
+  );
+}
 
 export async function GET() {
   try {
@@ -91,21 +107,32 @@ export async function POST(req: NextRequest) {
     const admin = adminSupabase();
     const stats = await admin
       .from("player_stats")
-      .select("wallet,points")
-      .gt("points", 0)
+      .select("wallet,points,games_played,total_checkins")
+      .gte("points", MIN_ELIGIBLE_POINTS)
       .limit(100000);
 
     if (stats.error) {
       return NextResponse.json({ error: stats.error.message }, { status: 500 });
     }
 
-    const rows = (stats.data ?? []).map((row) => ({
-      wallet: String(row.wallet).toLowerCase(),
-      points: BigInt(Math.max(0, Math.floor(Number(row.points ?? 0)))),
-    }));
+    const rows = (stats.data ?? [])
+      .map((row) => ({
+        wallet: String(row.wallet).toLowerCase(),
+        points: BigInt(Math.max(0, Math.floor(Number(row.points ?? 0)))),
+        transactions: seasonTransactionCount(row),
+      }))
+      .filter(
+        (row) =>
+          ADDR_RE.test(row.wallet) &&
+          row.points >= BigInt(MIN_ELIGIBLE_POINTS) &&
+          row.transactions >= MIN_ELIGIBLE_TRANSACTIONS,
+      );
     const totalPoints = rows.reduce((sum, row) => sum + row.points, BigInt(0));
     if (totalPoints <= BigInt(0)) {
-      return NextResponse.json({ error: "No leaderboard points to snapshot" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No eligible wallets: need at least 3,000 points and 10 transactions" },
+        { status: 400 },
+      );
     }
 
     const campaign = await admin
@@ -155,6 +182,10 @@ export async function POST(req: NextRequest) {
         id,
         allocations: allocations.length,
         totalPoints: totalPoints.toString(),
+        eligibility: {
+          minPoints: MIN_ELIGIBLE_POINTS,
+          minTransactions: MIN_ELIGIBLE_TRANSACTIONS,
+        },
       },
     });
   } catch (err) {

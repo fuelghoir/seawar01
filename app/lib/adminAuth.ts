@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
+
+export { adminSupabase } from "./adminSupabase";
 
 const ADMIN_COOKIE = "sea_admin_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
@@ -38,14 +39,7 @@ export function buildAdminLoginMessage(wallet: string) {
   ].join("\n");
 }
 
-export function adminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for admin actions");
-  }
-  return createClient(url, serviceKey);
-}
+
 
 export async function setAdminSession(address: string) {
   const payload: AdminSessionPayload = {

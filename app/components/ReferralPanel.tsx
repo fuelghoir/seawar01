@@ -34,6 +34,7 @@ const EMPTY_STATS: ReferralStats = {
   unpaidActiveCount: 0,
   firstGameBonusPoints: 0,
 };
+const TWITTER_REFERRAL_SHARE_TEXT = "Join me in Sea Battle on Base.";
 
 export default function ReferralPanel({
   address,
@@ -139,7 +140,7 @@ export default function ReferralPanel({
       window.setTimeout(() => setCopied(null), 2000);
     } catch (err) {
       if (isAbortError(err)) return;
-      openExternal(getTwitterShareUrl(url, copy.shareText));
+      openExternal(getTwitterShareUrl(url, TWITTER_REFERRAL_SHARE_TEXT));
     }
   };
 
@@ -167,7 +168,7 @@ export default function ReferralPanel({
     const url = link || baseLink;
     if (!url) return;
     setShareMenuOpen(false);
-    openExternal(getTwitterShareUrl(url, copy.shareText));
+    openExternal(getTwitterShareUrl(url, TWITTER_REFERRAL_SHARE_TEXT));
   };
 
   const handleBaseOpen = async () => {

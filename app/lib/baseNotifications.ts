@@ -52,7 +52,7 @@ interface BaseSendPayload {
 
 export function getBaseNotificationsConfig(): BaseNotificationsConfig {
   const apiKey = process.env.BASE_NOTIFICATIONS_API_KEY || "";
-  const appUrl = process.env.BASE_NOTIFICATIONS_APP_URL || process.env.NEXT_PUBLIC_URL || "";
+  const appUrl = process.env.BASE_NOTIFICATIONS_APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL || "";
   const apiBase = process.env.BASE_NOTIFICATIONS_API_BASE || DEFAULT_API_BASE;
 
   if (!apiKey) {

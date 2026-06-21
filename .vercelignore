@@ -1,0 +1,12 @@
+# Local debug output
+*.log
+*.err.log
+*.out.log
+dev-server*.*
+cloudflared*.*
+.next-dev*
+
+# Source-only artifacts, not needed by the production runtime
+/contracts/
+docs/
+promo-screenshots/

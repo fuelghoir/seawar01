@@ -35,6 +35,7 @@ import {
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
+import { useTransactionWarmup } from "../lib/useTransactionWarmup";
 import styles from "./FleetNftPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -141,6 +142,7 @@ export default function FleetNftPanel() {
   const wagmiConfig = useConfig();
   const { lang } = useSettings();
   const ru = lang === "ru";
+  const txWarmReady = useTransactionWarmup(isConnected, address);
   const deployed = FLEET_NFT_CONTRACT_ADDRESS !== ZERO_ADDRESS;
   const [fleet, setFleet] = useState<FleetState>(() => readCached(address));
   const [message, setMessage] = useState("");
@@ -401,7 +403,7 @@ export default function FleetNftPanel() {
   }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru]);
 
   const startPurchase = async () => {
-    if (!address || !deployed || fleet.maxed || purchaseAction) return;
+    if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
     const action = owned ? "upgrade" : "buy";
     setMessage("");
     setPurchaseAction(action);
@@ -431,12 +433,11 @@ export default function FleetNftPanel() {
       functionName: "approve",
       args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(actionPrice)],
       chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
     });
   };
 
   const claimPoints = () => {
-    if (!address || !deployed || fleet.claimablePoints <= 0 || claimPending) return;
+    if (!txWarmReady || !address || !deployed || fleet.claimablePoints <= 0 || claimPending) return;
     setMessage("");
     claimHandledRef.current = false;
     resetClaim();
@@ -512,11 +513,11 @@ export default function FleetNftPanel() {
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.primary} onClick={startPurchase} disabled={!isConnected || !deployed || fleet.maxed || busy}>
-            {busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
+          <button type="button" className={styles.primary} onClick={startPurchase} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
+            {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
           </button>
-          <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !deployed || fleet.claimablePoints <= 0 || claimPending}>
-            {claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
+          <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !txWarmReady || !deployed || fleet.claimablePoints <= 0 || claimPending}>
+            {!txWarmReady ? "SYNCING..." : claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
           </button>
         </div>
         {message && <p className={styles.message}>{message}</p>}

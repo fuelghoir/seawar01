@@ -25,7 +25,7 @@ function getUrlHost(request: NextRequest): string {
   // Final fallback to environment variables (your original logic)
   let urlValue: string;
   if (process.env.VERCEL_ENV === "production") {
-    urlValue = process.env.NEXT_PUBLIC_URL!;
+    urlValue = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL!;
   } else if (process.env.VERCEL_URL) {
     urlValue = `https://${process.env.VERCEL_URL}`;
   } else {

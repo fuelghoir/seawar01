@@ -87,6 +87,10 @@ import {
   SEASON_UI_ENABLED,
   USDC_SEASON_REWARDS_ENABLED,
 } from "../lib/featureFlags";
+import {
+  clearWalletRequest,
+  markWalletRequestStarted,
+} from "../lib/walletRequestRecovery";
 import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -619,7 +623,6 @@ export default function ShopPage() {
       functionName: "approve",
       args: [SEABATTLE_CONTRACT_ADDRESS, BOMB_PRICE * BigInt(qty)],
       chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
     });
   };
 
@@ -657,6 +660,7 @@ export default function ShopPage() {
     notifyPlayerDataRefresh();
     setShopMsg(tr.shop_item_added);
     await refreshSeasonShop();
+    clearWalletRequest();
   }, [address, addOptimisticInventory, refreshSeasonShop, tr.shop_item_added]);
 
   const findLatestPaidQuestRerollTx = useCallback(async (
@@ -727,7 +731,10 @@ export default function ShopPage() {
       .catch((err) => {
         setShopMsg(err instanceof Error ? err.message : tr.shop_purchase_failed);
       })
-      .finally(() => setShopBusy(null));
+      .finally(() => {
+        clearWalletRequest();
+        setShopBusy(null);
+      });
   }, [
     paidQuestRerollMined,
     paidQuestRerollTxHash,
@@ -828,6 +835,7 @@ export default function ShopPage() {
     paidQuestRerollRef.current = false;
     paidQuestRerollQtyRef.current = 1;
     paidQuestRerollHandledRef.current = false;
+    clearWalletRequest();
     setShopBusy(null);
   }, [paidQuestRerollReceipt, shopBusy, tr.shop_purchase_failed]);
 
@@ -841,6 +849,7 @@ export default function ShopPage() {
     paidQuestRerollRef.current = false;
     paidQuestRerollQtyRef.current = 1;
     paidQuestRerollHandledRef.current = false;
+    clearWalletRequest();
     setShopBusy(null);
   }, [paidQuestRerollError, shopBusy, tr.shop_purchase_failed, tr.tx_rejected]);
 
@@ -854,14 +863,20 @@ export default function ShopPage() {
     paidQuestRerollHandledRef.current = false;
     setPaidQuestRerollFallbackMined(false);
     resetPaidQuestReroll();
-    writePaidQuestReroll({
-      address: USDC_ADDRESS,
-      abi: erc20Abi,
-      functionName: "transfer",
-      args: [SHOP_TREASURY_ADDRESS, BigInt(QUEST_REROLL_USDC_PRICE * qty)],
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
+    markWalletRequestStarted("paid-quest-reroll");
+    try {
+      writePaidQuestReroll({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [SHOP_TREASURY_ADDRESS, BigInt(QUEST_REROLL_USDC_PRICE * qty)],
+        chainId: base.id,
+      });
+    } catch (err) {
+      clearWalletRequest();
+      setShopBusy(null);
+      setShopMsg(err instanceof Error ? err.message : tr.shop_purchase_failed);
+    }
   };
 
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);

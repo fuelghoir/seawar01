@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { ShareRewardButton, type ShareRewardButtonProps } from "../../components/ShareRewardButton";
 import styles from "./game-ui.module.css";
 
 interface GameResultProps {
@@ -15,6 +16,7 @@ interface GameResultProps {
   onSecondary?: () => void;
   secondaryLabel?: string;
   secondaryVariant?: "default" | "claim";
+  shareReward?: ShareRewardButtonProps;
   children?: ReactNode;
   message?: string;
 }
@@ -43,6 +45,7 @@ export function GameResult({
   onSecondary,
   secondaryLabel,
   secondaryVariant = "default",
+  shareReward,
   children,
   message,
 }: GameResultProps) {
@@ -123,6 +126,7 @@ export function GameResult({
         {children && <div className={styles.resultExtras}>{children}</div>}
 
         <div className={styles.resultActions}>
+          {shareReward && <ShareRewardButton {...shareReward} />}
           {onSecondary && secondaryLabel && (
             <button
               className={`${styles.resultPrimary} ${

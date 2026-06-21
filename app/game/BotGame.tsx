@@ -808,6 +808,21 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           primaryLabel={`← ${tr.main_menu}`}
           onSecondary={secondaryHandler}
           secondaryLabel={secondaryLabel}
+          shareReward={
+            address
+              ? {
+                  kind: "game",
+                  wallet: address,
+                  game: {
+                    gameId: statsGameId,
+                    mode: "bot",
+                    didWin,
+                    myHits,
+                    enemyHits: botHits,
+                  },
+                }
+              : undefined
+          }
         >
           <div className={styles.resultBoards}>
             <Board cells={myBoardFinal} isInteractive={false} label={tr.your_board} />

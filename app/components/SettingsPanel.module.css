@@ -40,7 +40,9 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 186px;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
   background: var(--bg-panel-solid, rgba(10, 22, 40, 0.97));
   border: 1px solid rgba(var(--accent-rgb), 0.22);
   border-radius: 14px;
@@ -130,4 +132,27 @@
   background: var(--accent);
   color: #000;
   border-color: var(--accent);
+}
+
+.divider {
+  height: 1px;
+  margin: 14px 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--accent-rgb), 0.24),
+    transparent
+  );
+}
+
+.connectHint {
+  margin: 0;
+  padding: 11px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 10px;
+  background: rgba(var(--accent-rgb), 0.06);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.45;
 }

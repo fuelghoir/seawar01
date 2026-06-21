@@ -583,15 +583,87 @@ a {
   }
 
   body::before {
-    position: absolute;
-    opacity: 0.34;
-    background-size: 28px 28px, 28px 28px, 140px 140px, 140px 140px;
-    mask-image: none;
-    -webkit-mask-image: none;
+    display: none !important;
   }
 
   body::after,
   .aurora {
     display: none !important;
   }
+}
+
+.app-error-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(var(--accent-rgb), 0.18), transparent 34%),
+    linear-gradient(135deg, var(--bg-abyss), var(--bg-primary) 52%, #120a24);
+  color: var(--text-primary);
+}
+
+.app-error-card {
+  width: min(520px, 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 22px;
+  padding: 28px;
+  background: rgba(var(--bg-primary-rgb), 0.86);
+  box-shadow: 0 0 48px rgba(var(--accent-rgb), 0.15);
+  text-align: center;
+}
+
+.app-error-kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+}
+
+.app-error-card h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-display), var(--font-orbitron), sans-serif;
+  font-size: clamp(28px, 6vw, 44px);
+  letter-spacing: 0.06em;
+}
+
+.app-error-card p {
+  color: rgba(247, 251, 255, 0.76);
+  line-height: 1.55;
+}
+
+.app-error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.app-error-actions button {
+  min-width: 150px;
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #001018;
+  background: linear-gradient(135deg, var(--accent), #b069ff);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+html[data-wallet-request="true"] body::before,
+html[data-wallet-request="true"] body::after,
+html[data-wallet-request="true"] .aurora {
+  display: none !important;
+}
+
+html[data-wallet-request="true"] * {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0ms !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

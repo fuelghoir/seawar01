@@ -1203,6 +1203,22 @@ export function OffchainGameContent({
           onSecondary={secondaryHandler}
           secondaryLabel={secondaryLabel}
           secondaryVariant={secondaryVariant}
+          shareReward={
+            addr
+              ? {
+                  kind: "game",
+                  wallet: addr,
+                  game: {
+                    gameId: game.id,
+                    mode,
+                    didWin,
+                    myHits,
+                    enemyHits,
+                    prizeUsdc,
+                  },
+                }
+              : undefined
+          }
         >
           <div className={styles.resultBoards}>
             <Board cells={fullMyBoard} isInteractive={false} label="Your Fleet" />

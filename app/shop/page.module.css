@@ -2895,3 +2895,206 @@
     transition: none;
   }
 }
+
+/* Mobile webviews can black-frame when long shop pages combine sticky/fixed
+   controls, CSS filters, 3D transforms, and large glowing gradients. Keep the
+   desktop art direction intact, but use a flatter render path on phones. */
+@media (max-width: 720px) {
+  .container {
+    max-width: none;
+    background:
+      linear-gradient(rgba(var(--accent-rgb), 0.024) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--accent-rgb), 0.02) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(var(--bg-secondary-rgb), 0.6), rgba(var(--bg-abyss-rgb), 0.96));
+    background-size: 32px 32px, 32px 32px, auto;
+  }
+
+  .commandStrip {
+    position: static;
+  }
+
+  .commandStrip,
+  .header,
+  .card,
+  .featuredItem,
+  .featuredItemHero,
+  .seasonLevel,
+  .seasonLevelPreviewCurrent,
+  .inventoryRow,
+  .cardIcon,
+  .price,
+  .shopBuyButton,
+  .btn,
+  .btnCompact,
+  .mobileBackToMenu {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .featuredCard,
+  .seasonCard,
+  .sbtCard,
+  .inventoryCard,
+  .utilityCard,
+  .bombCard {
+    background:
+      linear-gradient(180deg, rgba(var(--bg-secondary-rgb), 0.82), rgba(var(--bg-abyss-rgb), 0.96));
+  }
+
+  .featuredItem,
+  .featuredItemHero,
+  .seasonLevel {
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+
+  .featuredItem:hover,
+  .featuredItemHero:hover {
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .featuredItem::before,
+  .featuredItem::after,
+  .featuredItemHero::before,
+  .featuredItemHero::after,
+  .seasonLevel::before,
+  .seasonLevelPreviewCurrent::before,
+  .seasonLevelPreviewCurrent::after,
+  .card::before,
+  .header::before,
+  .header::after {
+    box-shadow: none !important;
+    filter: none !important;
+  }
+
+  .featuredItem::after,
+  .featuredItemHero::after {
+    height: 1px;
+    border-radius: 0;
+    opacity: 0.28;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--shop-accent) 45%, transparent), transparent);
+  }
+
+  .itemArtStage,
+  .seasonLevelArtShell {
+    perspective: none !important;
+    transform: none !important;
+  }
+
+  .itemArt,
+  .inventoryItemArt,
+  .seasonLevelArt,
+  .featuredItemHero .itemArt {
+    transform: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+  }
+
+  .seasonLevel {
+    opacity: 1;
+  }
+
+  .mobileBackToMenu {
+    border-radius: 12px;
+    clip-path: none;
+    transform: none !important;
+    transition: opacity 0.12s ease;
+  }
+
+  .mobileBackToMenuVisible {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .header,
+  .card {
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.24),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.025) !important;
+  }
+
+  .featuredItem,
+  .featuredItemHero {
+    min-height: 470px !important;
+    padding: 54px 14px 112px;
+    border-color: color-mix(in srgb, var(--shop-accent) 48%, rgba(255, 255, 255, 0.12));
+    background:
+      radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--shop-accent) 22%, transparent), transparent 44%),
+      radial-gradient(circle at 50% 94%, color-mix(in srgb, var(--shop-accent) 14%, transparent), transparent 34%),
+      linear-gradient(180deg, color-mix(in srgb, var(--shop-accent) 9%, #0d1422 91%), rgba(4, 5, 10, 0.98) 74%);
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.28),
+      inset 0 0 28px color-mix(in srgb, var(--shop-accent) 7%, transparent) !important;
+  }
+
+  .featuredItemHero {
+    min-height: 486px !important;
+  }
+
+  .featuredItem .itemTopline,
+  .featuredItemHero .itemTopline {
+    top: 76px;
+    height: 150px;
+  }
+
+  .featuredItemHero .itemTopline {
+    top: 68px;
+    height: 160px;
+  }
+
+  .featuredItem .itemArt,
+  .featuredItemHero .itemArt {
+    width: 124px !important;
+    height: 124px !important;
+    border-color: color-mix(in srgb, var(--shop-accent, var(--accent)) 50%, transparent) !important;
+    background:
+      linear-gradient(145deg, color-mix(in srgb, var(--shop-accent, var(--accent)) 18%, transparent), transparent 58%),
+      rgba(0, 0, 0, 0.34) !important;
+    box-shadow:
+      0 12px 20px rgba(0, 0, 0, 0.32),
+      0 0 22px color-mix(in srgb, var(--shop-accent, var(--accent)) 16%, transparent) !important;
+  }
+
+  .featuredItemHero .itemArt {
+    width: 138px !important;
+    height: 138px !important;
+  }
+
+  .featuredItem .itemBody,
+  .featuredItemHero .itemBody {
+    top: 244px;
+    min-height: 104px;
+  }
+
+  .featuredItemHero .itemBody {
+    top: 238px;
+  }
+
+  .featuredItem h3,
+  .featuredItemHero h3 {
+    text-shadow: 0 0 12px color-mix(in srgb, var(--shop-accent) 24%, transparent) !important;
+  }
+
+  .featuredItem p,
+  .featuredItemHero p {
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  .featuredItem .itemFooter,
+  .featuredItemHero .itemFooter {
+    bottom: 16px;
+  }
+
+  .shopBuyButton,
+  .btn,
+  .btnCompact,
+  .mobileBackToMenu {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22) !important;
+  }
+}

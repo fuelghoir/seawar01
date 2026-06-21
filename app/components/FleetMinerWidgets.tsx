@@ -41,11 +41,24 @@ function useFleetMinerState(address?: `0x${string}`) {
 
 export function SeasonPoolCard({
   variant = "default",
+  address,
+  showEstimate = false,
 }: {
-  variant?: "default" | "wide";
+  variant?: "default" | "wide" | "sidebar";
+  address?: `0x${string}`;
+  showEstimate?: boolean;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
+  const [estimate, setEstimate] = useState<{
+    walletPoints: number;
+    walletTransactions: number;
+    eligible: boolean;
+    minPoints: number;
+    minTransactions: number;
+    totalPoints: number;
+    rank: number | null;
+  } | null>(null);
   const { data: vaultBalance } = useReadContract({
     address: USDC_ADDRESS,
     abi: erc20Abi,
@@ -58,20 +71,151 @@ export function SeasonPoolCard({
     },
   });
 
+  useEffect(() => {
+    if (!showEstimate || !address) {
+      setEstimate(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/season-reward-estimate?wallet=${encodeURIComponent(address)}`, {
+      cache: "no-store",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || data?.error) return;
+        setEstimate({
+          walletPoints: Number(data.walletPoints ?? 0),
+          walletTransactions: Number(data.walletTransactions ?? 0),
+          eligible: Boolean(data.eligible),
+          minPoints: Number(data.minPoints ?? 3000),
+          minTransactions: Number(data.minTransactions ?? 10),
+          totalPoints: Number(data.totalPoints ?? 0),
+          rank: data.rank == null ? null : Number(data.rank),
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, showEstimate]);
+
+  const estimatedReward =
+    vaultBalance !== undefined && estimate?.eligible && estimate.totalPoints
+      ? (vaultBalance * BigInt(Math.max(0, estimate.walletPoints))) /
+        BigInt(Math.max(1, estimate.totalPoints))
+      : null;
+  const sharePct =
+    estimate?.eligible && estimate.totalPoints && estimate.walletPoints > 0
+      ? Math.max(0.01, (estimate.walletPoints / estimate.totalPoints) * 100)
+      : 0;
+
   return (
-    <section className={`${styles.poolCard} ${variant === "wide" ? styles.poolCardWide : ""}`}>
+    <section
+      className={`${styles.poolCard} ${variant === "wide" ? styles.poolCardWide : ""} ${
+        variant === "sidebar" ? styles.poolCardSidebar : ""
+      }`}
+    >
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
         <b>S1</b>
       </div>
-      <strong>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</strong>
-      <p>
-        {ru
-          ? "80% чистого заработка попадает в пул наград."
-          : "80% of net revenue flows into player rewards."}
-      </p>
-      <small>{ru ? "КОНЕЦ: 31.08.2026 · 23:59 UTC" : "ENDS: 31.08.2026 · 23:59 UTC"}</small>
+      <div className={styles.poolAmount}>
+        <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
+        <strong>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</strong>
+      </div>
+      {showEstimate && (
+        <div className={styles.poolEstimate}>
+          <span>{ru ? "ТВОЯ ПРИМЕРНАЯ НАГРАДА" : "YOUR EST. REWARD"}</span>
+          <b>
+            {!estimate
+              ? "-- USDC"
+              : !estimate.eligible
+                ? ru ? "ПОКА НЕ ELIGIBLE" : "NOT ELIGIBLE YET"
+                : estimatedReward === null
+                  ? "-- USDC"
+                  : `≈ ${formatUsdc(estimatedReward)}`}
+          </b>
+          <small>
+            {estimate
+              ? estimate.eligible
+                ? `${estimate.walletPoints.toLocaleString()} pts · ${estimate.walletTransactions}/${
+                    estimate.minTransactions
+                  } tx · ${sharePct > 0 ? `~${sharePct.toFixed(2)}%` : "0%"}${
+                    estimate.rank ? ` · #${estimate.rank}` : ""
+                  }`
+                : ru
+                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts и ${
+                      estimate.minTransactions
+                    } tx · сейчас ${estimate.walletPoints.toLocaleString()} pts / ${
+                      estimate.walletTransactions
+                    } tx`
+                  : `Need ${estimate.minPoints.toLocaleString()} pts and ${
+                      estimate.minTransactions
+                    } tx · now ${estimate.walletPoints.toLocaleString()} pts / ${
+                      estimate.walletTransactions
+                    } tx`
+              : ru
+                ? "Считаем долю..."
+                : "Calculating share..."}
+          </small>
+        </div>
+      )}
+      <div className={styles.poolMeta}>
+        <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
+        <span>{ru ? "18.07.2026 · 00:00 UTC" : "Jul 18, 2026 · 00:00 UTC"}</span>
+      </div>
+      {variant === "sidebar" && (
+        <em className={styles.poolCta}>{ru ? "Открыть лидерборд →" : "Open leaderboard →"}</em>
+      )}
     </section>
+  );
+}
+
+export function SeasonRewardsIntro({
+  open,
+  onClose,
+  onOpenProfile,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenProfile: () => void;
+}) {
+  const { lang } = useSettings();
+  const ru = lang === "ru";
+
+  if (!open) return null;
+
+  const openProfile = () => {
+    onClose();
+    onOpenProfile();
+  };
+
+  return (
+    <div className={styles.modalBackdrop} onClick={onClose}>
+      <section className={`${styles.modal} ${styles.seasonModal}`} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">×</button>
+        <span className={styles.modalKicker}>{ru ? "СЕЗОННЫЙ USDC ДРОП" : "USDC REWARD SEASON"}</span>
+        <h2>{ru ? "БИТВА ЗА ПУЛ НАГРАД" : "BATTLE FOR THE REWARD POOL"}</h2>
+        <p>
+          {ru
+            ? "Играй, набирай очки и попади в снапшот. После окончания сезона claim появится в профиле."
+            : "Play, earn points, and enter the snapshot. After the season ends, your claim appears in Profile."}
+        </p>
+        <SeasonPoolCard variant="wide" />
+        <div className={styles.modalStats}>
+          <span><b>80%</b>{ru ? " В ПУЛ" : " TO POOL"}</span>
+          <span><b>18.07</b>00:00 UTC</span>
+        </div>
+        <button type="button" className={styles.modalAction} onClick={openProfile}>
+          {ru ? "ОТКРЫТЬ ПРОФИЛЬ" : "OPEN PROFILE"}
+        </button>
+        <button type="button" className={styles.modalLater} onClick={onClose}>
+          {ru ? "ПРОДОЛЖИТЬ" : "CONTINUE"}
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -114,7 +258,9 @@ export function FleetMinerSummary({
             : ru ? "КУПИТЬ · 0.5 USDC" : "BUY · 0.5 USDC"}
         </button>
       </section>
-      {USDC_SEASON_REWARDS_ENABLED && <SeasonPoolCard />}
+      {USDC_SEASON_REWARDS_ENABLED && (
+        <SeasonPoolCard address={address} showEstimate={!!address} />
+      )}
     </div>
   );
 }

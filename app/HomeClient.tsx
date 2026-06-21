@@ -39,9 +39,11 @@ import {
 import { QuestHub } from "./components/QuestHub";
 import ReferralPanel from "./components/ReferralPanel";
 import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
+import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
-import { FleetMinerPromo, FleetMinerSummary } from "./components/FleetMinerWidgets";
+import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro } from "./components/FleetMinerWidgets";
+import { DropClaimPanel } from "./components/DropClaimPanel";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
@@ -61,7 +63,8 @@ import {
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
-import { SEASON_UI_ENABLED } from "./lib/featureFlags";
+import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
+import { useTransactionWarmup } from "./lib/useTransactionWarmup";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
@@ -87,6 +90,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const { switchChain } = useSwitchChain();
   const { lang } = useSettings();
   const tr = TR[lang];
+  const txWarmReady = useTransactionWarmup(isConnected, address);
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
@@ -98,6 +102,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [incomingRef, setIncomingRef] = useState<string | null>(null);
   const [showPlay, setShowPlay] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showSeasonIntro, setShowSeasonIntro] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -264,8 +269,27 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   }, [address, loadProfile]);
 
   useEffect(() => {
-    if (isConnected && address) setShowWelcome(true);
+    if (!isConnected || !address) {
+      setShowSeasonIntro(false);
+      return;
+    }
+
+    const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
+    if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
+      setShowSeasonIntro(true);
+      return;
+    }
+
+    setShowWelcome(true);
   }, [isConnected, address]);
+
+  const closeSeasonIntro = useCallback(() => {
+    if (address) {
+      sessionStorage.setItem(`sea-battle-usdc-season-intro-${address.toLowerCase()}`, "1");
+    }
+    setShowSeasonIntro(false);
+    setShowWelcome(true);
+  }, [address]);
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
@@ -301,6 +325,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const miniAppBootSettled = isReady || bootMaxDone;
   const bootReady =
     miniAppBootSettled &&
+    (!isConnected || txWarmReady) &&
     (bootMaxDone ||
       (accountBootSettled && walletBootSettled));
 
@@ -376,7 +401,15 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
       <PlayModal open={showPlay} onClose={() => setShowPlay(false)} />
 
-      {showWelcome && address && (
+      {address && (
+        <SeasonRewardsIntro
+          open={showSeasonIntro}
+          onClose={closeSeasonIntro}
+          onOpenProfile={() => setOpenSection("profile")}
+        />
+      )}
+
+      {!showSeasonIntro && showWelcome && address && (
         <WelcomeCheckin
           address={address}
           onClose={() => {
@@ -384,14 +417,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             getCheckinStatus(address).then(setCheckin).catch(() => {});
           }}
           onCheckedIn={loadProfile}
-        />
-      )}
-
-      {address && (
-        <FleetMinerPromo
-          address={address}
-          blocked={showWelcome}
-          onOpen={() => router.push("/shop#fleet-nft")}
         />
       )}
 
@@ -451,6 +476,53 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             <span className={styles.playNowShimmer} aria-hidden="true" />
           </button>
 
+          <button
+            className={`${styles.mobileCheckinButton} ${
+              !checkin
+                ? styles.mobileCheckinButtonLoading
+                : checkin.canCheckin
+                  ? styles.mobileCheckinButtonAvailable
+                  : styles.mobileCheckinButtonDone
+            }`}
+            onClick={() => {
+              if (checkin?.canCheckin) setShowWelcome(true);
+            }}
+            type="button"
+            disabled={!checkin || !checkin.canCheckin}
+          >
+            <span className={styles.mobileCheckinIcon} aria-hidden="true">
+              <CheckIcon size={20} />
+            </span>
+            <span className={styles.mobileCheckinCopy}>
+              <span className={styles.mobileCheckinKicker}>
+                {tr.home_checkin_title}
+              </span>
+              <strong>
+                {!checkin
+                  ? tr.home_checkin_sub
+                  : checkin.canCheckin
+                    ? tr.checkin_btn
+                    : tr.home_checkin_done}
+              </strong>
+              <small>
+                {tr.streak}: {checkin?.streak ?? profileView.checkinStreak}d
+              </small>
+            </span>
+            <span className={styles.mobileCheckinAction}>
+              {!checkin ? (
+                <b>...</b>
+              ) : checkin.canCheckin ? (
+                <>
+                  <b>+{checkin.nextReward}</b>
+                  <small>{tr.shop_pts}</small>
+                  <ChevronRightIcon size={15} />
+                </>
+              ) : (
+                <CheckIcon size={18} />
+              )}
+            </span>
+          </button>
+
           <SecretSbtCard
             wins={profileView.totalWins}
             winsLeft={sbtWinsLeft}
@@ -490,7 +562,34 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   <b>{tr.shots.toUpperCase()}</b>
                 </div>
               </div>
+              {SEASON_UI_ENABLED && (
+                <SeasonRoadmap
+                  season={season}
+                  compact
+                  onOpen={() => router.push("/shop")}
+                />
+              )}
               {address && <CreatorRewardsSummary address={address} />}
+              {USDC_SEASON_REWARDS_ENABLED && (
+                <SeasonPoolCard variant="wide" address={address} showEstimate />
+              )}
+              {address && <DropClaimPanel address={address} />}
+              {address && (
+                <ShareRewardButton
+                  kind="profile"
+                  wallet={address}
+                  profile={{
+                    points: profileView.points,
+                    wins: profileView.totalWins,
+                    losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                    streak: profileView.checkinStreak,
+                    shots: profileView.totalShots,
+                    earningsUsdc: profileView.earningsUsdc,
+                  }}
+                  variant="profile"
+                  onAwarded={loadProfile}
+                />
+              )}
               {address && (
                 <div className={styles.mobileReferralBlock}>
                   <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
@@ -689,7 +788,33 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   <b>{profileView.totalCheckins}</b>
                 </div>
               </div>
+              {SEASON_UI_ENABLED && (
+                <SeasonRoadmap
+                  season={season}
+                  onOpen={() => router.push("/shop")}
+                />
+              )}
+              {address && (
+                <ShareRewardButton
+                  kind="profile"
+                  wallet={address}
+                  profile={{
+                    points: profileView.points,
+                    wins: profileView.totalWins,
+                    losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                    streak: profileView.checkinStreak,
+                    shots: profileView.totalShots,
+                    earningsUsdc: profileView.earningsUsdc,
+                  }}
+                  variant="profile"
+                  onAwarded={loadProfile}
+                />
+              )}
               {address && <CreatorRewardsSummary address={address} />}
+              {USDC_SEASON_REWARDS_ENABLED && (
+                <SeasonPoolCard variant="wide" address={address} showEstimate />
+              )}
+              {address && <DropClaimPanel address={address} />}
             </div>
           )}
 
@@ -774,7 +899,9 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           <div className={styles.shopBody}>
             <ShopPreview
               season={season}
-              onOpen={() => router.push("/shop")}
+              address={address}
+              onOpenShop={() => router.push("/shop")}
+              onOpenLeaderboard={() => router.push("/leaderboard")}
             />
           </div>
 
@@ -1178,13 +1305,20 @@ function MobileRecentRow({ game, lang }: { game: GameHistoryEntry; lang: string 
 
 function ShopPreview({
   season,
-  onOpen,
+  address,
+  onOpenShop,
+  onOpenLeaderboard,
 }: {
   season: SeasonState | null;
-  onOpen: () => void;
+  address?: `0x${string}`;
+  onOpenShop: () => void;
+  onOpenLeaderboard: () => void;
 }) {
   const { lang } = useSettings();
   const tr = TR[lang];
+  const [previewTab, setPreviewTab] = useState<"usdc" | "battle">(
+    USDC_SEASON_REWARDS_ENABLED ? "usdc" : "battle",
+  );
   const itemMeta: Record<ShopItemSlug, { rarity: string; accent: string }> = {
     double_points_1h: { rarity: tr.tier_legendary.toUpperCase(), accent: "#ffc850" },
     quest_reroll: { rarity: tr.tier_rare.toUpperCase(), accent: "#00dcb4" },
@@ -1223,7 +1357,36 @@ function ShopPreview({
 
   return (
     <div className={styles.shopPreview}>
-      {SEASON_UI_ENABLED && <SeasonRoadmap season={season} onOpen={onOpen} />}
+      {SEASON_UI_ENABLED && (
+        <div className={styles.previewSwitcher}>
+          <div className={styles.previewTabs}>
+            {USDC_SEASON_REWARDS_ENABLED && (
+              <button
+                className={`${styles.previewTab} ${previewTab === "usdc" ? styles.previewTabActive : ""}`}
+                onClick={() => setPreviewTab("usdc")}
+                type="button"
+              >
+                USDC Season
+              </button>
+            )}
+            <button
+              className={`${styles.previewTab} ${previewTab === "battle" ? styles.previewTabActive : ""}`}
+              onClick={() => setPreviewTab("battle")}
+              type="button"
+            >
+              Battle Pass
+            </button>
+          </div>
+
+          {previewTab === "usdc" && USDC_SEASON_REWARDS_ENABLED ? (
+            <button className={styles.previewCardButton} onClick={onOpenLeaderboard} type="button">
+              <SeasonPoolCard variant="sidebar" address={address} showEstimate />
+            </button>
+          ) : (
+            <SeasonRoadmap season={season} onOpen={onOpenShop} />
+          )}
+        </div>
+      )}
 
       <SectionHeader label={tr.shop_featured_armory.toUpperCase()} accent="#00dcb4" />
       {shopPreviewItems.map((it, i) => (
@@ -1231,7 +1394,7 @@ function ShopPreview({
           key={i}
           className={styles.shopItem}
           style={{ ["--accent" as string]: it.accent }}
-          onClick={onOpen}
+          onClick={onOpenShop}
           type="button"
         >
           <ItemArt kind={it.kind} size="small" className={styles.shopItemArt} />
@@ -1244,7 +1407,7 @@ function ShopPreview({
         </button>
       ))}
 
-      <button className={styles.openShopBtn} onClick={onOpen} type="button">
+      <button className={styles.openShopBtn} onClick={onOpenShop} type="button">
         {tr.shop_open_shop.toUpperCase()}
       </button>
     </div>
@@ -1261,6 +1424,7 @@ function getNearbySeasonLevels(currentLevel: number): number[] {
 function SeasonRoadmap({
   season,
   compact = false,
+  onOpen,
 }: {
   season: SeasonState | null;
   compact?: boolean;
@@ -1288,7 +1452,19 @@ function SeasonRoadmap({
     selected.reward.kind === "item" ? selected.reward.slug : "points";
 
   return (
-    <section className={`${styles.seasonRoadmap} ${compact ? styles.seasonRoadmapCompact : ""}`}>
+    <section
+      className={`${styles.seasonRoadmap} ${compact ? styles.seasonRoadmapCompact : ""} ${onOpen ? styles.clickablePanel : ""}`}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+    >
       <div className={styles.seasonRoadmapHead}>
         <span>
           <span className={styles.seasonKicker}>{tr.season_route.toUpperCase()}</span>

@@ -1257,7 +1257,6 @@ function PlayPageInner() {
       functionName: "approve",
       args: [SEABATTLE_CONTRACT_ADDRESS, BigInt(amount)],
       chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
     });
     return false;
   }, [address, paymasterSupported, wagmiConfig, writeApprove]);

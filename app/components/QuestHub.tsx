@@ -18,9 +18,24 @@ import {
 } from "./Icons";
 import CreatorProgram from "./CreatorProgram";
 import QuestPanel from "./QuestPanel";
+import {
+  SOCIAL_CONNECT_EVENT,
+  SOCIAL_CONNECTIONS_CHANGED_EVENT,
+  SocialConnectPanel,
+} from "./SocialConnectPanel";
 import styles from "./QuestHub.module.css";
 
 type QuestTab = "weekly" | "global" | "creator";
+type SocialProvider = "x" | "telegram";
+
+type SocialStatusResponse = {
+  connections?: Array<{
+    provider: SocialProvider;
+    providerUserId: string | null;
+    providerUsername: string | null;
+    needsReconnect?: boolean;
+  }>;
+};
 
 interface QuestHubProps {
   address: string;
@@ -33,14 +48,20 @@ const COPY: Record<
   {
     weeklyTab: string;
     globalTab: string;
-    creatorTab?: string;
+    creatorTab: string;
     globalLoading: string;
     globalEmpty: string;
     oneTime: string;
     opening: string;
+    verifying: string;
+    verify: string;
+    openedReady: string;
     claimed: string;
     alreadyClaimed: string;
     unavailable: string;
+    connectX: string;
+    connectTelegram: string;
+    connectFirst: (provider: "X" | "Telegram") => string;
     daysLeft: (days: number) => string;
   }
 > = {
@@ -52,21 +73,34 @@ const COPY: Record<
     globalEmpty: "No global quests right now.",
     oneTime: "one-time",
     opening: "Opening...",
+    verifying: "Verifying...",
+    verify: "Verify",
+    openedReady: "Opened. Complete the action, then tap Verify.",
     claimed: "Claimed",
     alreadyClaimed: "Already claimed",
     unavailable: "Quest is not available",
+    connectX: "Connect X",
+    connectTelegram: "Connect Telegram",
+    connectFirst: (provider) => `Connect ${provider} first, then open the quest.`,
     daysLeft: (days) => `${days}d left`,
   },
   ru: {
     weeklyTab: "Еженедельные",
     globalTab: "Глобальные",
+    creatorTab: "Creator",
     globalLoading: "Загрузка глобальных квестов...",
     globalEmpty: "Глобальных квестов пока нет.",
     oneTime: "разово",
     opening: "Открываем...",
+    verifying: "Проверяем...",
+    verify: "Проверить",
+    openedReady: "Открылось. Сделай действие, потом нажми Проверить.",
     claimed: "Получено",
     alreadyClaimed: "Уже получено",
     unavailable: "Квест недоступен",
+    connectX: "Подключить X",
+    connectTelegram: "Подключить Telegram",
+    connectFirst: (provider) => `Сначала подключи ${provider}, потом открой квест.`,
     daysLeft: (days) => `${days}д осталось`,
   },
 };
@@ -80,7 +114,10 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [globalLoadError, setGlobalLoadError] = useState("");
   const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const [verifyingKey, setVerifyingKey] = useState<string | null>(null);
+  const [openedQuestKeys, setOpenedQuestKeys] = useState<Record<string, boolean>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
+  const [socialStatus, setSocialStatus] = useState<SocialStatusResponse | null>(null);
 
   const loadGlobalQuests = useCallback(async () => {
     setLoadingGlobal(true);
@@ -96,9 +133,38 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
     }
   }, [address, copy.unavailable]);
 
+  const loadSocialStatus = useCallback(async () => {
+    const res = await fetch(`/api/social-connections?wallet=${encodeURIComponent(address)}`, {
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || "Could not load social connections");
+    setSocialStatus(data);
+  }, [address]);
+
   useEffect(() => {
     loadGlobalQuests();
   }, [loadGlobalQuests]);
+
+  useEffect(() => {
+    loadSocialStatus().catch(() => {});
+  }, [loadSocialStatus]);
+
+  useEffect(() => {
+    const refresh = () => {
+      loadSocialStatus().catch(() => {});
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "sea-battle-social-connected") refresh();
+    };
+
+    window.addEventListener(SOCIAL_CONNECTIONS_CHANGED_EVENT, refresh);
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener(SOCIAL_CONNECTIONS_CHANGED_EVENT, refresh);
+      window.removeEventListener("message", onMessage);
+    };
+  }, [loadSocialStatus]);
 
   const globalReadyCount = useMemo(
     () => globalQuests.filter((quest) => quest.active && !quest.claimed).length,
@@ -107,9 +173,34 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
 
   const handleOpenGlobalQuest = async (status: ExternalQuestStatus) => {
     const quest = status.definition;
-    if (openingKey || status.claimed || !status.active) return;
+    if (openingKey || verifyingKey || status.claimed || !status.active) return;
 
     setOpeningKey(quest.key);
+    setMessages((current) => ({ ...current, [quest.key]: "" }));
+
+    try {
+      await openExternalQuestTarget(quest, isInMiniApp);
+      if (requiresManualVerify(quest)) {
+        setOpenedQuestKeys((current) => ({ ...current, [quest.key]: true }));
+        setMessages((current) => ({ ...current, [quest.key]: copy.openedReady }));
+        return;
+      }
+      await verifyGlobalQuest(status);
+    } catch (err) {
+      setMessages((current) => ({
+        ...current,
+        [quest.key]: err instanceof Error ? err.message : tr.shop_claim_failed,
+      }));
+    } finally {
+      setOpeningKey(null);
+    }
+  };
+
+  const verifyGlobalQuest = async (status: ExternalQuestStatus) => {
+    const quest = status.definition;
+    if (verifyingKey || status.claimed || !status.active) return;
+
+    setVerifyingKey(quest.key);
     setMessages((current) => ({ ...current, [quest.key]: "" }));
 
     try {
@@ -130,14 +221,34 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
           : `+${reward.toLocaleString()} ${tr.shop_pts}!`,
       }));
       onPointsChanged?.();
-      await openExternalQuestTarget(quest, isInMiniApp);
     } catch (err) {
       setMessages((current) => ({
         ...current,
         [quest.key]: err instanceof Error ? err.message : tr.shop_claim_failed,
       }));
     } finally {
-      setOpeningKey(null);
+      setVerifyingKey(null);
+    }
+  };
+
+  const connectFromQuest = (quest: ExternalQuestDefinition, provider: SocialProvider) => {
+    const providerName = provider === "x" ? "X" : "Telegram";
+    setMessages((current) => ({
+      ...current,
+      [quest.key]: copy.connectFirst(providerName),
+    }));
+    const handled = !window.dispatchEvent(
+      new CustomEvent(SOCIAL_CONNECT_EVENT, {
+        detail: { provider },
+        cancelable: true,
+      }),
+    );
+    if (!handled && provider === "x") {
+      window.open(
+        `/api/social-connections/x/oauth/start?wallet=${encodeURIComponent(address)}`,
+        "_blank",
+        "popup,width=520,height=760",
+      );
     }
   };
 
@@ -161,9 +272,7 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
           aria-selected={activeTab === "global"}
         >
           {copy.globalTab}
-          {globalReadyCount > 0 && (
-            <span className={styles.tabBadge}>{globalReadyCount}</span>
-          )}
+          {globalReadyCount > 0 && <span className={styles.tabBadge}>{globalReadyCount}</span>}
         </button>
         <button
           className={`${styles.tab} ${activeTab === "creator" ? styles.tabActive : ""}`}
@@ -172,21 +281,17 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
           role="tab"
           aria-selected={activeTab === "creator"}
         >
-          {copy.creatorTab ?? "Creator"}
+          {copy.creatorTab}
         </button>
       </div>
 
       {activeTab === "weekly" ? (
-        <QuestPanel
-          address={address}
-          onPointsChanged={onPointsChanged}
-          hideHeader
-          expanded
-        />
+        <QuestPanel address={address} onPointsChanged={onPointsChanged} hideHeader expanded />
       ) : activeTab === "creator" ? (
         <CreatorProgram address={address} />
       ) : (
         <div className={styles.globalPane}>
+          <SocialConnectPanel address={address} />
           {loadingGlobal ? (
             <p className={styles.loading}>{copy.globalLoading}</p>
           ) : globalLoadError ? (
@@ -199,13 +304,15 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
               const questCopy = quest.copy[lang];
               const msg = messages[quest.key] || status.loadError || "";
               const isOpening = openingKey === quest.key;
+              const isVerifying = verifyingKey === quest.key;
+              const needsVerifyStep = requiresManualVerify(quest);
+              const openedForVerify = Boolean(openedQuestKeys[quest.key]);
+              const missingProvider = getMissingSocialProvider(quest, socialStatus);
 
               return (
                 <div
                   key={quest.key}
-                  className={`${styles.globalQuest} ${
-                    status.claimed ? styles.globalQuestClaimed : ""
-                  }`}
+                  className={`${styles.globalQuest} ${status.claimed ? styles.globalQuestClaimed : ""}`}
                 >
                   <span
                     className={`${styles.questIcon} ${styles[`${quest.kind}Icon`]}`}
@@ -224,9 +331,7 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
                     <span className={styles.globalQuestDesc}>{questCopy.subtitle}</span>
                     <span className={styles.globalQuestMeta}>
                       <span>{questCopy.cardSubtitle}</span>
-                      <span>
-                        {status.daysLeft == null ? copy.oneTime : copy.daysLeft(status.daysLeft)}
-                      </span>
+                      <span>{status.daysLeft == null ? copy.oneTime : copy.daysLeft(status.daysLeft)}</span>
                     </span>
                   </span>
 
@@ -237,13 +342,33 @@ export function QuestHub({ address, isInMiniApp, onPointsChanged }: QuestHubProp
                     </span>
                   ) : (
                     <button
-                      className={styles.globalAction}
-                      onClick={() => handleOpenGlobalQuest(status)}
-                      disabled={isOpening || !status.active}
+                      className={`${styles.globalAction} ${missingProvider ? styles.connectAction : ""}`}
+                      onClick={() =>
+                        missingProvider
+                          ? connectFromQuest(quest, missingProvider)
+                          : needsVerifyStep && openedForVerify
+                            ? verifyGlobalQuest(status)
+                            : handleOpenGlobalQuest(status)
+                      }
+                      disabled={isOpening || isVerifying || !status.active}
                       type="button"
                     >
-                      <ExternalLinkIcon size={14} />
-                      {isOpening ? copy.opening : questCopy.action}
+                      {needsVerifyStep && openedForVerify && !missingProvider ? (
+                        <CheckIcon size={14} />
+                      ) : (
+                        <ExternalLinkIcon size={14} />
+                      )}
+                      {isOpening
+                        ? copy.opening
+                        : isVerifying
+                          ? copy.verifying
+                          : missingProvider === "x"
+                            ? copy.connectX
+                            : missingProvider === "telegram"
+                              ? copy.connectTelegram
+                              : needsVerifyStep && openedForVerify
+                                ? copy.verify
+                                : questCopy.action}
                     </button>
                   )}
 
@@ -274,6 +399,30 @@ function getQuestIcon(quest: ExternalQuestDefinition) {
   return <ShieldIcon size={18} />;
 }
 
+function requiresManualVerify(quest: ExternalQuestDefinition) {
+  return quest.kind === "twitter" || quest.kind === "telegram";
+}
+
+function getMissingSocialProvider(
+  quest: ExternalQuestDefinition,
+  socialStatus: SocialStatusResponse | null,
+): SocialProvider | null {
+  if (quest.kind === "twitter" && !isSocialConnected(socialStatus, "x")) return "x";
+  if (quest.kind === "telegram" && !isSocialConnected(socialStatus, "telegram")) return "telegram";
+  return null;
+}
+
+function isSocialConnected(socialStatus: SocialStatusResponse | null, provider: SocialProvider) {
+  return Boolean(
+    socialStatus?.connections?.some(
+      (connection) =>
+        connection.provider === provider &&
+        connection.providerUserId &&
+        !connection.needsReconnect,
+    ),
+  );
+}
+
 async function openExternalQuestTarget(
   quest: ExternalQuestDefinition,
   isInMiniApp: boolean,
@@ -284,12 +433,9 @@ async function openExternalQuestTarget(
         await sdk.actions.openUrl({ url: quest.appUrl });
         return;
       } catch {
-        // Some hosts reject custom schemes, so fall through to direct navigation.
+        // Some hosts reject custom schemes, so fall through to the web URL.
       }
     }
-
-    window.location.href = quest.appUrl;
-    return;
   }
 
   if (isInMiniApp) {
@@ -302,6 +448,6 @@ async function openExternalQuestTarget(
   }
 
   const target = quest.url;
-  const opened = window.open(target, "_blank", "noopener,noreferrer");
+  const opened = window.open(target, "_blank", "popup,width=520,height=760");
   if (!opened) window.location.href = target;
 }

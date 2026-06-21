@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { adminSupabase } from "../../../lib/adminSupabase";
 import { createPublicClient, decodeEventLog, fallback, http, isAddress, isHash } from "viem";
 import { base } from "viem/chains";
 import {
@@ -37,12 +37,7 @@ async function getConfirmedReceipt(hash: `0x${string}`) {
   return null;
 }
 
-function adminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey);
-}
+
 
 export async function POST(req: NextRequest) {
   if (FLEET_NFT_CONTRACT_ADDRESS === ZERO_ADDR) {

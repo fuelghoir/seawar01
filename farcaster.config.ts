@@ -1,4 +1,5 @@
 const ROOT_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000');
 
@@ -13,7 +14,7 @@ export const farcasterConfig = {
     name: "Sea Battle",
     subtitle: "Onchain Battleship with friends",
     description: "Classic Battleship game on Base. Every shot is an onchain transaction. Create a game, share with a friend, place ships, fire!",
-    screenshotUrls: [`${ROOT_URL}/screenshots/gameplay.png`],
+    screenshotUrls: [`${ROOT_URL}/hero.png`],
     iconUrl: `${ROOT_URL}/icon.png`,
     splashImageUrl: `${ROOT_URL}/splash.png`,
     splashBackgroundColor: "#0A1628",
@@ -25,6 +26,6 @@ export const farcasterConfig = {
     tagline: "Every shot is a transaction",
     ogTitle: "Sea Battle - Onchain Battleship",
     ogDescription: "Play Battleship with friends on Base. Each shot = 1 tx.",
-    ogImageUrl: `${ROOT_URL}/og.png`,
+    ogImageUrl: `${ROOT_URL}/hero.png`,
   },
 } as const;

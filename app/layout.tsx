@@ -21,8 +21,31 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 
   return {
+    metadataBase: new URL(farcasterConfig.miniapp.homeUrl),
     title: farcasterConfig.miniapp.name,
     description: farcasterConfig.miniapp.description,
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/icon.png", type: "image/png", sizes: "1024x1024" },
+      ],
+      shortcut: "/favicon.ico",
+      apple: [{ url: "/apple-touch-icon.png", sizes: "1024x1024", type: "image/png" }],
+    },
+    openGraph: {
+      title: farcasterConfig.miniapp.ogTitle,
+      description: farcasterConfig.miniapp.ogDescription,
+      url: farcasterConfig.miniapp.homeUrl,
+      siteName: farcasterConfig.miniapp.name,
+      images: [{ url: farcasterConfig.miniapp.heroImageUrl }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: farcasterConfig.miniapp.ogTitle,
+      description: farcasterConfig.miniapp.ogDescription,
+      images: [farcasterConfig.miniapp.heroImageUrl],
+    },
     other: {
       "base:app_id": "69dbfc9ded56423f0cd3e692",
       "fc:frame": JSON.stringify(miniAppEmbed),

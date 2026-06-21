@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { createPublicClient, http, keccak256, toBytes } from "viem";
+import { base } from "viem/chains";
 import { supabase } from "../../../lib/supabase";
 import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
@@ -31,15 +34,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: creatorRewards.error.message }, { status: 500 });
   }
 
+  const activeAllocations = (allocations.data ?? []).filter((row) => {
+    const campaign = Array.isArray(row.drop_campaigns)
+      ? row.drop_campaigns[0]
+      : row.drop_campaigns;
+    return campaign?.status === "active";
+  });
+  const activeCreatorRewards = await filterUnclaimedCreatorRewards(wallet, creatorRewards.data ?? []);
+
   return NextResponse.json({
     allocations: [
-      ...(allocations.data ?? []).filter((row) => {
-      const campaign = Array.isArray(row.drop_campaigns)
-        ? row.drop_campaigns[0]
-        : row.drop_campaigns;
-      return campaign?.status === "active";
-      }),
-      ...(creatorRewards.data ?? []).map((reward) => ({
+      ...activeAllocations,
+      ...activeCreatorRewards.map((reward) => ({
         source: "creator_reward",
         reward_id: reward.id,
         drop_id: `creator-reward-${reward.id}`,
@@ -60,6 +66,61 @@ export async function GET(req: NextRequest) {
       })),
     ],
   });
+}
+
+async function filterUnclaimedCreatorRewards(
+  wallet: string,
+  rewards: Array<{
+    id: number;
+    reward_kind: string;
+    amount_raw?: string | null;
+    token_address?: string | null;
+    reward_label?: string | null;
+    status: string;
+    tx_hash?: string | null;
+  }>,
+) {
+  const contractAddress = resolveDropClaimContract();
+  if (!contractAddress || rewards.length === 0) return rewards;
+
+  const client = createPublicClient({
+    chain: base,
+    transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL),
+  });
+  const visible = [];
+  for (const reward of rewards) {
+    const dropId = `creator-reward-${reward.id}`;
+    const claimed = await client
+      .readContract({
+        address: contractAddress as `0x${string}`,
+        abi: [
+          {
+            type: "function",
+            name: "claimed",
+            inputs: [
+              { type: "bytes32", name: "" },
+              { type: "address", name: "" },
+            ],
+            outputs: [{ type: "bool", name: "" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "claimed",
+        args: [dropIdToBytes32(dropId), wallet as `0x${string}`],
+      })
+      .catch(() => false);
+
+    if (claimed) {
+      await adminSupabaseOrAnon()
+        .from("creator_rewards")
+        .update({ status: "paid" })
+        .eq("id", reward.id)
+        .eq("wallet", wallet);
+      continue;
+    }
+    visible.push(reward);
+  }
+  return visible;
 }
 
 function defaultTokenForKind(kind: string) {
@@ -85,4 +146,16 @@ function resolveDropClaimContract() {
       "",
   ).trim();
   return address || null;
+}
+
+function dropIdToBytes32(dropId: string): `0x${string}` {
+  if (/^0x[0-9a-fA-F]{64}$/.test(dropId)) return dropId as `0x${string}`;
+  return keccak256(toBytes(dropId));
+}
+
+function adminSupabaseOrAnon() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (url && serviceKey) return createClient(url, serviceKey);
+  return supabase;
 }

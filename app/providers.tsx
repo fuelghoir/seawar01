@@ -6,6 +6,7 @@ import { baseAccount, injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Attribution } from "ox/erc8021";
 import { MiniAppProvider } from "./providers/MiniAppProvider";
+import { WalletRequestRecovery } from "./components/WalletRequestRecovery";
 
 export const BUILDER_CODE_SUFFIX = Attribution.toDataSuffix({
   codes: ["bc_2pbrby2j"],
@@ -55,6 +56,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <MiniAppProvider>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
+          <WalletRequestRecovery />
           {children}
         </QueryClientProvider>
       </WagmiProvider>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { adminSupabase } from "../../../lib/adminSupabase";
 import { createPublicClient, http, isAddress } from "viem";
 import { base } from "viem/chains";
 import { captainSbtAbi, CAPTAIN_SBT_CONTRACT_ADDRESS } from "../../../contracts/seaBattleAbi";
@@ -7,12 +7,7 @@ import { getLimitedSbtWeekKey, LIMITED_SBT_WEEKLY_POINTS } from "../../../lib/li
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
-function adminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey);
-}
+
 
 export async function POST(req: NextRequest) {
   if (CAPTAIN_SBT_CONTRACT_ADDRESS === ZERO_ADDR) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
+import { adminSupabase } from "../../../lib/adminSupabase";
 import { supabase } from "../../../lib/supabase";
 import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
@@ -83,6 +84,29 @@ export async function POST(req: NextRequest) {
   }
 
   const dropIdBytes32 = dropIdToBytes32(dropId);
+  const alreadyClaimed = await client.readContract({
+    address: contractAddress,
+    abi: [
+      {
+        type: "function",
+        name: "claimed",
+        inputs: [
+          { type: "bytes32", name: "" },
+          { type: "address", name: "" },
+        ],
+        outputs: [{ type: "bool", name: "" }],
+        stateMutability: "view",
+      },
+    ],
+    functionName: "claimed",
+    args: [dropIdBytes32, wallet as `0x${string}`],
+  });
+
+  if (alreadyClaimed) {
+    await markClaimedInDb(dropId, wallet);
+    return NextResponse.json({ error: "Already claimed" }, { status: 409 });
+  }
+
   const deadline = BigInt(Math.floor(Date.now() / 1000) + SIGNATURE_TTL_SECONDS);
   const signature = await account.signTypedData({
     domain: {
@@ -236,4 +260,28 @@ function tokenForCreatorReward(kind: string, tokenAddress: string | null | undef
   }
   if (kind === "usdc") return USDC_ADDR as `0x${string}`;
   return ZERO_ADDR as `0x${string}`;
+}
+
+async function markClaimedInDb(dropId: string, wallet: string) {
+  const db = adminSupabaseOrAnon();
+  const creatorRewardId = parseCreatorRewardDropId(dropId);
+  if (creatorRewardId !== null) {
+    await db
+      .from("creator_rewards")
+      .update({ status: "paid" })
+      .eq("id", creatorRewardId)
+      .eq("wallet", wallet);
+    return;
+  }
+
+  await db
+    .from("drop_allocations")
+    .update({ claimed_at: new Date().toISOString() })
+    .eq("drop_id", dropId)
+    .eq("wallet", wallet);
+}
+
+function adminSupabaseOrAnon() {
+  const admin = adminSupabase();
+  return admin ? admin : supabase;
 }

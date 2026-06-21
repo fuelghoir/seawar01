@@ -17,6 +17,7 @@ import { BUILDER_CODE_SUFFIX } from "../providers";
 import { getCheckinStatus, dailyCheckin, CheckinStatus } from "../lib/offchainGame";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { useSettings, TR } from "../lib/settings";
+import { useTransactionWarmup } from "../lib/useTransactionWarmup";
 import styles from "./WelcomeCheckin.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -34,6 +35,7 @@ export function WelcomeCheckin({
   const { lang } = useSettings();
   const wagmiConfig = useConfig();
   const tr = TR[lang];
+  const txWarmReady = useTransactionWarmup(Boolean(address), address);
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
@@ -124,7 +126,7 @@ export function WelcomeCheckin({
   }, [success]);
 
   const handleCheckin = () => {
-    if (!checkin?.canCheckin || loading) return;
+    if (!txWarmReady || !checkin?.canCheckin || loading) return;
     if (SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR) {
       setMsg(tr.contract_not_deployed);
       return;
@@ -183,9 +185,11 @@ export function WelcomeCheckin({
         <button
           className={styles.btn}
           onClick={handleCheckin}
-          disabled={loading || pending}
+          disabled={!txWarmReady || loading || pending}
         >
-          {pending
+          {!txWarmReady
+            ? tr.quest_processing
+            : pending
             ? tr.shop_bomb_pending
             : loading
               ? tr.quest_processing

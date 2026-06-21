@@ -1,14 +1,18 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 import { useSettings, THEMES, TR } from "../lib/settings";
+import { SocialConnectPanel } from "./SocialConnectPanel";
 import styles from "./SettingsPanel.module.css";
 
 export function SettingsPanel() {
   const { theme, lang, setTheme, setLang } = useSettings();
+  const { address } = useAccount();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const tr = TR[lang];
+  const ru = lang === "ru";
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +64,19 @@ export function SettingsPanel() {
               </button>
             ))}
           </div>
+
+          <div className={styles.divider} />
+
+          <p className={styles.sectionLabel}>{ru ? "Соцсети" : "Socials"}</p>
+          {address ? (
+            <SocialConnectPanel address={address} />
+          ) : (
+            <p className={styles.connectHint}>
+              {ru
+                ? "Подключи кошелек, чтобы привязать X и Telegram для квестов."
+                : "Connect wallet to link X and Telegram for quests."}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -107,7 +107,7 @@ export function getReferralLink(wallet: string): string {
 }
 
 export function getBaseAppReferralLink(wallet: string): string {
-  return buildReferralUrl("https://base.app/app/seawar01.vercel.app", wallet);
+  return buildReferralUrl("https://base.app/app/seabattle.top", wallet);
 }
 
 export function normalizeReferralRef(ref: string | null | undefined): string | null {
@@ -145,7 +145,7 @@ export function extractReferralRefFromUrl(value: string | null | undefined): str
   if (!value) return null;
 
   const absoluteBase =
-    typeof window !== "undefined" ? window.location.origin : "https://seawar01.vercel.app";
+    typeof window !== "undefined" ? window.location.origin : "https://seabattle.top";
 
   try {
     const url = new URL(value, absoluteBase);

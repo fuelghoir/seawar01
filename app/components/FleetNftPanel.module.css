@@ -589,4 +589,30 @@
     bottom: -17px;
     transform: translateX(50%) rotate(90deg);
   }
+
+  .panel,
+  .orbit,
+  .stars,
+  .starActive,
+  .evolution,
+  .evolutionShip,
+  .evolutionLevel {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  .backdrop {
+    opacity: 0.3;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--fleet-accent) 10%, transparent), transparent 62%),
+      rgba(4, 10, 22, 0.72);
+  }
+
+  .ship,
+  .evolutionArt img,
+  .evolutionArt span {
+    filter: none !important;
+    box-shadow: none !important;
+  }
 }

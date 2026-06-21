@@ -36,6 +36,7 @@ yarn-error.log*
 .tools/
 __pycache__/
 *.pyc
+promo-screenshots/
 
 # env files (can opt-in for committing if needed)
 .env*

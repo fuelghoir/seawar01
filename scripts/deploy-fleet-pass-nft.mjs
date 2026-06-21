@@ -24,7 +24,7 @@ const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 loadEnv(envPath);
 const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
 const rewardVault = process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS;
-const baseURI = process.env.FLEET_NFT_BASE_URI || "https://seawar01.vercel.app/metadata/fleet-pass/";
+const baseURI = process.env.FLEET_NFT_BASE_URI || "https://seabattle.top/metadata/fleet-pass/";
 if (!privateKey || !rewardVault) {
   console.error("Set DEPLOYER_PRIVATE_KEY and NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS in .env");
   process.exit(1);

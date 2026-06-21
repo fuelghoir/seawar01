@@ -95,7 +95,9 @@
 }
 
 .poolCard {
-  padding: 10px;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
   border-color: rgba(255, 200, 80, 0.34);
   background:
     radial-gradient(circle at 92% 20%, rgba(255, 200, 80, 0.16), transparent 36%),
@@ -106,24 +108,18 @@
   grid-column: 1 / -1;
   width: 100%;
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 18px;
   min-height: 88px;
   padding: 14px 16px;
 }
 
-.poolCardWide .poolTop,
-.poolCardWide p,
-.poolCardWide small {
-  grid-column: 1;
-}
-
-.poolCardWide strong {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  font-size: clamp(22px, 4vw, 34px);
+.poolCardSidebar {
+  min-height: 190px;
+  padding: 14px;
+  border-color: rgba(255, 200, 80, 0.46);
+  background:
+    radial-gradient(circle at 80% 22%, rgba(255, 200, 80, 0.24), transparent 36%),
+    radial-gradient(circle at 10% 90%, rgba(0, 220, 180, 0.1), transparent 38%),
+    linear-gradient(145deg, rgba(31, 20, 5, 0.96), rgba(5, 8, 15, 0.99));
 }
 
 .poolTop {
@@ -143,19 +139,76 @@
   font-size: 9px;
 }
 
-.poolCard strong {
+.poolAmount {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+}
+
+.poolAmount strong {
   display: block;
-  margin: 4px 0;
   color: #fff2bf;
   font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 20px;
+  font-size: clamp(24px, 3.2vw, 34px);
   letter-spacing: 0.04em;
+  line-height: 1;
 }
 
 .poolCard small {
   display: block;
-  margin-top: 7px;
   font-size: 7px;
+}
+
+.poolEstimate {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(255, 200, 80, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 200, 80, 0.08);
+}
+
+.poolEstimate span,
+.poolCta {
+  color: #ffd06a;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.poolEstimate b {
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.poolEstimate small {
+  color: rgba(226, 242, 255, 0.62);
+}
+
+.poolMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.poolMeta span {
+  padding: 5px 7px;
+  border: 1px solid rgba(255, 200, 80, 0.16);
+  border-radius: 999px;
+  color: rgba(226, 242, 255, 0.7);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.poolCta {
+  display: block;
+  justify-self: start;
+  font-style: normal;
 }
 
 .modalBackdrop {
@@ -182,6 +235,24 @@
     linear-gradient(155deg, #061b30, #030914 74%);
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62), 0 0 32px rgba(67, 215, 255, 0.2);
   text-align: center;
+}
+
+.seasonModal {
+  border-color: rgba(255, 200, 80, 0.56);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 200, 80, 0.2), transparent 42%),
+    radial-gradient(circle at 12% 90%, rgba(67, 215, 255, 0.12), transparent 38%),
+    linear-gradient(155deg, #1c1305, #030914 74%);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62), 0 0 34px rgba(255, 200, 80, 0.18);
+}
+
+.seasonModal .modalKicker {
+  color: #ffd06a;
+}
+
+.seasonModal .poolCardWide {
+  margin: 12px 0 10px;
+  text-align: left;
 }
 
 .modalClose {
@@ -275,5 +346,25 @@
 
   .poolCardWide strong {
     font-size: 22px;
+  }
+}
+
+@media (max-width: 720px) {
+  .minerCard,
+  .poolCard,
+  .minerGlow,
+  .minerShip,
+  .modalBackdrop,
+  .modal,
+  .seasonModal,
+  .modalShip {
+    box-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .minerGlow {
+    opacity: 0.28;
   }
 }
