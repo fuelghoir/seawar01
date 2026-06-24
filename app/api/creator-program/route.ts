@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+import { adminSupabase } from "../../lib/adminSupabase";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
 
@@ -27,14 +30,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
   }
 
+  const admin = getCreatorProgramClient();
+  if (admin instanceof NextResponse) return admin;
+
   const [submissions, rewards] = await Promise.all([
-    supabase
+    admin
       .from("creator_submissions")
       .select("id,url,status,admin_note,reviewed_at,created_at")
       .eq("wallet", wallet)
       .order("created_at", { ascending: false })
       .limit(30),
-    supabase
+    admin
       .from("creator_rewards")
       .select("id,reward_kind,points,item_slug,quantity,token_address,amount_raw,reward_label,tx_hash,status,admin_note,created_at")
       .eq("wallet", wallet)
@@ -49,7 +55,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: rewards.error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
+  return noStoreJson({
     submissions: submissions.data ?? [],
     rewards: rewards.data ?? [],
   });
@@ -67,7 +73,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Paste a valid http/https link" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const admin = getCreatorProgramClient();
+  if (admin instanceof NextResponse) return admin;
+
+  const { data, error } = await admin
     .from("creator_submissions")
     .insert({ wallet, url })
     .select("id,url,status,created_at")
@@ -77,5 +86,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ submission: data });
+  return noStoreJson({ submission: data });
+}
+
+function getCreatorProgramClient() {
+  try {
+    return adminSupabase();
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Creator program is not configured" },
+      { status: 500 },
+    );
+  }
+}
+
+function noStoreJson(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }

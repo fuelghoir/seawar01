@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   useAccount,
@@ -236,6 +236,9 @@ export default function ShopPage() {
   const [sbtMsg, setSbtMsg] = useState("");
   const [shopMsg, setShopMsg] = useState("");
   const [shopBusy, setShopBusy] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoMsg, setPromoMsg] = useState("");
   const [itemPurchaseQuantities, setItemPurchaseQuantities] = useState<
     Partial<Record<ShopItemSlug, number>>
   >({});
@@ -290,6 +293,11 @@ export default function ShopPage() {
     window.addEventListener(PLAYER_DATA_REFRESH_EVENT, refreshSeasonShop);
     return () => window.removeEventListener(PLAYER_DATA_REFRESH_EVENT, refreshSeasonShop);
   }, [refreshSeasonShop]);
+
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("promo");
+    if (value) setPromoCode(value);
+  }, []);
 
   useEffect(() => {
     const updateMobileBack = () => {
@@ -379,6 +387,41 @@ export default function ShopPage() {
       setShopMsg(err instanceof Error ? err.message : tr.shop_activation_failed);
     } finally {
       setShopBusy(null);
+    }
+  };
+
+  const handleRedeemPromo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!address) {
+      setPromoMsg(lang === "ru" ? "Подключи кошелек" : "Connect wallet");
+      return;
+    }
+    const code = promoCode.trim();
+    if (!code || promoBusy) return;
+
+    setPromoBusy(true);
+    setPromoMsg("");
+    try {
+      const res = await fetch("/api/promos/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: address, code }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Could not redeem promo");
+
+      const itemSlug = data?.reward?.itemSlug as ShopItemSlug | null | undefined;
+      const quantity = Number(data?.reward?.quantity ?? 0);
+      if (itemSlug && quantity > 0) addOptimisticInventory(itemSlug, quantity);
+
+      setPromoMsg(data?.message || (lang === "ru" ? "Промокод активирован" : "Promo redeemed"));
+      setPromoCode("");
+      notifyPlayerDataRefresh();
+      await refreshSeasonShop();
+    } catch (err) {
+      setPromoMsg(err instanceof Error ? err.message : "Could not redeem promo");
+    } finally {
+      setPromoBusy(false);
     }
   };
 
@@ -1899,6 +1942,38 @@ export default function ShopPage() {
                 </button>
               </div>
               {buyMsg && <p className={styles.msg}>{buyMsg}</p>}
+            </section>
+
+            <section className={`${styles.card} ${styles.promoCard}`}>
+              <div className={styles.cardTop}>
+                <span className={styles.cardIcon} aria-hidden="true">
+                  <CoinIcon size={24} />
+                </span>
+                <div className={styles.cardInfo}>
+                  <h2 className={styles.cardTitle}>{lang === "ru" ? "Промокод" : "Promo code"}</h2>
+                  <p className={styles.cardDesc}>
+                    {lang === "ru" ? "Бонусы и предметы для экипажа" : "Crew bonuses and items"}
+                  </p>
+                </div>
+              </div>
+
+              <form className={styles.promoForm} onSubmit={handleRedeemPromo}>
+                <input
+                  value={promoCode}
+                  onChange={(event) => setPromoCode(event.target.value)}
+                  placeholder={lang === "ru" ? "Код или ссылка" : "Code or link"}
+                  aria-label={lang === "ru" ? "Промокод" : "Promo code"}
+                  autoComplete="off"
+                />
+                <button
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  disabled={!isConnected || promoBusy || !promoCode.trim()}
+                  type="submit"
+                >
+                  {promoBusy ? (lang === "ru" ? "Проверяем..." : "Checking...") : lang === "ru" ? "Забрать" : "Redeem"}
+                </button>
+              </form>
+              {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
             </section>
       </main>
       <button

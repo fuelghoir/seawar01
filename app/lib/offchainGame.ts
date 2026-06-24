@@ -1,6 +1,5 @@
 import { supabase } from "./supabase";
-import { addSeasonXp, consumeItem, getGamePointMultiplier, getItemQuantity } from "./season";
-import { awardFirstGameReferralBonus } from "./referrals";
+import { addSeasonXp, getItemQuantity } from "./season";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
@@ -807,107 +806,36 @@ export async function getSunkReports(
 
 // ─── Points-based leaderboard ───
 
-export async function addPoints(
-  wallet: string,
-  points: number,
-  hits = 0,
-): Promise<void> {
+export async function resolveOffchainGame(gameId: number, wallet: string): Promise<void> {
   const addr = wallet.toLowerCase();
-  const multiplier = await getGamePointMultiplier(addr).catch(() => 1);
-  const awardedPoints = Math.floor(points * multiplier);
-  const { data: existing, error: existingError } = await supabase
-    .from("player_stats")
-    .select("points, total_hits")
-    .eq("wallet", addr)
-    .maybeSingle();
-  if (existingError) throw new Error(existingError.message);
-
-  if (existing) {
-    const updates: Record<string, unknown> = {
-      points: existing.points + awardedPoints,
-      updated_at: new Date().toISOString(),
-    };
-    if (hits > 0) updates.total_hits = (existing.total_hits ?? 0) + hits;
-    const { error } = await supabase
-      .from("player_stats")
-      .update(updates)
-      .eq("wallet", addr);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await supabase.from("player_stats").insert({
-      wallet: addr,
-      points: awardedPoints,
-      ...(hits > 0 ? { total_hits: hits } : {}),
-    });
-    if (error) throw new Error(error.message);
-  }
-
-  await addSeasonXp(addr, Math.max(1, points)).catch(() => {});
-
-  // Award 10% of points to referrer (fire-and-forget, doesn't block game flow)
-  if (awardedPoints > 0) {
-    const share = Math.floor(awardedPoints * 0.1);
-    if (share > 0) {
-      Promise.resolve(
-        supabase.from("referrals").select("referrer").eq("referee", addr).single()
-      ).then(({ data: ref }) => {
-        if (!ref?.referrer) return;
-        const referrer = ref.referrer as string;
-        return Promise.resolve(
-          supabase.from("player_stats").select("points").eq("wallet", referrer).single()
-        ).then(({ data: rs }) => {
-          if (rs) {
-            return supabase.from("player_stats").update({
-              points: rs.points + share,
-              updated_at: new Date().toISOString(),
-            }).eq("wallet", referrer);
-          } else {
-            return supabase.from("player_stats").insert({ wallet: referrer, points: share });
-          }
-        });
-      }).catch(() => {});
-    }
+  const { error } = await supabase.rpc("resolve_offchain_game_stats", {
+    p_game_id: gameId,
+    p_player: addr,
+  });
+  if (error) {
+    console.error("Failed to resolve offchain game stats securely:", error.message);
   }
 }
 
-/** Record win/loss stats only (points are added separately via addPoints). */
-export async function recordGameResult(
-  wallet: string,
-  won: boolean
+export async function addPoints(
+  _wallet: string,
+  _points: number,
+  _hits = 0,
 ): Promise<void> {
-  const addr = wallet.toLowerCase();
-  const { data: existing, error: existingError } = await supabase
-    .from("player_stats")
-    .select("*")
-    .eq("wallet", addr)
-    .maybeSingle();
-  if (existingError) throw new Error(existingError.message);
+  // Direct client-side updates are disabled for security.
+  // Points are now awarded atomically in the database at the end of the game 
+  // via resolveOffchainGame() calling the resolve_offchain_game_stats RPC.
+  return;
+}
 
-  const isFirstGame = !existing || existing.games_played === 0;
-
-  if (existing) {
-    const { error } = await supabase
-      .from("player_stats")
-      .update({
-        games_played: existing.games_played + 1,
-        wins: existing.wins + (won ? 1 : 0),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("wallet", addr);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await supabase.from("player_stats").insert({
-      wallet: addr,
-      games_played: 1,
-      wins: won ? 1 : 0,
-    });
-    if (error) throw new Error(error.message);
-  }
-
-  // On first game ever: award 1000 pts referral bonus to whoever invited this player
-  if (isFirstGame) {
-    await awardFirstGameReferralBonus(addr);
-  }
+/** Record win/loss stats only (points are added securely at the end of the game). */
+export async function recordGameResult(
+  _wallet: string,
+  _won: boolean
+): Promise<void> {
+  // Direct client-side updates are disabled for security.
+  // Game stats are resolved atomically in the database at the end of the game.
+  return;
 }
 
 // ─── Daily check-in ───
@@ -984,69 +912,15 @@ export async function dailyCheckin(
   wallet: string
 ): Promise<{ points: number; streak: number; usedFreeze?: boolean }> {
   const addr = wallet.toLowerCase();
-  const today = todayUTC();
-  const yesterday = yesterdayUTC();
+  const { data, error } = await supabase.rpc("claim_daily_checkin", {
+    p_wallet: addr,
+  });
 
-  const { data: existing, error: existingError } = await supabase
-    .from("player_stats")
-    .select("*")
-    .eq("wallet", addr)
-    .maybeSingle();
-
-  if (existingError) throw new Error(existingError.message);
-
-  let newStreak: number;
-
-  if (!existing) {
-    newStreak = 1;
-    const reward = getCheckinReward(newStreak);
-    const { error: insertError } = await supabase.from("player_stats").insert({
-      wallet: addr,
-      points: reward,
-      checkin_streak: newStreak,
-      last_checkin: today,
-      total_checkins: 1,
-    });
-    if (insertError) throw new Error(insertError.message);
-    await addSeasonXp(addr, 20);
-    return { points: reward, streak: newStreak };
-  }
-
-  if (existing.last_checkin === today) {
-    throw new Error("Already checked in today");
-  }
-
-  let usedFreeze = false;
-  if (existing.last_checkin === yesterday) {
-    newStreak = existing.checkin_streak + 1;
-  } else if ((existing.checkin_streak ?? 0) > 0) {
-    try {
-      await consumeItem(addr, "streak_freeze", 1);
-      usedFreeze = true;
-      newStreak = existing.checkin_streak + 1;
-    } catch {
-      newStreak = 1;
-    }
-  } else {
-    newStreak = 1;
-  }
-
-  const reward = getCheckinReward(newStreak);
-
-  const { error: updateError } = await supabase
-    .from("player_stats")
-    .update({
-      points: existing.points + reward,
-      checkin_streak: newStreak,
-      last_checkin: today,
-      total_checkins: (existing.total_checkins ?? 0) + 1,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("wallet", addr);
-
-  if (updateError) throw new Error(updateError.message);
-  await addSeasonXp(addr, 20);
-  return { points: reward, streak: newStreak, usedFreeze };
+  if (error) throw new Error(error.message);
+  
+  const res = data as { points: number; streak: number; usedFreeze?: boolean };
+  await addSeasonXp(addr, 20).catch(() => {});
+  return res;
 }
 
 // ─── Leaderboard ───

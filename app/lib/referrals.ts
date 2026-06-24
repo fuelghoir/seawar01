@@ -95,10 +95,8 @@ export async function awardFirstGameReferralBonus(referee: string): Promise<bool
     p_referee: addr,
   });
 
-  if (!error) return Boolean(data);
-  if (!isReferralRewardSchemaMissing(error)) throw new Error(error.message);
-
-  return awardFirstGameReferralBonusLegacy(addr);
+  if (error) throw new Error(error.message);
+  return Boolean(data);
 }
 
 export function getReferralLink(wallet: string): string {
@@ -197,71 +195,7 @@ function emptyReferralStats(): ReferralStats {
   };
 }
 
-async function awardFirstGameReferralBonusLegacy(referee: string): Promise<boolean> {
-  const markPaid = await supabase
-    .from("referrals")
-    .update({
-      first_game_bonus_paid_at: new Date().toISOString(),
-      first_game_bonus_points: 1000,
-    })
-    .eq("referee", referee)
-    .is("first_game_bonus_paid_at", null)
-    .select("referrer")
-    .maybeSingle();
 
-  if (!markPaid.error) {
-    const referrer = normalizeReferralRef(markPaid.data?.referrer as string | null);
-    if (!referrer) return false;
-    await grantReferralPoints(referrer, 1000);
-    return true;
-  }
-
-  if (!isReferralRewardSchemaMissing(markPaid.error)) {
-    throw new Error(markPaid.error.message);
-  }
-
-  const { data: ref, error: refError } = await supabase
-    .from("referrals")
-    .select("referrer")
-    .eq("referee", referee)
-    .maybeSingle();
-  if (refError) throw new Error(refError.message);
-
-  const referrer = normalizeReferralRef(ref?.referrer as string | null);
-  if (!referrer) return false;
-
-  await grantReferralPoints(referrer, 1000);
-  return true;
-}
-
-async function grantReferralPoints(wallet: string, points: number): Promise<void> {
-  const addr = normalizeReferralRef(wallet);
-  if (!addr || points <= 0) return;
-
-  const { data, error } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-
-  if (data) {
-    const { error: updateError } = await supabase
-      .from("player_stats")
-      .update({
-        points: Number(data.points ?? 0) + points,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("wallet", addr);
-    if (updateError) throw new Error(updateError.message);
-    return;
-  }
-
-  const { error: insertError } = await supabase
-    .from("player_stats")
-    .insert({ wallet: addr, points });
-  if (insertError) throw new Error(insertError.message);
-}
 
 function isReferralRewardSchemaMissing(error: { code?: string; message?: string }): boolean {
   return (

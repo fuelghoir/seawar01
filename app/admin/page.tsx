@@ -60,7 +60,7 @@ type DropCampaign = {
   allocatedRaw?: string;
 };
 
-type Tab = "submissions" | "creators" | "drops";
+type Tab = "submissions" | "creators" | "drops" | "promos";
 type RewardMode = "game" | "token";
 type TokenKind = "usdc" | "base" | "token";
 
@@ -68,6 +68,19 @@ const TAB_LABEL: Record<Tab, string> = {
   submissions: "Заявки",
   creators: "Креаторы",
   drops: "Дропы",
+  promos: "Promos",
+};
+
+type GeneratedPromo = {
+  id: string;
+  title: string;
+  points: number;
+  itemSlug: string | null;
+  itemLabel: string;
+  quantity: number;
+  expiresAt: string | null;
+  code: string;
+  link: string;
 };
 
 const ITEM_OPTIONS = [
@@ -118,6 +131,16 @@ export default function AdminPage() {
     decimals: "18",
     totalAmount: "",
   });
+  const [promoForm, setPromoForm] = useState({
+    id: "",
+    title: "Creator bonus",
+    points: "1000",
+    itemSlug: "",
+    quantity: "1",
+    expiresDays: "30",
+    note: "",
+  });
+  const [generatedPromo, setGeneratedPromo] = useState<GeneratedPromo | null>(null);
 
   const pendingSubmissions = useMemo(
     () => submissions.filter((submission) => submission.status === "pending").length,
@@ -339,6 +362,42 @@ export default function AdminPage() {
     loadData();
   };
 
+  const createPromo = async () => {
+    setError("");
+    setMessage("");
+    setGeneratedPromo(null);
+    try {
+      const res = await fetch("/api/admin/promos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: promoForm.id,
+          title: promoForm.title,
+          points: promoForm.points,
+          itemSlug: promoForm.itemSlug,
+          quantity: promoForm.quantity,
+          expiresDays: promoForm.expiresDays,
+          note: promoForm.note,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Could not create promo");
+      setGeneratedPromo(data.promo);
+      setMessage("Promo code/link created");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create promo");
+    }
+  };
+
+  const copyPromoText = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage(`${label} copied`);
+    } catch {
+      setError(`Could not copy ${label.toLowerCase()}`);
+    }
+  };
+
   return (
     <main className={styles.container}>
       <header className={styles.header}>
@@ -381,7 +440,7 @@ export default function AdminPage() {
           </section>
 
           <nav className={styles.tabs}>
-            {(["submissions", "creators", "drops"] as Tab[]).map((entry) => (
+            {(["submissions", "creators", "drops", "promos"] as Tab[]).map((entry) => (
               <button
                 key={entry}
                 className={tab === entry ? styles.activeTab : ""}
@@ -528,6 +587,134 @@ export default function AdminPage() {
                   </article>
                 ))}
               </div>
+            </section>
+          )}
+
+          {tab === "promos" && (
+            <section className={styles.panel}>
+              <h2>Promo codes / links</h2>
+              <p className={styles.modalHint}>
+                One wallet can redeem the same promo id only once. Use a new id for a new campaign.
+              </p>
+              <div className={styles.compactForm}>
+                <label>
+                  <span>Promo id</span>
+                  <input
+                    value={promoForm.id}
+                    onChange={(e) => setPromoForm({ ...promoForm, id: e.target.value })}
+                    placeholder="creator-bonus-1"
+                  />
+                </label>
+                <label>
+                  <span>Title</span>
+                  <input
+                    value={promoForm.title}
+                    onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
+                    placeholder="Creator bonus"
+                  />
+                </label>
+                <label>
+                  <span>Points</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={promoForm.points}
+                    onChange={(e) => setPromoForm({ ...promoForm, points: e.target.value })}
+                    placeholder="1000"
+                  />
+                </label>
+                <label>
+                  <span>Item</span>
+                  <select
+                    value={promoForm.itemSlug}
+                    onChange={(e) => setPromoForm({ ...promoForm, itemSlug: e.target.value })}
+                  >
+                    {ITEM_OPTIONS.map((item) => (
+                      <option key={item.slug || "none"} value={item.slug}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Quantity</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={promoForm.quantity}
+                    onChange={(e) => setPromoForm({ ...promoForm, quantity: e.target.value })}
+                    placeholder="1"
+                    disabled={!promoForm.itemSlug}
+                  />
+                </label>
+                <label>
+                  <span>Expires in days</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={promoForm.expiresDays}
+                    onChange={(e) => setPromoForm({ ...promoForm, expiresDays: e.target.value })}
+                    placeholder="30"
+                  />
+                </label>
+                <label className={styles.fullField}>
+                  <span>Note</span>
+                  <textarea
+                    value={promoForm.note}
+                    onChange={(e) => setPromoForm({ ...promoForm, note: e.target.value })}
+                    placeholder="Optional internal note"
+                  />
+                </label>
+              </div>
+              <button className={styles.primaryBtn} onClick={createPromo} type="button">
+                Create promo code/link
+              </button>
+
+              {generatedPromo && (
+                <div className={styles.promoOutput}>
+                  <b>{generatedPromo.title}</b>
+                  <small>
+                    {generatedPromo.points > 0 ? `+${generatedPromo.points.toLocaleString()} pts` : "No points"}
+                    {generatedPromo.itemSlug && generatedPromo.quantity > 0
+                      ? ` / ${generatedPromo.quantity}x ${generatedPromo.itemLabel || generatedPromo.itemSlug}`
+                      : ""}
+                    {generatedPromo.expiresAt
+                      ? ` / expires ${new Date(generatedPromo.expiresAt).toLocaleString()}`
+                      : " / no expiry"}
+                  </small>
+                  <label>
+                    <span>Code</span>
+                    <textarea
+                      readOnly
+                      value={generatedPromo.code}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                  </label>
+                  <button
+                    className={styles.inlineBtn}
+                    onClick={() => copyPromoText(generatedPromo.code, "Code")}
+                    type="button"
+                  >
+                    Copy code
+                  </button>
+                  <label>
+                    <span>Link</span>
+                    <textarea
+                      readOnly
+                      value={generatedPromo.link}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                  </label>
+                  <button
+                    className={styles.inlineBtn}
+                    onClick={() => copyPromoText(generatedPromo.link, "Link")}
+                    type="button"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              )}
             </section>
           )}
         </>
