@@ -2313,12 +2313,14 @@
 }
 
 .mobileProfilePanel {
-  gap: 14px;
-  padding: 12px;
-  border-color: rgba(168, 85, 247, 0.24);
-  background:
-    radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.12), transparent 38%),
-    linear-gradient(180deg, rgba(var(--bg-primary-rgb), 0.74), rgba(var(--bg-abyss-rgb), 0.92));
+  position: relative;
+  gap: 16px;
+  padding: 0 0 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  isolation: isolate;
+  overflow: visible;
 }
 
 .mobileProfileHero {
@@ -2383,13 +2385,54 @@
   margin-top: 0;
 }
 
+.mobileProfilePanel .seasonRoadmap {
+  border-color: rgba(255, 200, 80, 0.34);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 72% 0%, rgba(255, 200, 80, 0.13), transparent 42%),
+    linear-gradient(155deg, rgba(26, 13, 6, 0.9), rgba(var(--bg-abyss-rgb), 0.9));
+}
+
 .mobileProfilePanel .profileFull {
   margin-top: 0;
   border-color: rgba(168, 85, 247, 0.2);
   background: rgba(168, 85, 247, 0.055);
 }
 
-.mobileRewardsStack,
+.mobileRewardsStack {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mobileCheckinBlock,
+.mobileSeasonRewardBlock,
+.mobileBattlePassBlock {
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+  width: 100%;
+  isolation: isolate;
+}
+
+.mobileSeasonRewardBlock,
+.mobileBattlePassBlock {
+  display: block;
+  border-radius: 14px;
+  overflow: visible;
+}
+
+.mobileSeasonRewardBlock > *,
+.mobileBattlePassBlock > * {
+  width: 100%;
+  min-width: 0;
+}
+
 .mobileProfileStatsStack {
   width: 100%;
   min-width: 0;
@@ -2397,21 +2440,11 @@
   gap: 12px;
   padding: 10px;
   border-radius: 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.mobileRewardsStack {
-  border: 1px solid rgba(255, 200, 80, 0.2);
-  background:
-    linear-gradient(135deg, rgba(255, 200, 80, 0.08), transparent 44%),
-    rgba(var(--bg-abyss-rgb), 0.38);
-}
-
-.mobileProfileStatsStack {
   border: 1px solid rgba(168, 85, 247, 0.18);
   background:
     linear-gradient(135deg, rgba(168, 85, 247, 0.07), transparent 42%),
     rgba(var(--bg-abyss-rgb), 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .mobileRewardsStack > *,
@@ -2643,6 +2676,11 @@
   :global(html[data-effects="reduced"]) .mobileRecentRow,
   :global(html[data-effects="reduced"]) .mobileSocial {
     background: rgba(var(--bg-primary-rgb), 0.78);
+  }
+
+  :global(html[data-effects="reduced"]) .mobileProfilePanel,
+  :global(html[data-effects="reduced"]) .mobileRewardsStack {
+    background: transparent;
   }
 
   :global(html[data-effects="reduced"]) .mobileBattlePanel {

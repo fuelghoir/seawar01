@@ -518,16 +518,22 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                 </div>
 
                 <div className={styles.mobileRewardsStack}>
-                  {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
+                  <div className={styles.mobileCheckinBlock}>
+                    {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
+                  </div>
                   {USDC_SEASON_REWARDS_ENABLED && (
-                    <SeasonPoolCard variant="wide" address={address} showEstimate />
+                    <div className={styles.mobileSeasonRewardBlock}>
+                      <SeasonPoolCard variant="wide" address={address} showEstimate />
+                    </div>
                   )}
                   {SEASON_UI_ENABLED && (
-                    <SeasonRoadmap
-                      season={season}
-                      compact
-                      onOpen={() => router.push("/shop")}
-                    />
+                    <div className={styles.mobileBattlePassBlock}>
+                      <SeasonRoadmap
+                        season={season}
+                        compact
+                        onOpen={() => router.push("/shop")}
+                      />
+                    </div>
                   )}
                 </div>
 
