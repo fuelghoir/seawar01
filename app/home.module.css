@@ -7,6 +7,9 @@
   color: #fff;
   /* Reserve space for the fixed header */
   padding-top: 52px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.018)),
+    radial-gradient(900px 420px at 50% 8%, rgba(var(--accent-rgb), 0.075), transparent 66%);
 }
 
 .bootScreen {
@@ -424,9 +427,10 @@
 .layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 300px;
-  gap: 0;
+  gap: 12px;
   height: calc(100vh - 52px);
   align-items: stretch;
+  padding: 14px;
 }
 
 .leftCol,
@@ -437,14 +441,20 @@
   padding: 18px 14px;
   overflow-y: auto;
   height: 100%;
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(var(--bg-abyss-rgb), 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .leftCol {
-  border-right: 1px solid rgba(0, 220, 180, 0.08);
+  border-right-color: rgba(var(--accent-rgb), 0.1);
 }
 
 .rightCol {
-  border-left: 1px solid rgba(0, 220, 180, 0.08);
+  border-left-color: rgba(var(--accent-rgb), 0.1);
   padding: 0;
   gap: 0;
 }
@@ -458,6 +468,11 @@
   padding: 18px 20px 24px;
   overflow-y: auto;
   height: 100%;
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.008)),
+    rgba(var(--bg-abyss-rgb), 0.28);
 }
 
 /* ───── Center column: PLAY NOW button ───── */
@@ -466,24 +481,30 @@
   position: relative;
   width: 100%;
   max-width: 440px;
-  height: 60px;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
+  height: 56px;
+  border: 1px solid rgba(var(--accent-bright-rgb), 0.55);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 48%, var(--accent-bright) 100%);
   color: #050d14;
   font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.18em;
   cursor: pointer;
   overflow: hidden;
   box-shadow:
-    0 0 28px var(--accent-glow),
-    0 6px 18px rgba(0, 0, 0, 0.4);
-  animation: playPulse 2.6s ease-in-out infinite;
-  transition: transform 0.1s;
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(var(--accent-rgb), 0.2);
+  transition: transform 0.12s, box-shadow 0.16s, border-color 0.16s;
   text-transform: uppercase;
   flex-shrink: 0;
+}
+.playNow:hover {
+  border-color: rgba(var(--accent-bright-rgb), 0.78);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(var(--accent-rgb), 0.24);
 }
 .playNow:active { transform: scale(0.97); }
 
@@ -505,7 +526,12 @@
     transparent 100%
   );
   background-size: 200%;
-  animation: shimmer 2.6s linear infinite;
+  opacity: 0;
+}
+
+.playNow:hover .playNowShimmer {
+  opacity: 1;
+  animation: shimmer 1.6s linear infinite;
 }
 
 @keyframes playPulse {
@@ -560,11 +586,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-abyss-rgb), 0.42);
+  border: 1px solid rgba(var(--accent-rgb), 0.09);
   border-radius: 8px;
   padding: 9px 12px;
-  animation: cardIn 0.3s ease both;
 }
 
 .recentDot {
@@ -1768,6 +1793,64 @@
 
 /* ───── Responsive ───── */
 
+:global(html[data-effects="full"]) .app {
+  background: none;
+}
+
+:global(html[data-effects="full"]) .layout {
+  gap: 0;
+  padding: 0;
+}
+
+:global(html[data-effects="full"]) .leftCol,
+:global(html[data-effects="full"]) .rightCol,
+:global(html[data-effects="full"]) .centerCol {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:global(html[data-effects="full"]) .leftCol {
+  border-right: 1px solid rgba(0, 220, 180, 0.08);
+}
+
+:global(html[data-effects="full"]) .rightCol {
+  border-left: 1px solid rgba(0, 220, 180, 0.08);
+}
+
+:global(html[data-effects="full"]) .playNow {
+  height: 60px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
+  font-size: 16px;
+  letter-spacing: 0.28em;
+  box-shadow:
+    0 0 28px var(--accent-glow),
+    0 6px 18px rgba(0, 0, 0, 0.4);
+  animation: playPulse 2.6s ease-in-out infinite;
+  transition: transform 0.1s;
+}
+
+:global(html[data-effects="full"]) .playNow:hover {
+  box-shadow:
+    0 0 28px var(--accent-glow),
+    0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+:global(html[data-effects="full"]) .playNowShimmer,
+:global(html[data-effects="full"]) .playNow:hover .playNowShimmer {
+  opacity: 1;
+  animation: shimmer 2.6s linear infinite;
+}
+
+:global(html[data-effects="full"]) .recentRow {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+  animation: cardIn 0.3s ease both;
+}
+
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 240px minmax(0, 1fr) 260px;
@@ -1878,13 +1961,14 @@
   position: relative;
   width: 100%;
   max-width: 390px;
-  min-height: calc(100dvh - 48px);
+  height: calc(100dvh - 48px);
+  min-height: 0;
   margin: 0 auto;
-  padding: 6px 10px calc(78px + env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  overflow-x: hidden;
+  padding: 0 10px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
+  overflow: hidden;
   background:
     linear-gradient(rgba(var(--accent-rgb), 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(var(--accent-rgb), 0.04) 1px, transparent 1px),
@@ -1892,6 +1976,22 @@
   background-size: 24px 24px, 24px 24px, auto;
   border-left: 1px solid rgba(var(--accent-rgb), 0.14);
   border-right: 1px solid rgba(var(--accent-rgb), 0.14);
+}
+
+.mobileScroll {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 0 18px;
+  scrollbar-width: none;
+}
+
+.mobileScroll::-webkit-scrollbar {
+  display: none;
 }
 
 .mobileTopStats {
@@ -1950,8 +2050,8 @@
 
 .mobileBattlePanel {
   width: 100%;
-  padding: 10px 9px 8px;
-  border-radius: 12px;
+  padding: 11px 10px 9px;
+  border-radius: 14px;
   border: 1px solid rgba(var(--accent-rgb), 0.26);
   background:
     radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb), 0.12), transparent 52%),
@@ -1998,6 +2098,30 @@
   box-shadow:
     0 0 22px var(--accent-glow),
     0 6px 16px rgba(0, 0, 0, 0.42);
+}
+
+.mobileActionStack {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.07), transparent 44%),
+    linear-gradient(180deg, rgba(var(--bg-secondary-rgb), 0.54), rgba(var(--bg-abyss-rgb), 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 24px rgba(var(--accent-rgb), 0.035);
+}
+
+.mobileActionStack > * {
+  min-width: 0;
+}
+
+.mobileActionStack .mobilePlayNow,
+.mobileActionStack .seasonRoadmapCompact {
+  margin-top: 0;
 }
 
 .mobileCheckinButton {
@@ -2094,14 +2218,16 @@
 }
 
 .mobileCheckinCopy strong {
+  display: -webkit-box;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.04em;
   line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .mobileCheckinCopy small {
@@ -2149,6 +2275,17 @@
   color: #00dcb4;
 }
 
+.mobileCheckinInProfile {
+  border-color: rgba(168, 85, 247, 0.42);
+  background:
+    radial-gradient(circle at 10% 50%, rgba(168, 85, 247, 0.22), transparent 34%),
+    linear-gradient(105deg, rgba(var(--bg-secondary-rgb), 0.94), rgba(var(--bg-abyss-rgb), 0.99));
+}
+
+.mobileCheckinInProfile::before {
+  background: linear-gradient(90deg, #a855f7, var(--accent), transparent 88%);
+}
+
 .turboGumCardLogo {
   width: 66px;
   max-width: 100%;
@@ -2161,8 +2298,8 @@
 .mobilePanel {
   width: 100%;
   border: 1px solid rgba(var(--accent-rgb), 0.18);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 14px;
+  padding: 12px;
   background: rgba(var(--bg-primary-rgb), 0.72);
   box-shadow: inset 0 0 20px rgba(var(--accent-rgb), 0.04);
   animation: cardIn 0.25s ease-out both;
@@ -2172,13 +2309,120 @@
   min-height: calc(100dvh - 150px - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+}
+
+.mobileProfilePanel {
+  gap: 14px;
+  padding: 12px;
+  border-color: rgba(168, 85, 247, 0.24);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.12), transparent 38%),
+    linear-gradient(180deg, rgba(var(--bg-primary-rgb), 0.74), rgba(var(--bg-abyss-rgb), 0.92));
+}
+
+.mobileProfileHero {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(168, 85, 247, 0.24);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(var(--bg-abyss-rgb), 0.44)),
+    rgba(255, 255, 255, 0.025);
+}
+
+.mobileProfileHero div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.mobileProfileHero span,
+.mobileProfileHero b,
+.mobileProfileHero strong {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+}
+
+.mobileProfileHero span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mobileProfileHero b {
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileProfileHero strong {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mobileProfilePanel .seasonRoadmapCompact {
+  margin-top: 0;
+}
+
+.mobileProfilePanel .profileFull {
+  margin-top: 0;
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.055);
+}
+
+.mobileRewardsStack,
+.mobileProfileStatsStack {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.mobileRewardsStack {
+  border: 1px solid rgba(255, 200, 80, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 200, 80, 0.08), transparent 44%),
+    rgba(var(--bg-abyss-rgb), 0.38);
+}
+
+.mobileProfileStatsStack {
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  background:
+    linear-gradient(135deg, rgba(168, 85, 247, 0.07), transparent 42%),
+    rgba(var(--bg-abyss-rgb), 0.28);
+}
+
+.mobileRewardsStack > *,
+.mobileProfileStatsStack > * {
+  min-width: 0;
 }
 
 .mobileStatsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
+  gap: 8px;
 }
 
 .mobileStatBox {
@@ -2253,10 +2497,25 @@
   letter-spacing: 0.04em;
 }
 
+.mobileScroll > .recentSection {
+  max-width: none;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.075), transparent 48%),
+    rgba(var(--bg-primary-rgb), 0.58);
+}
+
 .mobileSocialRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(var(--bg-primary-rgb), 0.5);
 }
 
 .mobileSocial {
@@ -2285,14 +2544,14 @@
 }
 
 .mobileNav {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
+  position: relative;
+  left: auto;
+  bottom: auto;
   z-index: 120;
   width: 100%;
-  max-width: 390px;
+  max-width: none;
   min-height: calc(58px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  transform: none;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: start;
@@ -2348,6 +2607,69 @@
 }
 
 @media (max-width: 720px) {
+  :global(html[data-effects="reduced"]) .mobileShell {
+    max-width: none;
+    background: #061120;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  :global(html[data-effects="reduced"]) .mobileShell *,
+  :global(html[data-effects="reduced"]) .mobileShell *::before,
+  :global(html[data-effects="reduced"]) .mobileShell *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    box-shadow: none !important;
+    filter: none !important;
+    text-shadow: none !important;
+  }
+
+  :global(html[data-effects="reduced"]) .mobileShell,
+  :global(html[data-effects="reduced"]) .mobileNav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  :global(html[data-effects="reduced"]) .mobileTopStat,
+  :global(html[data-effects="reduced"]) .mobileBattlePanel,
+  :global(html[data-effects="reduced"]) .mobileActionStack,
+  :global(html[data-effects="reduced"]) .mobileCheckinButton,
+  :global(html[data-effects="reduced"]) .mobilePanel,
+  :global(html[data-effects="reduced"]) .mobileProfileHero,
+  :global(html[data-effects="reduced"]) .mobileRewardsStack,
+  :global(html[data-effects="reduced"]) .mobileProfileStatsStack,
+  :global(html[data-effects="reduced"]) .mobileStatBox,
+  :global(html[data-effects="reduced"]) .mobileRecentRow,
+  :global(html[data-effects="reduced"]) .mobileSocial {
+    background: rgba(var(--bg-primary-rgb), 0.78);
+  }
+
+  :global(html[data-effects="reduced"]) .mobileBattlePanel {
+    border-radius: 8px;
+  }
+
+  :global(html[data-effects="reduced"]) .mobilePlayNow {
+    border-radius: 8px;
+    background: var(--accent);
+  }
+
+  :global(html[data-effects="reduced"]) .playNowShimmer,
+  :global(html[data-effects="reduced"]) .mobileCheckinButton::before,
+  :global(html[data-effects="reduced"]) .mobileNavActive::after {
+    display: none;
+  }
+
+  :global(html[data-effects="reduced"]) .mobileNav {
+    background: #020814;
+  }
+
+  :global(html[data-effects="reduced"]) .mobileNavActive {
+    color: var(--accent-bright);
+  }
+}
+
+@media (max-width: 720px) {
   .secretSbtCard {
     min-height: 100px;
     border-color: rgba(255, 46, 91, 0.42);
@@ -2367,7 +2689,11 @@
   }
 
   .mobileBattlePanel,
+  .mobileActionStack,
   .mobilePanel,
+  .mobileProfileHero,
+  .mobileRewardsStack,
+  .mobileProfileStatsStack,
   .mobilePlayNow,
   .mobileNav,
   .mobileNavActive::after {

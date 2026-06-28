@@ -85,10 +85,9 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     connect,
     connectors,
     status: connectStatus,
-    error: connectError,
   } = useConnect();
   const { switchChain } = useSwitchChain();
-  const { lang } = useSettings();
+  const { lang, effects } = useSettings();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
 
@@ -293,6 +292,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
+  const useReducedMobileFx = isMobileHome && effects === "reduced";
   const profileView = useMemo(
     () => profile ?? createEmptyProfile(address ?? ""),
     [profile, address]
@@ -333,71 +333,97 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     return <InitialLoader />;
   }
 
-  // ───────── PC welcome (not connected) ─────────
-  if (!isMobileHome && miniAppBootSettled && !isInMiniApp && !isConnected) {
-    return (
-      <div className={styles.welcomeContainer}>
-        <SettingsPanel />
-        <div className={styles.welcomeCard}>
-          <div className={styles.welcomeBadge}>SEA BATTLE ON-CHAIN</div>
-          <h1 className={styles.welcomeTitle}>SEA BATTLE</h1>
-          <p className={styles.welcomeSub}>{tr.home_pc_hint}</p>
-          <div className={styles.walletOptions}>
-            {pcWalletConnectors.length === 0 ? (
-              <button className={styles.welcomeBtn} disabled type="button">
-                <SwordIcon size={18} />
-                {walletCopy.noWallet}
-              </button>
-            ) : (
-              pcWalletConnectors.map((connector) => {
-                const isBase = isBaseAccountConnector(connector);
-                const isPending =
-                  connectStatus === "pending" &&
-                  connectingConnectorId === connector.id;
+  const showDesktopConnect = !isMobileHome && !isInMiniApp && !isConnected;
 
-                return (
-                  <button
-                    key={connector.id}
-                    className={`${styles.walletOption} ${
-                      isBase ? styles.walletOptionPrimary : ""
-                    }`}
-                    onClick={() => connectWallet(connector)}
-                    disabled={connectStatus === "pending"}
-                    type="button"
-                  >
-                    <span className={styles.walletOptionIcon}>
-                      {isBase ? <ShieldIcon size={20} /> : <UserIcon size={20} />}
-                    </span>
-                    <span className={styles.walletOptionText}>
-                      <b>{isBase ? "Base Account" : connector.name}</b>
-                      <small>{isBase ? walletCopy.baseSub : walletCopy.browserSub}</small>
-                    </span>
-                    <span className={styles.walletOptionBadge}>
-                      {isPending
-                        ? walletCopy.connecting
-                        : isBase
-                          ? walletCopy.recommended
-                          : walletCopy.connect}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          {connectError && (
-            <p className={styles.connectError}>{connectError.message}</p>
-          )}
-          <p className={styles.welcomeFeatures}>{tr.home_pc_features}</p>
-        </div>
-      </div>
-    );
-  }
+  // ───────── Main shell ─────────
+  const desktopConnectBusy = connectStatus === "pending" && connectingConnectorId !== null;
+  const desktopConnectLabel = pcWalletConnectors.length > 0
+    ? desktopConnectBusy
+      ? walletCopy.connecting
+      : walletCopy.connect
+    : walletCopy.noWallet;
+  const desktopConnectOptions = showDesktopConnect
+    ? pcWalletConnectors.map((connector) => {
+        const isBase = isBaseAccountConnector(connector);
+        const isPending =
+          connectStatus === "pending" && connectingConnectorId === connector.id;
 
-  // ───────── Connected ─────────
+        return {
+          id: connector.id,
+          name: isBase ? "Base Account" : connector.name,
+          subtitle: isBase ? walletCopy.baseSub : walletCopy.browserSub,
+          badge: isPending
+            ? walletCopy.connecting
+            : isBase
+              ? walletCopy.recommended
+              : walletCopy.connect,
+          disabled: connectStatus === "pending",
+          onSelect: () => connectWallet(connector),
+        };
+      })
+    : [];
+
+  const renderMobileCheckinButton = (extraClassName = "") => (
+    <button
+      className={`${styles.mobileCheckinButton} ${
+        !checkin
+          ? styles.mobileCheckinButtonLoading
+          : checkin.canCheckin
+            ? styles.mobileCheckinButtonAvailable
+            : styles.mobileCheckinButtonDone
+      } ${extraClassName}`.trim()}
+      onClick={() => {
+        if (checkin?.canCheckin) setShowWelcome(true);
+      }}
+      type="button"
+      disabled={!checkin || !checkin.canCheckin}
+    >
+      <span className={styles.mobileCheckinIcon} aria-hidden="true">
+        <CheckIcon size={20} />
+      </span>
+      <span className={styles.mobileCheckinCopy}>
+        <span className={styles.mobileCheckinKicker}>
+          {tr.home_checkin_title}
+        </span>
+        <strong>
+          {!checkin
+            ? tr.home_checkin_sub
+            : checkin.canCheckin
+              ? tr.checkin_btn
+              : tr.home_checkin_done}
+        </strong>
+        <small>
+          {tr.streak}: {checkin?.streak ?? profileView.checkinStreak}d
+        </small>
+      </span>
+      <span className={styles.mobileCheckinAction}>
+        {!checkin ? (
+          <b>...</b>
+        ) : checkin.canCheckin ? (
+          <>
+            <b>+{checkin.nextReward}</b>
+            <small>{tr.shop_pts}</small>
+            <ChevronRightIcon size={15} />
+          </>
+        ) : (
+          <CheckIcon size={18} />
+        )}
+      </span>
+    </button>
+  );
+
   return (
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
       <SettingsPanel />
-      <AppHeader points={address ? profileView.points : undefined} address={address ?? null} />
+      <AppHeader
+        points={address ? profileView.points : undefined}
+        address={address ?? null}
+        showDesktopConnect={showDesktopConnect}
+        connectLabel={desktopConnectLabel}
+        connectDisabled={pcWalletConnectors.length === 0}
+        connectTitle={pcWalletConnectors.length === 0 ? walletCopy.noWallet : undefined}
+        connectOptions={desktopConnectOptions}
+      />
 
       <PlayModal open={showPlay} onClose={() => setShowPlay(false)} />
 
@@ -422,221 +448,223 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
       {isMobileHome ? (
         <main className={styles.mobileShell}>
-          <div className={styles.mobileTopStats}>
-            <div className={`${styles.mobileTopStat} ${styles.mobileTopStatPnl}`}>
-              <span>{tr.mobile_pnl}</span>
-              <b>
-                {profileView.earningsUsdc >= 0 ? "+" : ""}
-                {profileView.earningsUsdc.toFixed(2)} USDC
-              </b>
-            </div>
-            <div className={styles.mobileTopStat}>
-              <span>{tr.mobile_wins}</span>
-              <b>{profileView.totalWins}</b>
-            </div>
-            <div className={styles.mobileTopStat}>
-              <span>{tr.mobile_recent}</span>
-              <b>{history.length}</b>
-            </div>
-          </div>
-
-          {openSection === "quests" ? (
-            address && (
-              <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
-                <SectionHeader label={tr.home_quests} accent="#3b82f6" />
-                <QuestHub
-                  address={address}
-                  isInMiniApp={isInMiniApp}
-                  onPointsChanged={loadProfile}
-                />
-              </section>
-            )
-          ) : (
-            <>
-          <section className={styles.mobileBattlePanel}>
-            <div className={styles.mobileBattleHeader}>
-              <span>{tr.mobile_your_fleet}</span>
-              <span>{tr.mobile_enemy_grid}</span>
-            </div>
-            <HeroBattleGrid compact />
-            <div className={styles.mobileBattleFooter}>
-              {tr.mobile_scanning.toUpperCase()}
-            </div>
-          </section>
-
-          <button
-            className={`${styles.playNow} ${styles.mobilePlayNow}`}
-            onClick={() => setShowPlay(true)}
-            type="button"
-          >
-            <span className={styles.playNowInner}>
-              <SwordIcon size={20} />
-              {tr.home_play.toUpperCase()}
-            </span>
-            <span className={styles.playNowShimmer} aria-hidden="true" />
-          </button>
-
-          <button
-            className={`${styles.mobileCheckinButton} ${
-              !checkin
-                ? styles.mobileCheckinButtonLoading
-                : checkin.canCheckin
-                  ? styles.mobileCheckinButtonAvailable
-                  : styles.mobileCheckinButtonDone
-            }`}
-            onClick={() => {
-              if (checkin?.canCheckin) setShowWelcome(true);
-            }}
-            type="button"
-            disabled={!checkin || !checkin.canCheckin}
-          >
-            <span className={styles.mobileCheckinIcon} aria-hidden="true">
-              <CheckIcon size={20} />
-            </span>
-            <span className={styles.mobileCheckinCopy}>
-              <span className={styles.mobileCheckinKicker}>
-                {tr.home_checkin_title}
-              </span>
-              <strong>
-                {!checkin
-                  ? tr.home_checkin_sub
-                  : checkin.canCheckin
-                    ? tr.checkin_btn
-                    : tr.home_checkin_done}
-              </strong>
-              <small>
-                {tr.streak}: {checkin?.streak ?? profileView.checkinStreak}d
-              </small>
-            </span>
-            <span className={styles.mobileCheckinAction}>
-              {!checkin ? (
-                <b>...</b>
-              ) : checkin.canCheckin ? (
-                <>
-                  <b>+{checkin.nextReward}</b>
-                  <small>{tr.shop_pts}</small>
-                  <ChevronRightIcon size={15} />
-                </>
-              ) : (
-                <CheckIcon size={18} />
-              )}
-            </span>
-          </button>
-
-          <SecretSbtCard
-            wins={profileView.totalWins}
-            winsLeft={sbtWinsLeft}
-            progressPct={sbtProgressPct}
-            lang={lang}
-            onOpen={openCaptainSbt}
-          />
-
-          {SEASON_UI_ENABLED && (
-            <SeasonRoadmap
-              season={season}
-              compact
-              onOpen={() => router.push("/shop")}
-            />
-          )}
-
-          {openSection === "profile" && (
-            <section className={styles.mobilePanel}>
-              <SectionHeader label={tr.home_profile_title} accent="#a855f7" />
-              <div className={styles.mobileStatsGrid}>
-                <div className={styles.mobileStatBox}>
-                  <span>{profileView.totalWins}</span>
-                  <b>{tr.mobile_wins.toUpperCase()}</b>
-                </div>
-                <div className={styles.mobileStatBox}>
-                  <span>
-                    {Math.max(0, profileView.onchainGames - profileView.onchainWins)}
-                  </span>
-                  <b>{tr.loss.toUpperCase()}</b>
-                </div>
-                <div className={styles.mobileStatBox}>
-                  <span>{profileView.checkinStreak}</span>
-                  <b>{tr.streak.toUpperCase()}</b>
-                </div>
-                <div className={styles.mobileStatBox}>
-                  <span>{profileView.totalShots}</span>
-                  <b>{tr.shots.toUpperCase()}</b>
-                </div>
+          <div className={styles.mobileScroll}>
+            <div className={styles.mobileTopStats}>
+              <div className={`${styles.mobileTopStat} ${styles.mobileTopStatPnl}`}>
+                <span>{tr.mobile_pnl}</span>
+                <b>
+                  {profileView.earningsUsdc >= 0 ? "+" : ""}
+                  {profileView.earningsUsdc.toFixed(2)} USDC
+                </b>
               </div>
-              {SEASON_UI_ENABLED && (
-                <SeasonRoadmap
-                  season={season}
-                  compact
-                  onOpen={() => router.push("/shop")}
-                />
-              )}
-              {address && <CreatorRewardsSummary address={address} />}
-              {USDC_SEASON_REWARDS_ENABLED && (
-                <SeasonPoolCard variant="wide" address={address} showEstimate />
-              )}
-              {address && <DropClaimPanel address={address} />}
-              {address && (
-                <ShareRewardButton
-                  kind="profile"
-                  wallet={address}
-                  profile={{
-                    points: profileView.points,
-                    wins: profileView.totalWins,
-                    losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
-                    streak: profileView.checkinStreak,
-                    shots: profileView.totalShots,
-                    earningsUsdc: profileView.earningsUsdc,
-                  }}
-                  variant="profile"
-                  onAwarded={loadProfile}
-                />
-              )}
-              {address && (
-                <div className={styles.mobileReferralBlock}>
-                  <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
-                  <ReferralPanel
+              <div className={styles.mobileTopStat}>
+                <span>{tr.mobile_wins}</span>
+                <b>{profileView.totalWins}</b>
+              </div>
+              <div className={styles.mobileTopStat}>
+                <span>{tr.mobile_recent}</span>
+                <b>{history.length}</b>
+              </div>
+            </div>
+
+            {openSection === "quests" ? (
+              address && (
+                <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
+                  <SectionHeader label={tr.home_quests} accent="#3b82f6" />
+                  <QuestHub
                     address={address}
-                    refParam={incomingRef}
-                    hideHeader
-                    expanded
+                    isInMiniApp={isInMiniApp}
+                    onPointsChanged={loadProfile}
                   />
+                </section>
+              )
+            ) : openSection === "profile" ? (
+              <section className={`${styles.mobilePanel} ${styles.mobileTabPanel} ${styles.mobileProfilePanel}`}>
+                <SectionHeader label={tr.home_profile_title} accent="#a855f7" />
+                <div className={styles.mobileProfileHero}>
+                  <div>
+                    <span>{displayName}</span>
+                    <b>{profileView.points.toLocaleString()} {tr.shop_pts}</b>
+                  </div>
+                  <strong
+                    style={{
+                      color: profileView.earningsUsdc >= 0 ? "#00dcb4" : "#ef4444",
+                    }}
+                  >
+                    {profileView.earningsUsdc >= 0 ? "+" : ""}
+                    {profileView.earningsUsdc.toFixed(2)} USDC
+                  </strong>
                 </div>
-              )}
-            </section>
-          )}
 
-          <section className={styles.recentSection}>
-            <SectionHeader label={tr.recent_games} accent="#3b82f6" />
-            {history.length === 0 ? (
-              <div className={styles.empty}>{tr.hist_empty}</div>
+                <div className={styles.mobileRewardsStack}>
+                  {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
+                  {USDC_SEASON_REWARDS_ENABLED && (
+                    <SeasonPoolCard variant="wide" address={address} showEstimate />
+                  )}
+                  {SEASON_UI_ENABLED && (
+                    <SeasonRoadmap
+                      season={season}
+                      compact
+                      onOpen={() => router.push("/shop")}
+                    />
+                  )}
+                </div>
+
+                <div className={styles.mobileProfileStatsStack}>
+                  <div className={styles.mobileStatsGrid}>
+                    <div className={styles.mobileStatBox}>
+                      <span>{profileView.totalWins}</span>
+                      <b>{tr.mobile_wins.toUpperCase()}</b>
+                    </div>
+                    <div className={styles.mobileStatBox}>
+                      <span>
+                        {Math.max(0, profileView.onchainGames - profileView.onchainWins)}
+                      </span>
+                      <b>{tr.loss.toUpperCase()}</b>
+                    </div>
+                    <div className={styles.mobileStatBox}>
+                      <span>{profileView.checkinStreak}</span>
+                      <b>{tr.streak.toUpperCase()}</b>
+                    </div>
+                    <div className={styles.mobileStatBox}>
+                      <span>{profileView.totalShots}</span>
+                      <b>{tr.shots.toUpperCase()}</b>
+                    </div>
+                  </div>
+
+                  <div className={styles.profileFull}>
+                    <div className={styles.profileFullRow}>
+                      <span>{tr.onchain_winrate}</span>
+                      <b>
+                        {profileView.onchainGames > 0
+                          ? `${Math.round(profileView.onchainWinRate * 100)}% (${profileView.onchainWins}/${profileView.onchainGames})`
+                          : "-"}
+                      </b>
+                    </div>
+                    <div className={styles.profileFullRow}>
+                      <span>{tr.checkins}</span>
+                      <b>{profileView.totalCheckins}</b>
+                    </div>
+                  </div>
+                </div>
+
+                <SecretSbtCard
+                  wins={profileView.totalWins}
+                  winsLeft={sbtWinsLeft}
+                  progressPct={sbtProgressPct}
+                  lang={lang}
+                  onOpen={openCaptainSbt}
+                />
+
+                {address && <CreatorRewardsSummary address={address} />}
+                {address && <DropClaimPanel address={address} />}
+                {address && (
+                  <ShareRewardButton
+                    kind="profile"
+                    wallet={address}
+                    profile={{
+                      points: profileView.points,
+                      wins: profileView.totalWins,
+                      losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                      streak: profileView.checkinStreak,
+                      shots: profileView.totalShots,
+                      earningsUsdc: profileView.earningsUsdc,
+                    }}
+                    variant="profile"
+                    onAwarded={loadProfile}
+                  />
+                )}
+                {address && (
+                  <div className={styles.mobileReferralBlock}>
+                    <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
+                    <ReferralPanel
+                      address={address}
+                      refParam={incomingRef}
+                      hideHeader
+                      expanded
+                    />
+                  </div>
+                )}
+              </section>
             ) : (
-              history.slice(0, 3).map((g) => (
-                <MobileRecentRow key={g.id} game={g} lang={lang} />
-              ))
-            )}
-          </section>
+              <>
+                <section className={styles.mobileBattlePanel}>
+                  <div className={styles.mobileBattleHeader}>
+                    <span>{tr.mobile_your_fleet}</span>
+                    <span>{tr.mobile_enemy_grid}</span>
+                  </div>
+                  <HeroBattleGrid compact reducedFx={useReducedMobileFx} />
+                  <div className={styles.mobileBattleFooter}>
+                    {tr.mobile_scanning.toUpperCase()}
+                  </div>
+                </section>
 
-          <div className={styles.mobileSocialRow}>
-            <a
-              href={TG_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${styles.mobileSocial} ${styles.mobileSocialTG}`}
-            >
-              <TelegramIcon size={14} />
-              TELEGRAM
-            </a>
-            <a
-              href={YT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${styles.mobileSocial} ${styles.mobileSocialYT}`}
-            >
-              <YoutubeIcon size={14} />
-              YOUTUBE
-            </a>
+                <section className={styles.mobileActionStack}>
+                  <button
+                    className={`${styles.playNow} ${styles.mobilePlayNow}`}
+                    onClick={() => setShowPlay(true)}
+                    type="button"
+                  >
+                    <span className={styles.playNowInner}>
+                      <SwordIcon size={20} />
+                      {tr.home_play.toUpperCase()}
+                    </span>
+                    <span className={styles.playNowShimmer} aria-hidden="true" />
+                  </button>
+
+                  {renderMobileCheckinButton()}
+
+                  <SecretSbtCard
+                    wins={profileView.totalWins}
+                    winsLeft={sbtWinsLeft}
+                    progressPct={sbtProgressPct}
+                    lang={lang}
+                    onOpen={openCaptainSbt}
+                  />
+
+                  {SEASON_UI_ENABLED && (
+                    <SeasonRoadmap
+                      season={season}
+                      compact
+                      onOpen={() => router.push("/shop")}
+                    />
+                  )}
+                </section>
+
+                <section className={styles.recentSection}>
+                  <SectionHeader label={tr.recent_games} accent="#3b82f6" />
+                  {history.length === 0 ? (
+                    <div className={styles.empty}>{tr.hist_empty}</div>
+                  ) : (
+                    history.slice(0, 3).map((g) => (
+                      <MobileRecentRow key={g.id} game={g} lang={lang} />
+                    ))
+                  )}
+                </section>
+
+                <div className={styles.mobileSocialRow}>
+                  <a
+                    href={TG_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${styles.mobileSocial} ${styles.mobileSocialTG}`}
+                  >
+                    <TelegramIcon size={14} />
+                    TELEGRAM
+                  </a>
+                  <a
+                    href={YT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${styles.mobileSocial} ${styles.mobileSocialYT}`}
+                  >
+                    <YoutubeIcon size={14} />
+                    YOUTUBE
+                  </a>
+                </div>
+              </>
+            )}
           </div>
-            </>
-          )}
 
           <nav className={styles.mobileNav} aria-label="Mobile navigation">
             <button
