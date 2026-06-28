@@ -85,9 +85,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     connect,
     connectors,
     status: connectStatus,
+    error: connectError,
   } = useConnect();
   const { switchChain } = useSwitchChain();
-  const { lang, effects } = useSettings();
+  const { lang } = useSettings();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
 
@@ -292,7 +293,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
-  const useReducedMobileFx = isMobileHome && effects === "reduced";
   const profileView = useMemo(
     () => profile ?? createEmptyProfile(address ?? ""),
     [profile, address]
@@ -332,36 +332,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   if (!bootMinDone || !bootReady) {
     return <InitialLoader />;
   }
-
-  const showDesktopConnect = !isMobileHome && !isInMiniApp && !isConnected;
-
-  // ───────── Main shell ─────────
-  const desktopConnectBusy = connectStatus === "pending" && connectingConnectorId !== null;
-  const desktopConnectLabel = pcWalletConnectors.length > 0
-    ? desktopConnectBusy
-      ? walletCopy.connecting
-      : walletCopy.connect
-    : walletCopy.noWallet;
-  const desktopConnectOptions = showDesktopConnect
-    ? pcWalletConnectors.map((connector) => {
-        const isBase = isBaseAccountConnector(connector);
-        const isPending =
-          connectStatus === "pending" && connectingConnectorId === connector.id;
-
-        return {
-          id: connector.id,
-          name: isBase ? "Base Account" : connector.name,
-          subtitle: isBase ? walletCopy.baseSub : walletCopy.browserSub,
-          badge: isPending
-            ? walletCopy.connecting
-            : isBase
-              ? walletCopy.recommended
-              : walletCopy.connect,
-          disabled: connectStatus === "pending",
-          onSelect: () => connectWallet(connector),
-        };
-      })
-    : [];
 
   const renderMobileCheckinButton = (extraClassName = "") => (
     <button
@@ -412,18 +382,69 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     </button>
   );
 
+  if (!isMobileHome && miniAppBootSettled && !isInMiniApp && !isConnected) {
+    return (
+      <div className={styles.welcomeContainer}>
+        <SettingsPanel />
+        <div className={styles.welcomeCard}>
+          <div className={styles.welcomeBadge}>SEA BATTLE ON-CHAIN</div>
+          <h1 className={styles.welcomeTitle}>SEA BATTLE</h1>
+          <p className={styles.welcomeSub}>{tr.home_pc_hint}</p>
+          <div className={styles.walletOptions}>
+            {pcWalletConnectors.length === 0 ? (
+              <button className={styles.welcomeBtn} disabled type="button">
+                <SwordIcon size={18} />
+                {walletCopy.noWallet}
+              </button>
+            ) : (
+              pcWalletConnectors.map((connector) => {
+                const isBase = isBaseAccountConnector(connector);
+                const isPending =
+                  connectStatus === "pending" &&
+                  connectingConnectorId === connector.id;
+
+                return (
+                  <button
+                    key={connector.id}
+                    className={`${styles.walletOption} ${
+                      isBase ? styles.walletOptionPrimary : ""
+                    }`}
+                    onClick={() => connectWallet(connector)}
+                    disabled={connectStatus === "pending"}
+                    type="button"
+                  >
+                    <span className={styles.walletOptionIcon}>
+                      {isBase ? <ShieldIcon size={20} /> : <UserIcon size={20} />}
+                    </span>
+                    <span className={styles.walletOptionText}>
+                      <b>{isBase ? "Base Account" : connector.name}</b>
+                      <small>{isBase ? walletCopy.baseSub : walletCopy.browserSub}</small>
+                    </span>
+                    <span className={styles.walletOptionBadge}>
+                      {isPending
+                        ? walletCopy.connecting
+                        : isBase
+                          ? walletCopy.recommended
+                          : walletCopy.connect}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {connectError && (
+            <p className={styles.connectError}>{connectError.message}</p>
+          )}
+          <p className={styles.welcomeFeatures}>{tr.home_pc_features}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
       <SettingsPanel />
-      <AppHeader
-        points={address ? profileView.points : undefined}
-        address={address ?? null}
-        showDesktopConnect={showDesktopConnect}
-        connectLabel={desktopConnectLabel}
-        connectDisabled={pcWalletConnectors.length === 0}
-        connectTitle={pcWalletConnectors.length === 0 ? walletCopy.noWallet : undefined}
-        connectOptions={desktopConnectOptions}
-      />
+      <AppHeader points={address ? profileView.points : undefined} address={address ?? null} />
 
       <PlayModal open={showPlay} onClose={() => setShowPlay(false)} />
 
@@ -593,7 +614,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     <span>{tr.mobile_your_fleet}</span>
                     <span>{tr.mobile_enemy_grid}</span>
                   </div>
-                  <HeroBattleGrid compact reducedFx={useReducedMobileFx} />
+                  <HeroBattleGrid compact />
                   <div className={styles.mobileBattleFooter}>
                     {tr.mobile_scanning.toUpperCase()}
                   </div>
