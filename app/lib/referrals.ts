@@ -22,12 +22,14 @@ export async function recordReferral(referrer: string, referee: string): Promise
   const r2 = normalizeReferralRef(referee);
   if (!r1 || !r2 || r1 === r2) return false;
 
-  const { error } = await supabase.from("referrals").upsert(
-    { referrer: r1, referee: r2 },
-    { onConflict: "referee", ignoreDuplicates: true }
-  );
-  if (error) throw new Error(error.message);
-  return true;
+  const res = await fetch("/api/referrals/record", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ referrer: r1, referee: r2 }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Could not record referral");
+  return Boolean(data?.recorded);
 }
 
 export async function getReferralStats(wallet: string): Promise<ReferralStats> {

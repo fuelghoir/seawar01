@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  awardReferralFirstGameBonusServer,
+  awardReferralGamePointsServer,
+} from "./referralServer";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 
@@ -123,6 +127,8 @@ export async function resolveFinishedGameStats(
         hits: player.hits,
       });
       await addSeasonXp(admin, player.wallet, rawPoints).catch(() => {});
+      await awardReferralGamePointsServer(admin, player.wallet, points).catch(() => {});
+      await awardReferralFirstGameBonusServer(admin, player.wallet).catch(() => {});
       resolvedPlayers.push({ ...player, points });
     }
     return { gameId, alreadyResolved: false, players: resolvedPlayers };

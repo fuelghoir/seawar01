@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { consumeItem, getItemQuantity } from "./season";
 
 export type QuestMetric =
   | "total_wins"
@@ -84,6 +83,20 @@ export const QUEST_POOL: QuestDefinition[] = [
   { id: 48, name: "Stakeholder",       desc: "Play 5 wager games",     metric: "wager_games",    goal: 5,   reward: 1000  },
   { id: 49, name: "Whale",             desc: "Play 15 wager games",    metric: "wager_games",    goal: 15,  reward: 3000  },
 ];
+
+async function postQuestAction<T>(
+  action: string,
+  payload: Record<string, unknown>
+): Promise<T> {
+  const res = await fetch("/api/quests/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Quest action failed");
+  return data as T;
+}
 
 // ─── Deterministic per-user weekly assignment ───
 
@@ -447,105 +460,18 @@ export async function validateUserQuestClaim(
 }
 
 export async function claimUserQuest(wallet: string, questId: number): Promise<{ reward: number }> {
-  const { addr, weekKey, def } = await getClaimableQuestState(wallet, questId);
-
-  // Award points and mark claimed atomically
-  const { data: ps } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .single();
-
-  await Promise.all([
-    supabase
-      .from("user_quests")
-      .update({ claimed: true, claimed_at: new Date().toISOString() })
-      .eq("wallet", addr)
-      .eq("quest_id", questId)
-      .eq("week_key", weekKey),
-    ps
-      ? supabase
-          .from("player_stats")
-          .update({ points: ps.points + def.reward, updated_at: new Date().toISOString() })
-          .eq("wallet", addr)
-      : supabase
-          .from("player_stats")
-          .insert({ wallet: addr, points: def.reward }),
-  ]);
-
-  return { reward: def.reward };
+  return postQuestAction<{ reward: number }>("claimUserQuest", {
+    wallet: wallet.toLowerCase(),
+    questId,
+  });
 }
 
 export async function rerollUserQuest(
   wallet: string,
   questId: number
 ): Promise<{ definition: QuestDefinition }> {
-  const addr = wallet.toLowerCase();
-  const weekKey = getWeekKey();
-  const baseIds = getAssignedQuestIds(addr, weekKey);
-  const currentIds = await getAssignedQuestIdsForUser(addr, weekKey);
-
-  if (!currentIds.includes(questId)) {
-    throw new Error("Quest not assigned this week");
-  }
-
-  const { data: questRow } = await supabase
-    .from("user_quests")
-    .select("claimed")
-    .eq("wallet", addr)
-    .eq("quest_id", questId)
-    .eq("week_key", weekKey)
-    .maybeSingle();
-
-  if (questRow?.claimed) throw new Error("Claimed quests cannot be rerolled");
-
-  const qty = await getItemQuantity(addr, "quest_reroll");
-  if (qty <= 0) throw new Error("No reroll tokens");
-
-  const { data: existingRerolls } = await supabase
-    .from("user_quest_rerolls")
-    .select("old_quest_id, new_quest_id")
-    .eq("wallet", addr)
-    .eq("week_key", weekKey);
-
-  const rerollMap = new Map<number, number>();
-  for (const row of existingRerolls || []) {
-    rerollMap.set(row.old_quest_id as number, row.new_quest_id as number);
-  }
-
-  const baseQuestId =
-    baseIds.find((id) => (rerollMap.get(id) ?? id) === questId) ?? questId;
-  const currentSet = new Set(currentIds);
-  const currentDef = QUEST_POOL.find((q) => q.id === questId);
-  const sameMetric = QUEST_POOL
-    .filter(isAssignableQuest)
-    .filter((q) => q.metric === currentDef?.metric)
-    .filter((q) => !currentSet.has(q.id) && q.id !== questId);
-  const fallback = QUEST_POOL
-    .filter(isAssignableQuest)
-    .filter((q) => !currentSet.has(q.id) && q.id !== questId);
-  const candidates = sameMetric.length > 0 ? sameMetric : fallback;
-  if (candidates.length === 0) throw new Error("No replacement quest available");
-
-  const seed = walletWeekSeed(addr, `${weekKey}:${questId}:${Date.now()}`);
-  const [newQuestId] = seededShuffle(candidates.map((q) => q.id), seed);
-  const definition = QUEST_POOL.find((q) => q.id === newQuestId)!;
-
-  const { error } = await supabase
-    .from("user_quest_rerolls")
-    .upsert(
-      {
-        wallet: addr,
-        week_key: weekKey,
-        old_quest_id: baseQuestId,
-        new_quest_id: newQuestId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "wallet,week_key,old_quest_id" }
-    );
-
-  if (error) throw new Error(error.message);
-
-  await consumeItem(addr, "quest_reroll", 1);
-  return { definition };
+  return postQuestAction<{ definition: QuestDefinition }>("rerollUserQuest", {
+    wallet: wallet.toLowerCase(),
+    questId,
+  });
 }

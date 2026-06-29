@@ -5,6 +5,10 @@ import { base } from "viem/chains";
 import { challengeAbi, CHALLENGE_CONTRACT_ADDRESS } from "../contracts/challengeAbi";
 import { adminSupabase } from "./adminAuth";
 import {
+  awardReferralFirstGameBonusServer,
+  awardReferralGamePointsServer,
+} from "./referralServer";
+import {
   ChallengeSettlement,
   ChallengeStatus,
   PublicChallenge,
@@ -370,6 +374,8 @@ async function bumpPlayerStats(
   }
 
   await addSeasonXp(admin, addr, Math.max(1, delta.points)).catch(() => {});
+  await awardReferralGamePointsServer(admin, addr, points).catch(() => {});
+  await awardReferralFirstGameBonusServer(admin, addr).catch(() => {});
 }
 
 async function getGamePointMultiplier(admin: SupabaseClient, wallet: string) {

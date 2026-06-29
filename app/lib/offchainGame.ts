@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { addSeasonXp, getItemQuantity } from "./season";
+import { getItemQuantity } from "./season";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
@@ -907,15 +907,14 @@ export async function dailyCheckin(
   wallet: string
 ): Promise<{ points: number; streak: number; usedFreeze?: boolean }> {
   const addr = wallet.toLowerCase();
-  const { data, error } = await supabase.rpc("claim_daily_checkin", {
-    p_wallet: addr,
+  const res = await fetch("/api/checkin/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ wallet: addr }),
   });
-
-  if (error) throw new Error(error.message);
-  
-  const res = data as { points: number; streak: number; usedFreeze?: boolean };
-  await addSeasonXp(addr, 20).catch(() => {});
-  return res;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Could not claim check-in");
+  return data as { points: number; streak: number; usedFreeze?: boolean };
 }
 
 // ─── Leaderboard ───

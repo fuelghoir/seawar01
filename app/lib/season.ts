@@ -279,6 +279,22 @@ function normalizeWallet(wallet: string) {
   return wallet.toLowerCase();
 }
 
+async function postSeasonAction<T>(
+  action: string,
+  payload: Record<string, unknown>
+): Promise<T> {
+  const res = await fetch("/api/season/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.error || "Season action failed");
+  }
+  return data as T;
+}
+
 function isMissingShopTableError(error: { code?: string; message?: string } | null) {
   if (!error) return false;
   return (
@@ -374,22 +390,10 @@ export async function grantItem(
   slug: ShopItemSlug,
   quantity = 1
 ): Promise<void> {
-  if (quantity <= 0) return;
-  const addr = normalizeWallet(wallet);
-  const current = await getItemQuantity(addr, slug);
-  const { error } = await supabase
-    .from("player_items")
-    .upsert(
-      {
-        wallet: addr,
-        item_slug: slug,
-        quantity: current + quantity,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "wallet,item_slug" }
-    );
-
-  if (error) throw new Error(error.message);
+  void wallet;
+  void slug;
+  void quantity;
+  throw new Error("grantItem is server-only. Use a validated season API action.");
 }
 
 export async function consumeItem(
@@ -399,49 +403,13 @@ export async function consumeItem(
 ): Promise<void> {
   if (quantity <= 0) return;
   const addr = normalizeWallet(wallet);
-  const current = await getItemQuantity(addr, slug);
-  if (current < quantity) throw new Error("Not enough items");
-
-  const { error } = await supabase
-    .from("player_items")
-    .update({
-      quantity: current - quantity,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("wallet", addr)
-    .eq("item_slug", slug);
-
-  if (error) throw new Error(error.message);
+  await postSeasonAction("consumeItem", { wallet: addr, slug, quantity });
 }
 
 export async function grantRawPoints(wallet: string, points: number): Promise<void> {
-  if (points <= 0) return;
-  const addr = normalizeWallet(wallet);
-  const { data, error } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-
-  if (data) {
-    const { error: updateError } = await supabase
-      .from("player_stats")
-      .update({
-        points: Number(data.points ?? 0) + points,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("wallet", addr);
-    if (updateError) throw new Error(updateError.message);
-    return;
-  }
-
-  const { error: insertError } = await supabase.from("player_stats").insert({
-    wallet: addr,
-    points,
-  });
-  if (insertError) throw new Error(insertError.message);
+  void wallet;
+  void points;
+  throw new Error("grantRawPoints is server-only. Use a validated server reward path.");
 }
 
 export async function buyPointItem(
@@ -450,62 +418,8 @@ export async function buyPointItem(
   quantity = 1
 ): Promise<void> {
   const qty = normalizeShopPurchaseQuantity(quantity);
-  await validatePointItemPurchase(wallet, slug, qty);
-
-  const item = itemBySlug(slug);
-  const pricePoints = item.pricePoints;
-  if (pricePoints == null) throw new Error("Item is not available yet");
-  const totalPricePoints = pricePoints * qty;
-
   const addr = normalizeWallet(wallet);
-  const weekKey = getSeasonWeekKey();
-
-  const { data, error } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  const points = Number(data?.points ?? 0);
-  if (points < totalPricePoints) throw new Error("Not enough points");
-
-  if (slug === "quest_reroll") {
-    const { error: recordError } = await supabase
-      .from("shop_weekly_point_purchases")
-      .insert({
-        wallet: addr,
-        week_key: weekKey,
-        item_slug: slug,
-    });
-    if (recordError) {
-      if (recordError.code === "23505") {
-        throw new Error("Quest Reroll points purchase already used this week");
-      }
-      throw shopTableError(recordError);
-    }
-  }
-
-  const { error: updateError } = await supabase
-    .from("player_stats")
-    .update({
-      points: points - totalPricePoints,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("wallet", addr);
-  if (updateError) {
-    if (slug === "quest_reroll") {
-      await supabase
-        .from("shop_weekly_point_purchases")
-        .delete()
-        .eq("wallet", addr)
-        .eq("week_key", weekKey)
-        .eq("item_slug", slug);
-    }
-    throw new Error(updateError.message);
-  }
-
-  await grantItem(addr, slug, qty);
+  await postSeasonAction("buyPointItem", { wallet: addr, slug, quantity: qty });
 }
 
 export async function validatePointItemPurchase(
@@ -560,111 +474,20 @@ export async function grantPaidQuestReroll(
   const qty = normalizeShopPurchaseQuantity(quantity);
   const addr = normalizeWallet(wallet);
   const normalizedTxHash = txHash.toLowerCase();
-  const grantedAt = new Date().toISOString();
-  const amountUsdcMicro = QUEST_REROLL_USDC_PRICE * qty;
-  const { error: rpcError } = await supabase.rpc("record_paid_quest_reroll", {
-    p_wallet: addr,
-    p_tx_hash: normalizedTxHash,
-    p_amount_usdc_micro: amountUsdcMicro,
-    p_quantity: qty,
+  await postSeasonAction("grantPaidQuestReroll", {
+    wallet: addr,
+    txHash: normalizedTxHash,
+    quantity: qty,
   });
-
-  if (!rpcError) return;
-  const canFallback =
-    rpcError.code === "PGRST202" ||
-    /record_paid_quest_reroll|schema cache|function/i.test(rpcError.message ?? "");
-  if (!canFallback) throw shopTableError(rpcError);
-
-  const insertWithGrantMarker = await supabase
-    .from("shop_usdc_purchases")
-    .insert({
-      wallet: addr,
-      tx_hash: normalizedTxHash,
-      item_slug: "quest_reroll",
-      amount_usdc_micro: amountUsdcMicro,
-      granted_at: grantedAt,
-    })
-    .select("tx_hash")
-    .maybeSingle();
-
-  if (!insertWithGrantMarker.error) {
-    await grantItem(addr, "quest_reroll", qty);
-    return;
-  }
-
-  if (insertWithGrantMarker.error.code === "23505") {
-    const markExisting = await supabase
-      .from("shop_usdc_purchases")
-      .update({ granted_at: grantedAt })
-      .eq("tx_hash", normalizedTxHash)
-      .eq("wallet", addr)
-      .eq("item_slug", "quest_reroll")
-      .eq("amount_usdc_micro", amountUsdcMicro)
-      .is("granted_at", null)
-      .select("tx_hash")
-      .maybeSingle();
-
-    if (!markExisting.error && markExisting.data) {
-      await grantItem(addr, "quest_reroll", qty);
-      return;
-    }
-    if (!markExisting.error) return;
-    if (!/granted_at/i.test(markExisting.error.message ?? "")) {
-      throw shopTableError(markExisting.error);
-    }
-  } else if (!/granted_at/i.test(insertWithGrantMarker.error.message ?? "")) {
-    throw shopTableError(insertWithGrantMarker.error);
-  }
-
-  const { error: legacyInsertError } = await supabase
-    .from("shop_usdc_purchases")
-    .insert({
-      wallet: addr,
-      tx_hash: normalizedTxHash,
-      item_slug: "quest_reroll",
-      amount_usdc_micro: amountUsdcMicro,
-    });
-
-  if (legacyInsertError) {
-    if (legacyInsertError.code === "23505") return;
-    throw shopTableError(legacyInsertError);
-  }
-
-  await grantItem(addr, "quest_reroll", qty);
 }
 
 export async function activateDoublePoints(wallet: string): Promise<string> {
   const addr = normalizeWallet(wallet);
-  await consumeItem(addr, "double_points_1h", 1);
-
-  const { data } = await supabase
-    .from("player_boosters")
-    .select("active_until")
-    .eq("wallet", addr)
-    .eq("booster_slug", "double_points")
-    .maybeSingle();
-
-  const now = Date.now();
-  const currentUntil = data?.active_until
-    ? new Date(data.active_until as string).getTime()
-    : 0;
-  const startsAt = Math.max(now, currentUntil);
-  const activeUntil = new Date(startsAt + 60 * 60 * 1000).toISOString();
-
-  const { error } = await supabase
-    .from("player_boosters")
-    .upsert(
-      {
-        wallet: addr,
-        booster_slug: "double_points",
-        active_until: activeUntil,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "wallet,booster_slug" }
-    );
-
-  if (error) throw new Error(error.message);
-  return activeUntil;
+  const data = await postSeasonAction<{ activeUntil: string }>(
+    "activateDoublePoints",
+    { wallet: addr }
+  );
+  return data.activeUntil;
 }
 
 export async function getActiveDoublePoints(wallet: string): Promise<string | null> {
@@ -689,36 +512,9 @@ export async function getGamePointMultiplier(wallet: string): Promise<number> {
 }
 
 export async function addSeasonXp(wallet: string, xp: number): Promise<void> {
-  if (xp <= 0) return;
-  const addr = normalizeWallet(wallet);
-  const { data, error } = await supabase
-    .from("season_progress")
-    .select("xp, claimed_levels")
-    .eq("wallet", addr)
-    .eq("season_key", SEASON_KEY)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-
-  const nextXp = Number(data?.xp ?? 0) + Math.floor(xp);
-  const claimedLevels = Array.isArray(data?.claimed_levels)
-    ? data.claimed_levels
-    : [];
-
-  const { error: upsertError } = await supabase
-    .from("season_progress")
-    .upsert(
-      {
-        wallet: addr,
-        season_key: SEASON_KEY,
-        xp: nextXp,
-        claimed_levels: claimedLevels,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "wallet,season_key" }
-    );
-
-  if (upsertError) throw new Error(upsertError.message);
+  void wallet;
+  void xp;
+  throw new Error("addSeasonXp is server-only. Use the check-in/game reward server path.");
 }
 
 export async function getSeasonState(wallet: string): Promise<SeasonState> {
@@ -783,46 +579,11 @@ export async function claimSeasonLevels(
   levels: number[]
 ): Promise<SeasonReward[]> {
   const addr = normalizeWallet(wallet);
-  const state = await getSeasonState(addr);
-  const targets = getSeasonClaimTargets(state, levels);
-
-  const nextClaimed = Array.from(new Set([
-    ...state.claimedLevels,
-    ...targets.map((target) => target.level),
-  ])).sort((a, b) => a - b);
-  const { error } = await supabase
-    .from("season_progress")
-    .upsert(
-      {
-        wallet: addr,
-        season_key: SEASON_KEY,
-        xp: state.xp,
-        claimed_levels: nextClaimed,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "wallet,season_key" }
-    );
-
-  if (error) throw new Error(error.message);
-
-  const points = targets.reduce(
-    (sum, target) => sum + (target.reward.kind === "points" ? target.reward.amount : 0),
-    0
+  const data = await postSeasonAction<{ rewards: SeasonReward[] }>(
+    "claimSeasonLevels",
+    { wallet: addr, levels }
   );
-  if (points > 0) await grantRawPoints(addr, points);
-
-  const items = targets.reduce((acc, target) => {
-    if (target.reward.kind === "item") {
-      acc[target.reward.slug] = (acc[target.reward.slug] ?? 0) + target.reward.quantity;
-    }
-    return acc;
-  }, {} as Partial<Record<ShopItemSlug, number>>);
-
-  for (const [slug, quantity] of Object.entries(items) as Array<[ShopItemSlug, number]>) {
-    await grantItem(addr, slug, quantity);
-  }
-
-  return targets.map((target) => target.reward);
+  return data.rewards;
 }
 
 export async function validateSeasonLevelClaim(
