@@ -94,6 +94,16 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
     [allocations],
   );
   const claimableSummary = useMemo(() => summarizeClaimable(claimable), [claimable]);
+  const hasClaimable = claimable.length > 0;
+  const panelState = loading ? "loading" : hasClaimable ? "claimable" : "empty";
+  const panelTitle = loading
+    ? ru ? "Проверяем клейм" : "Checking claim"
+    : hasClaimable
+      ? ru ? "Клейм наград" : "Claim rewards"
+      : ru ? "Снапшот наград" : "Snapshot pending";
+  const badgeLabel = loading
+    ? "..."
+    : claimableSummary ?? (hasClaimable ? claimable.length.toString() : ru ? "СКОРО" : "SOON");
 
   const claim = async (allocation: Allocation) => {
     if (writePending) return;
@@ -133,23 +143,28 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
   };
 
   return (
-    <section className={styles.panel}>
+    <section className={styles.panel} data-state={panelState}>
       <div className={styles.head}>
         <span>
           {ru ? "USDC ДРОП" : "USDC DROP"}
-          <b>{ru ? "Клейм наград" : "Claim rewards"}</b>
+          <b>{panelTitle}</b>
         </span>
-        <span className={styles.badge}>
-          {loading ? "..." : claimableSummary ?? claimable.length}
-        </span>
+        <span className={styles.badge}>{badgeLabel}</span>
       </div>
 
       {loading ? (
         <p className={styles.empty}>{ru ? "Загрузка..." : "Loading..."}</p>
-      ) : claimable.length === 0 ? (
-        <p className={styles.empty}>
-          {ru ? "После снапшота здесь появится твой USDC claim." : "After the snapshot your USDC claim will appear here."}
-        </p>
+      ) : !hasClaimable ? (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyKicker}>
+            {ru ? "КЛЕЙМА НЕТ" : "NO CLAIM YET"}
+          </span>
+          <p>
+            {ru
+              ? "После снапшота здесь появятся сумма USDC и кнопка клейма."
+              : "Your USDC amount and claim button will appear here after the snapshot."}
+          </p>
+        </div>
       ) : (
         claimable.slice(0, 3).map((allocation) => {
           const campaign = campaignOf(allocation);
