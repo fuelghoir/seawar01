@@ -19,13 +19,13 @@ import {
 } from "../lib/botAI";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
 import {
-  addPoints,
   createBotStatsGame,
   finishBotStatsGame,
   recordBotStatsShots,
-  recordGameResult,
+  resolveOffchainGame,
 } from "../lib/offchainGame";
 import { consumeItem, getItemQuantity } from "../lib/season";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
 import { CellState } from "../components/Cell";
@@ -184,8 +184,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     save?.botStateData ? deserializeBotState(save.botStateData) : createBotState()
   );
 
-  // Don't re-award points if restoring a finished game
-  const pointsRecorded = useRef(!!(save?.winner));
+  // Avoid spamming the resolver; the server keeps the real idempotency guard.
+  const pointsRecorded = useRef(false);
   const statsFinishedRecorded = useRef(!!(save?.winner && save?.statsGameId));
 
   // Refs for stale-closure safety in doBotTurn
@@ -317,7 +317,9 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
     const didWin = winner === "me";
 
-    if (!statsFinishedRecorded.current) {
+    const needsFinishStats = !statsFinishedRecorded.current;
+
+    if (needsFinishStats) {
       statsFinishedRecorded.current = true;
       ensureStatsGame()
         .then((id) => {
@@ -333,16 +335,26 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
             didWin ? botHits : Math.max(botHits, 20)
           );
         })
+        .then(() => notifyPlayerDataRefresh())
         .catch(() => {
           statsFinishedRecorded.current = false;
         });
     }
 
-    if (!pointsRecorded.current) {
+    if (!needsFinishStats && !pointsRecorded.current) {
       pointsRecorded.current = true;
-      addPoints(address, myHits + (didWin ? 50 : 0), myHits)
-        .then(() => recordGameResult(address, didWin))
-        .catch(() => {});
+      ensureStatsGame()
+        .then((id) => {
+          if (!id) {
+            pointsRecorded.current = false;
+            return undefined;
+          }
+          return resolveOffchainGame(id, address);
+        })
+        .then(() => notifyPlayerDataRefresh())
+        .catch(() => {
+          pointsRecorded.current = false;
+        });
     }
   }, [winner, address, myHits, botHits, ensureStatsGame]);
 

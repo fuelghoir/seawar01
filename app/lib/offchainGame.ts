@@ -86,6 +86,7 @@ export async function finishBotStatsGame(
     .eq("game_mode", "bot");
 
   if (error) throw new Error(error.message);
+  await resolveOffchainGame(gameId, addr);
 }
 
 export async function getGameOnchainId(gameId: number): Promise<number | null> {
@@ -436,11 +437,7 @@ export async function shootAndResolveOffchain(
 
   if (isHit) {
     if (finished) {
-      const loserAddr = winner === game.player1 ? game.player2 : game.player1;
-      addPoints(addr, 51, 1)
-        .then(() => recordGameResult(addr, true))
-        .then(() => recordGameResult(loserAddr, false))
-        .catch(() => {});
+      resolveOffchainGame(gameId, addr).catch(() => {});
     } else {
       addPoints(addr, 1, 1).catch(() => {});
     }
@@ -554,13 +551,7 @@ export async function reportHitOffchain(
 
     const shooterAddr = game.last_shooter;
     if (updates.state === 3 && updates.winner) {
-      // Game finished: +1 hit + 50 win for winner, 0 for loser (sequential to avoid race)
-      const winnerAddr = updates.winner as string;
-      const loserAddr = winnerAddr === game.player1 ? game.player2 : game.player1;
-      addPoints(shooterAddr, 51, 1) // +1 hit + 50 win combined, hits=1
-        .then(() => recordGameResult(shooterAddr, true))
-        .then(() => recordGameResult(loserAddr, false))
-        .catch(() => {});
+      resolveOffchainGame(gameId, shooterAddr).catch(() => {});
     } else {
       // Regular hit: +1 point, track hit
       addPoints(shooterAddr, 1, 1).catch(() => {});
@@ -808,12 +799,16 @@ export async function getSunkReports(
 
 export async function resolveOffchainGame(gameId: number, wallet: string): Promise<void> {
   const addr = wallet.toLowerCase();
-  const { error } = await supabase.rpc("resolve_offchain_game_stats", {
-    p_game_id: gameId,
-    p_player: addr,
+  const res = await fetch("/api/games/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ gameId, wallet: addr }),
   });
-  if (error) {
-    console.error("Failed to resolve offchain game stats securely:", error.message);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const message = data?.error || res.statusText;
+    console.error("Failed to resolve game stats:", message);
+    throw new Error(message);
   }
 }
 
@@ -824,7 +819,7 @@ export async function addPoints(
 ): Promise<void> {
   // Direct client-side updates are disabled for security.
   // Points are now awarded atomically in the database at the end of the game 
-  // via resolveOffchainGame() calling the resolve_offchain_game_stats RPC.
+  // via resolveOffchainGame() calling the server-side resolver API.
   return;
 }
 
@@ -834,7 +829,7 @@ export async function recordGameResult(
   _won: boolean
 ): Promise<void> {
   // Direct client-side updates are disabled for security.
-  // Game stats are resolved atomically in the database at the end of the game.
+  // Game stats are resolved by /api/games/resolve at the end of the game.
   return;
 }
 

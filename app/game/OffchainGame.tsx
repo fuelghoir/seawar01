@@ -31,9 +31,11 @@ import {
   getSunkReports,
   reportSunkShip,
   markPrizeClaimed,
+  resolveOffchainGame,
   SunkReport,
 } from "../lib/offchainGame";
 import { consumeItem, getItemQuantity } from "../lib/season";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { findShips, isShipSunk, getSurroundingCells } from "../lib/shipUtils";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
@@ -157,6 +159,7 @@ export function OffchainGameContent({
     resultReceipt?.status === "success" || resultCallsStatus?.status === "success";
   const resultPending = resultTxPending || resultCallsPending;
   const [wagerResultRecorded, setWagerResultRecorded] = useState(false);
+  const statsResolvedRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!address || mode !== "friend") {
@@ -182,6 +185,16 @@ export function OffchainGameContent({
       setWagerResultRecorded(true);
     }
   }, [resultConfirmed, mode]);
+
+  useEffect(() => {
+    if (!address || !game || game.state !== 3 || statsResolvedRef.current === game.id) return;
+    statsResolvedRef.current = game.id;
+    resolveOffchainGame(game.id, address)
+      .then(() => notifyPlayerDataRefresh())
+      .catch(() => {
+        statsResolvedRef.current = null;
+      });
+  }, [address, game]);
 
   useEffect(() => {
     if (mode !== "wager" || game?.state !== 3 || !onchainGameId) {
