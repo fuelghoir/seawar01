@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { base } from "wagmi/chains";
 import { useReadContract } from "wagmi";
@@ -43,10 +44,12 @@ export function SeasonPoolCard({
   variant = "default",
   address,
   showEstimate = false,
+  clickable = true,
 }: {
   variant?: "default" | "wide" | "sidebar";
   address?: `0x${string}`;
   showEstimate?: boolean;
+  clickable?: boolean;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
@@ -110,13 +113,12 @@ export function SeasonPoolCard({
     estimate?.eligible && estimate.totalPoints && estimate.walletPoints > 0
       ? Math.max(0.01, (estimate.walletPoints / estimate.totalPoints) * 100)
       : 0;
+  const className = `${styles.poolCard} ${clickable ? styles.poolCardLink : ""} ${
+    variant === "wide" ? styles.poolCardWide : ""
+  } ${variant === "sidebar" ? styles.poolCardSidebar : ""}`;
 
-  return (
-    <section
-      className={`${styles.poolCard} ${variant === "wide" ? styles.poolCardWide : ""} ${
-        variant === "sidebar" ? styles.poolCardSidebar : ""
-      }`}
-    >
+  const content = (
+    <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
         <b>S1</b>
@@ -166,9 +168,23 @@ export function SeasonPoolCard({
         <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
         <span>{ru ? "18.07.2026 · 00:00 UTC" : "Jul 18, 2026 · 00:00 UTC"}</span>
       </div>
-      {variant === "sidebar" && (
-        <em className={styles.poolCta}>{ru ? "Открыть лидерборд →" : "Open leaderboard →"}</em>
+      {clickable && (
+        <em className={styles.poolCta}>{ru ? "Открыть сезон →" : "Open season →"}</em>
       )}
+    </>
+  );
+
+  if (clickable) {
+    return (
+      <Link href="/season" className={className} aria-label={ru ? "Открыть награды сезона" : "Open season rewards"}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <section className={className}>
+      {content}
     </section>
   );
 }
