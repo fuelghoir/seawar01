@@ -2,7 +2,9 @@
   position: relative;
   overflow: hidden;
   display: grid;
+  align-content: start;
   gap: 10px;
+  min-height: 128px;
   padding: 12px;
   border: 1px solid rgba(255, 200, 80, 0.26);
   border-radius: 10px;
@@ -13,10 +15,14 @@
 }
 
 .head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 10px;
+}
+
+.head > span:first-child {
+  min-width: 0;
 }
 
 .head span,
@@ -46,6 +52,9 @@
 
 .badge {
   flex: 0 0 auto;
+  min-width: 34px;
+  max-width: min(220px, 58vw);
+  overflow: hidden;
   padding: 5px 7px;
   border: 1px solid rgba(255, 200, 80, 0.22);
   border-radius: 6px;
@@ -53,11 +62,14 @@
   background: rgba(255, 200, 80, 0.08);
   font-size: 10px;
   font-weight: 900;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drop {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -94,12 +106,16 @@
 }
 
 .amount {
+  min-width: 0;
   text-align: right;
 }
 
 .amount strong {
   display: block;
-  font-size: 13px;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .claim {
@@ -126,6 +142,8 @@
 .status {
   margin: 0;
   color: rgba(226, 242, 255, 0.62);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .success {
@@ -134,4 +152,59 @@
 
 .error {
   color: #ff6b81;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    gap: 12px;
+    min-height: 158px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .head {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .head b {
+    font-size: 13px;
+  }
+
+  .badge {
+    justify-self: start;
+    max-width: 100%;
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .drop {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 11px;
+  }
+
+  .amount {
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid rgba(255, 200, 80, 0.16);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 200, 80, 0.06);
+    text-align: left;
+  }
+
+  .amount strong {
+    font-size: 20px;
+    line-height: 1.05;
+  }
+
+  .claim {
+    min-height: 42px;
+  }
 }

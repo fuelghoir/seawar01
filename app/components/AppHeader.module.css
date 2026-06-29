@@ -5,10 +5,10 @@
   right: 0;
   height: 52px;
   z-index: 50;
-  background: rgba(var(--bg-abyss-rgb), 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.18);
+  background: rgba(var(--bg-abyss-rgb), 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.12);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -60,13 +60,26 @@
   font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.36em;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.86), var(--accent-bright) 52%, rgba(255, 255, 255, 0.86));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+}
+
+:global(html[data-effects="full"]) .header {
+  background: rgba(var(--bg-abyss-rgb), 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(var(--accent-rgb), 0.18);
+}
+
+:global(html[data-effects="full"]) .title {
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%);
   background-size: 200% auto;
   background-clip: text;
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   animation: titleShimmer 4s linear infinite;
-  text-transform: uppercase;
 }
 
 @keyframes titleShimmer {
@@ -88,6 +101,45 @@
 .address:hover {
   border-color: rgba(var(--accent-rgb), 0.4);
   color: rgba(255, 255, 255, 0.85);
+}
+
+.connectBtn {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(var(--accent-rgb), 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(var(--accent-2-rgb), 0.16)),
+    rgba(255, 255, 255, 0.04);
+  color: var(--accent-bright);
+  padding: 0 12px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.connectBtn:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.76);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.18);
+}
+.connectBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  transform: none;
+  box-shadow: none;
 }
 
 .avatar {
@@ -171,6 +223,54 @@
   border-color: rgba(var(--accent-rgb), 0.4);
   color: #fff;
 }
+.menuItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.connectOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.connectOptionText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connectOptionText b {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.connectOptionText small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.46);
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connectOptionBadge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
+  border-radius: 6px;
+  color: var(--accent-bright);
+  padding: 3px 6px;
+  font-size: 8px;
+  line-height: 1;
+  text-transform: uppercase;
+}
 
 .menuDanger {
   color: rgba(239, 68, 68, 0.85);
@@ -195,6 +295,9 @@
     animation: none;
   }
   .address {
+    display: none;
+  }
+  .connectBtn {
     display: none;
   }
   .left,

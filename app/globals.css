@@ -112,10 +112,10 @@ body {
   position: relative;
   min-height: 100vh;
   background:
-    radial-gradient(1200px 700px at 50% -10%, rgba(0, 212, 255, 0.12), transparent 60%),
-    radial-gradient(900px 600px at 100% 120%, rgba(77, 255, 212, 0.08), transparent 55%),
-    radial-gradient(700px 500px at 0% 100%, rgba(0, 212, 255, 0.06), transparent 55%),
-    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 18%),
+    radial-gradient(1100px 620px at 50% -14%, rgba(var(--accent-rgb), 0.1), transparent 64%),
+    radial-gradient(900px 620px at 104% 118%, rgba(255, 184, 77, 0.055), transparent 58%),
+    linear-gradient(180deg, #03070d 0%, var(--bg-deep) 48%, var(--bg-abyss) 100%);
   background-attachment: fixed;
 }
 
@@ -133,7 +133,7 @@ body::before {
     linear-gradient(to bottom, var(--grid-line-bright) 1px, transparent 1px);
   background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
   background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
-  opacity: 0.9;
+  opacity: 0.38;
   mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 40%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 40%, transparent 100%);
 }
@@ -154,15 +154,37 @@ body::after {
     transparent 100%
   );
   background-size: 100% 300%;
-  animation: scanlineDrift 14s linear infinite;
-  opacity: 0.6;
+  animation: scanlineDrift 22s linear infinite;
+  opacity: 0.22;
 }
 
 /* iOS-style drifting aurora orbs — sits between body gradient and grid.
    Large blurred blobs, very long slow paths, alternating direction. */
 .aurora {
+  display: none;
+}
+
+html[data-effects="full"] body {
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(0, 212, 255, 0.12), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgba(77, 255, 212, 0.08), transparent 55%),
+    radial-gradient(700px 500px at 0% 100%, rgba(0, 212, 255, 0.06), transparent 55%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-primary) 50%, var(--bg-abyss) 100%);
+}
+
+html[data-effects="full"] body::before {
+  opacity: 0.9;
+}
+
+html[data-effects="full"] body::after {
+  animation: scanlineDrift 14s linear infinite;
+  opacity: 0.6;
+}
+
+html[data-effects="full"] .aurora {
   position: fixed;
   inset: 0;
+  display: block;
   pointer-events: none;
   overflow: hidden;
   z-index: 0;
@@ -589,6 +611,10 @@ a {
   body::after,
   .aurora {
     display: none !important;
+  }
+
+  html[data-effects="reduced"] body {
+    background: #020814 !important;
   }
 }
 

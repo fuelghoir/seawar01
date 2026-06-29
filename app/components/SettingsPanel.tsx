@@ -3,16 +3,22 @@
 import { useRef, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useSettings, THEMES, TR } from "../lib/settings";
+import { isGameSoundEnabled, setGameSoundEnabled } from "../lib/sounds";
 import { SocialConnectPanel } from "./SocialConnectPanel";
 import styles from "./SettingsPanel.module.css";
 
 export function SettingsPanel() {
-  const { theme, lang, setTheme, setLang } = useSettings();
+  const { theme, lang, effects, setTheme, setLang, setEffects } = useSettings();
   const { address } = useAccount();
   const [open, setOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   const tr = TR[lang];
   const ru = lang === "ru";
+
+  useEffect(() => {
+    setSoundOn(isGameSoundEnabled());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +67,36 @@ export function SettingsPanel() {
                 type="button"
               >
                 {l === "en" ? "🇺🇸 EN" : "🇷🇺 RU"}
+              </button>
+            ))}
+          </div>
+
+          <p className={styles.sectionLabel}>{ru ? "Р—РІСѓРє" : "Sound"}</p>
+          <button
+            className={`${styles.soundToggle} ${soundOn ? styles.soundToggleOn : ""}`}
+            onClick={() => {
+              const next = !soundOn;
+              setSoundOn(next);
+              setGameSoundEnabled(next);
+            }}
+            type="button"
+            aria-pressed={soundOn}
+          >
+            <span>{ru ? "SFX" : "SFX"}</span>
+            <b>{soundOn ? "ON" : "OFF"}</b>
+          </button>
+
+          <p className={styles.sectionLabel}>{ru ? "Визуал" : "Visual FX"}</p>
+          <div className={styles.modeRow}>
+            {(["full", "reduced"] as const).map(mode => (
+              <button
+                key={mode}
+                className={`${styles.modeBtn} ${effects === mode ? styles.modeActive : ""}`}
+                onClick={() => setEffects(mode)}
+                type="button"
+                aria-pressed={effects === mode}
+              >
+                {mode === "full" ? "Full FX" : "Reduced"}
               </button>
             ))}
           </div>

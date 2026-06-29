@@ -88,7 +88,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     error: connectError,
   } = useConnect();
   const { switchChain } = useSwitchChain();
-  const { lang } = useSettings();
+  const { lang, effects } = useSettings();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
 
@@ -297,6 +297,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     () => profile ?? createEmptyProfile(address ?? ""),
     [profile, address]
   );
+  const reducedFx = effects === "reduced";
   const sbtWinsLeft = Math.max(0, LIMITED_SBT_REQUIRED_WINS - profileView.totalWins);
   const sbtProgressPct = Math.min(100, (profileView.totalWins / LIMITED_SBT_REQUIRED_WINS) * 100);
   const openCaptainSbt = useCallback(() => {
@@ -620,7 +621,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     <span>{tr.mobile_your_fleet}</span>
                     <span>{tr.mobile_enemy_grid}</span>
                   </div>
-                  <HeroBattleGrid compact />
+                  <HeroBattleGrid compact reducedFx={reducedFx} staticPreview={reducedFx} />
                   <div className={styles.mobileBattleFooter}>
                     {tr.mobile_scanning.toUpperCase()}
                   </div>
@@ -911,7 +912,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
         {/* ───── CENTER COLUMN ───── */}
         <section className={styles.centerCol}>
-          <HeroBattleGrid />
+          <HeroBattleGrid reducedFx={reducedFx} staticPreview={reducedFx} />
 
           <button
             className={styles.playNow}

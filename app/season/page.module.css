@@ -1,0 +1,537 @@
+.container {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - 28px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.back {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: rgba(234, 244, 255, 0.82);
+  background: rgba(2, 8, 20, 0.64);
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.backIcon {
+  transform: rotate(180deg);
+}
+
+.titleBlock {
+  min-width: 0;
+  max-width: 760px;
+  text-align: right;
+}
+
+.titleBlock span,
+.dropHead span,
+.connectPanel span,
+.rewardsTop span,
+.claimStrip span,
+.status {
+  color: #ffd06a;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.titleBlock h1 {
+  margin: 4px 0 6px;
+  color: #fff4c7;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1.02;
+}
+
+.titleBlock p,
+.dropGate p {
+  margin: 0;
+  color: rgba(226, 242, 255, 0.68);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.poolSlot {
+  min-width: 0;
+  display: grid;
+}
+
+.dropGate,
+.connectPanel,
+.rewards {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 200, 80, 0.24);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 86% 12%, rgba(255, 200, 80, 0.14), transparent 34%),
+    radial-gradient(circle at 16% 92%, rgba(var(--accent-rgb), 0.08), transparent 40%),
+    linear-gradient(145deg, rgba(24, 17, 8, 0.94), rgba(5, 9, 18, 0.98));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055);
+}
+
+.dropGate {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 188px;
+  padding: 14px;
+}
+
+.dropHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dropHead b {
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: right;
+}
+
+.dropButton,
+.claimAll,
+.levelClaim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #ffc850, #fff2b5);
+  color: #1a1204;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.dropButton {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+}
+
+.dropButton span,
+.claimAll span,
+.levelClaim span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropButton:disabled,
+.claimAll:disabled,
+.levelClaim:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  color: #241601;
+  background: linear-gradient(90deg, #c59d3c, #e6d27c);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.dropButton:disabled svg,
+.claimAll:disabled svg,
+.levelClaim:disabled svg {
+  color: #241601;
+  opacity: 0.92;
+}
+
+.connectPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background:
+    radial-gradient(circle at 88% 22%, rgba(var(--accent-rgb), 0.13), transparent 38%),
+    linear-gradient(145deg, rgba(4, 23, 40, 0.94), rgba(2, 8, 17, 0.98));
+}
+
+.connectPanel b {
+  display: block;
+  margin-top: 3px;
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+.connectorList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.connectorList button {
+  min-height: 42px;
+  min-width: 130px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #eaf4ff;
+  background: rgba(2, 8, 20, 0.68);
+  cursor: pointer;
+}
+
+.connectorList button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.connectorList button span {
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.connectorList button small {
+  color: rgba(226, 242, 255, 0.52);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.rewards {
+  padding: 16px;
+}
+
+.rewardsTop,
+.claimStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.rewardsTop h2 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 23px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.levelPill {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 200, 80, 0.2);
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: #ffd06a;
+  background: rgba(255, 200, 80, 0.08);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.progressPanel {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.05);
+}
+
+.progressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.progressBar {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.progressBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #ffc850, var(--accent-bright));
+}
+
+.claimStrip {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 200, 80, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 200, 80, 0.055);
+}
+
+.claimStrip strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.claimAll {
+  min-height: 38px;
+  min-width: 138px;
+  padding: 0 14px;
+}
+
+.status {
+  margin: 0 0 12px;
+  color: rgba(226, 242, 255, 0.72);
+}
+
+.error {
+  color: #ff6b81;
+}
+
+.levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.level {
+  position: relative;
+  min-width: 0;
+  min-height: 152px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(var(--accent-rgb), 0.09), transparent 42%),
+    rgba(255, 255, 255, 0.026);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.18);
+}
+
+.level::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px auto;
+  height: 34px;
+  border-radius: 7px 7px 14px 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent);
+  pointer-events: none;
+}
+
+.ready {
+  border-color: rgba(255, 200, 80, 0.5);
+  background: rgba(255, 200, 80, 0.09);
+}
+
+.claimed {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.055);
+}
+
+.levelMeta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.levelMeta b {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.levelMeta span {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.levelReward {
+  position: relative;
+  z-index: 1;
+  min-height: 84px;
+  display: grid;
+  grid-template-rows: 58px minmax(24px, auto);
+  align-items: center;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.artShell {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(var(--accent-rgb), 0.18), transparent 58%),
+    rgba(0, 0, 0, 0.24);
+  box-shadow:
+    inset 0 0 20px rgba(255, 255, 255, 0.025),
+    0 9px 20px rgba(0, 0, 0, 0.32);
+}
+
+.rewardArt {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.levelReward p {
+  display: -webkit-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: #ffd978;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.levelStatus {
+  position: relative;
+  z-index: 1;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.levelClaim {
+  position: relative;
+  z-index: 1;
+  min-height: 34px;
+  width: 100%;
+  padding: 0 10px;
+  font-size: 9px;
+}
+
+@media (max-width: 980px) {
+  .heroGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .levels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .container {
+    width: min(100% - 20px, 560px);
+    padding: 16px 0 34px;
+  }
+
+  .header,
+  .connectPanel,
+  .rewardsTop,
+  .claimStrip,
+  .progressTop {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .titleBlock {
+    max-width: none;
+    text-align: left;
+  }
+
+  .titleBlock h1 {
+    font-size: 26px;
+  }
+
+  .dropHead {
+    flex-direction: column;
+  }
+
+  .dropHead b {
+    text-align: left;
+  }
+
+  .connectorList {
+    justify-content: stretch;
+  }
+
+  .connectorList button {
+    flex: 1 1 100%;
+  }
+
+  .claimAll {
+    width: 100%;
+  }
+
+  .levels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 390px) {
+  .levels {
+    grid-template-columns: 1fr;
+  }
+}

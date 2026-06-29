@@ -124,6 +124,32 @@ function createBattleLayout(rng: Rng = Math.random): BattleLayout {
 
 const INITIAL_LAYOUT = createBattleLayout(createSeededRng(0x51ea));
 
+function createStaticPreview(layout: BattleLayout) {
+  const hits = new Set<string>();
+  const sunkIds = new Set<number>();
+  const sunkShip = layout.ships[0];
+  const damagedShip = layout.ships[1];
+
+  sunkShip?.cells.forEach(([x, y]) => hits.add(`${x},${y}`));
+  if (sunkShip) sunkIds.add(sunkShip.id);
+  if (damagedShip?.cells[0]) {
+    const [x, y] = damagedShip.cells[0];
+    hits.add(`${x},${y}`);
+  }
+
+  const misses = new Set<string>();
+  for (let y = 0; y < ROWS && misses.size < 8; y++) {
+    for (let x = 0; x < COLS && misses.size < 8; x++) {
+      const key = `${x},${y}`;
+      if (!layout.shipCells.has(key)) misses.add(key);
+    }
+  }
+
+  return { hits, misses, sunkIds };
+}
+
+const STATIC_PREVIEW = createStaticPreview(INITIAL_LAYOUT);
+
 function getNeighbors(cells: [number, number][]): Set<string> {
   const nbrs = new Set<string>();
   cells.forEach(([x, y]) => {
@@ -143,7 +169,15 @@ function getNeighbors(cells: [number, number][]): Set<string> {
 
 type Flash = { key: string; type: "hit" | "miss" } | null;
 
-export function HeroBattleGrid({ compact = false }: { compact?: boolean }) {
+export function HeroBattleGrid({
+  compact = false,
+  reducedFx = false,
+  staticPreview = false,
+}: {
+  compact?: boolean;
+  reducedFx?: boolean;
+  staticPreview?: boolean;
+}) {
   const [layout, setLayout] = useState<BattleLayout>(INITIAL_LAYOUT);
   const [hits, setHits] = useState<Set<string>>(new Set());
   const [misses, setMisses] = useState<Set<string>>(new Set());
@@ -165,6 +199,26 @@ export function HeroBattleGrid({ compact = false }: { compact?: boolean }) {
   // Auto-fire AI loop — uses the production botAI for targeting so the
   // animation respects ship orientation (no perpendicular-to-line shots).
   useEffect(() => {
+    if (staticPreview) {
+      const nextHits = new Set(STATIC_PREVIEW.hits);
+      const nextSunkIds = new Set(STATIC_PREVIEW.sunkIds);
+
+      aliveRef.current = false;
+      layoutRef.current = INITIAL_LAYOUT;
+      hitsRef.current = nextHits;
+      sunkIdsRef.current = nextSunkIds;
+      botStateRef.current = createBotState();
+
+      setLayout(INITIAL_LAYOUT);
+      setHits(nextHits);
+      setMisses(new Set(STATIC_PREVIEW.misses));
+      setSunkIds(nextSunkIds);
+      setFlash(null);
+      setCursor(null);
+      setVictory(false);
+      return;
+    }
+
     aliveRef.current = true;
     const sleep = (ms: number) =>
       new Promise<void>((r) => setTimeout(r, ms));
@@ -281,8 +335,9 @@ export function HeroBattleGrid({ compact = false }: { compact?: boolean }) {
       aliveRef.current = false;
       clearTimeout(t);
     };
-  }, [compact]);
+  }, [compact, staticPreview]);
 
+  const trimVisualFx = reducedFx || staticPreview;
   const partialIds = new Set<number>();
   hits.forEach((k) => {
     const sid = layout.shipMap[k];
@@ -386,7 +441,7 @@ export function HeroBattleGrid({ compact = false }: { compact?: boolean }) {
                   const cellStyleObj: CSSProperties = {
                     background: cs.bg,
                     borderColor: cs.border,
-                    boxShadow: cs.shadow,
+                    boxShadow: trimVisualFx ? "none" : cs.shadow,
                   };
 
                   return (

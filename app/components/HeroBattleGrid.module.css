@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
   user-select: none;
@@ -28,7 +28,7 @@
   font-size: 14px;
   font-weight: 900;
   letter-spacing: 0.24em;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.88), var(--accent-bright));
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -110,13 +110,15 @@
 /* ── Grid panel (symmetric padding now that labels are outside) ── */
 .panel {
   position: relative;
-  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
-  border-radius: 12px;
-  padding: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.78) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.16);
+  border-radius: 8px;
+  padding: 10px;
   box-shadow:
-    0 0 50px rgba(var(--accent-rgb), 0.08),
-    inset 0 0 60px rgba(var(--accent-rgb), 0.03);
+    0 14px 34px rgba(0, 0, 0, 0.28),
+    inset 0 0 44px rgba(var(--accent-rgb), 0.025);
   overflow: hidden;
   display: inline-block;
 }
@@ -125,8 +127,8 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(var(--accent-rgb), 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.035) 1px, transparent 1px);
   background-size: var(--cell) var(--cell);
   pointer-events: none;
 }
@@ -136,7 +138,7 @@
   inset: 0;
   background: radial-gradient(
     ellipse 70% 50% at 50% 50%,
-    rgba(var(--accent-rgb), 0.07) 0%,
+    rgba(var(--accent-rgb), 0.045) 0%,
     transparent 70%
   );
   pointer-events: none;
@@ -154,7 +156,7 @@
   width: var(--cell);
   height: var(--cell);
   margin-right: 2px;
-  border: 1px solid rgba(var(--accent-rgb), 0.09);
+  border: 1px solid rgba(var(--accent-rgb), 0.075);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -308,6 +310,44 @@
 }
 
 /* ── Responsive ── */
+:global(html[data-effects="full"]) .outer {
+  gap: 10px;
+}
+
+:global(html[data-effects="full"]) .brand {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+:global(html[data-effects="full"]) .panel {
+  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
+  border-color: rgba(var(--accent-rgb), 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow:
+    0 0 50px rgba(var(--accent-rgb), 0.08),
+    inset 0 0 60px rgba(var(--accent-rgb), 0.03);
+}
+
+:global(html[data-effects="full"]) .bgGridLines {
+  background-image:
+    linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
+}
+
+:global(html[data-effects="full"]) .bgGlow {
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 50%,
+    rgba(var(--accent-rgb), 0.07) 0%,
+    transparent 70%
+  );
+}
+
+:global(html[data-effects="full"]) .cell {
+  border-color: rgba(var(--accent-rgb), 0.09);
+}
+
 @media (max-width: 720px) {
   .outer {
     --cell: 28px;

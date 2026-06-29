@@ -1,5 +1,24 @@
+const SOUND_STORAGE_KEY = "sw_sound_enabled";
+
+export function isGameSoundEnabled() {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(SOUND_STORAGE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function setGameSoundEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SOUND_STORAGE_KEY, enabled ? "1" : "0");
+  } catch {}
+}
+
 class GameSounds {
   private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
 
   private getCtx(): AudioContext {
     if (!this.ctx || this.ctx.state === "closed") {
@@ -9,6 +28,20 @@ class GameSounds {
       this.ctx.resume();
     }
     return this.ctx;
+  }
+
+  private getMaster(): GainNode {
+    const ctx = this.getCtx();
+    if (!this.master || this.master.context !== ctx) {
+      this.master = ctx.createGain();
+      this.master.gain.value = 0.58;
+      this.master.connect(ctx.destination);
+    }
+    return this.master;
+  }
+
+  private canPlay() {
+    return isGameSoundEnabled();
   }
 
   private noise(duration: number): AudioBufferSourceNode {
@@ -25,106 +58,117 @@ class GameSounds {
   /** My shot fired — quick whoosh */
   playShot() {
     try {
+      if (!this.canPlay()) return;
       const ctx = this.getCtx();
       const t = ctx.currentTime;
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(600, t);
-      osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-      g.gain.setValueAtTime(0.2, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      osc.connect(g).connect(ctx.destination);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(360, t);
+      osc.frequency.exponentialRampToValueAtTime(145, t + 0.11);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.045, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      osc.connect(g).connect(this.getMaster());
       osc.start(t);
-      osc.stop(t + 0.15);
+      osc.stop(t + 0.12);
     } catch {}
   }
 
   /** Hit (yellow) — medium explosion */
   playHit() {
     try {
+      if (!this.canPlay()) return;
       const ctx = this.getCtx();
       const t = ctx.currentTime;
-      const n = this.noise(0.3);
+      const n = this.noise(0.22);
       const f = ctx.createBiquadFilter();
       f.type = "bandpass";
-      f.frequency.setValueAtTime(1000, t);
-      f.frequency.exponentialRampToValueAtTime(300, t + 0.3);
-      f.Q.value = 2;
+      f.frequency.setValueAtTime(720, t);
+      f.frequency.exponentialRampToValueAtTime(210, t + 0.22);
+      f.Q.value = 1.4;
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.25, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      n.connect(f).connect(g).connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.065, t + 0.018);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      n.connect(f).connect(g).connect(this.getMaster());
       n.start(t);
-      n.stop(t + 0.3);
+      n.stop(t + 0.22);
     } catch {}
   }
 
   /** Ship sunk (red/kill) — big explosion */
   playSunk() {
     try {
+      if (!this.canPlay()) return;
       const ctx = this.getCtx();
       const t = ctx.currentTime;
       // Low rumble
       const osc = ctx.createOscillator();
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(150, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.6);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(96, t);
+      osc.frequency.exponentialRampToValueAtTime(38, t + 0.42);
       const og = ctx.createGain();
-      og.gain.setValueAtTime(0.3, t);
-      og.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-      osc.connect(og).connect(ctx.destination);
+      og.gain.setValueAtTime(0.0001, t);
+      og.gain.linearRampToValueAtTime(0.08, t + 0.035);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+      osc.connect(og).connect(this.getMaster());
       osc.start(t);
-      osc.stop(t + 0.6);
+      osc.stop(t + 0.44);
       // Noise crackle
-      const n = this.noise(0.5);
+      const n = this.noise(0.28);
       const f = ctx.createBiquadFilter();
       f.type = "lowpass";
-      f.frequency.setValueAtTime(2000, t);
-      f.frequency.exponentialRampToValueAtTime(200, t + 0.5);
+      f.frequency.setValueAtTime(1500, t);
+      f.frequency.exponentialRampToValueAtTime(220, t + 0.28);
       const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.2, t);
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-      n.connect(f).connect(ng).connect(ctx.destination);
+      ng.gain.setValueAtTime(0.0001, t);
+      ng.gain.linearRampToValueAtTime(0.045, t + 0.02);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      n.connect(f).connect(ng).connect(this.getMaster());
       n.start(t);
-      n.stop(t + 0.5);
+      n.stop(t + 0.28);
     } catch {}
   }
 
   /** Miss — water splash */
   playMiss() {
     try {
+      if (!this.canPlay()) return;
       const ctx = this.getCtx();
       const t = ctx.currentTime;
-      const n = this.noise(0.2);
+      const n = this.noise(0.16);
       const f = ctx.createBiquadFilter();
       f.type = "highpass";
-      f.frequency.setValueAtTime(3000, t);
-      f.frequency.exponentialRampToValueAtTime(500, t + 0.2);
+      f.frequency.setValueAtTime(1700, t);
+      f.frequency.exponentialRampToValueAtTime(640, t + 0.16);
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.1, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      n.connect(f).connect(g).connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.032, t + 0.014);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      n.connect(f).connect(g).connect(this.getMaster());
       n.start(t);
-      n.stop(t + 0.2);
+      n.stop(t + 0.16);
     } catch {}
   }
 
   /** Opponent shot — sonar ping alert */
   playAlert() {
     try {
+      if (!this.canPlay()) return;
       const ctx = this.getCtx();
       const t = ctx.currentTime;
       const osc = ctx.createOscillator();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(440, t);
-      osc.frequency.setValueAtTime(550, t + 0.1);
+      osc.frequency.setValueAtTime(520, t);
+      osc.frequency.setValueAtTime(650, t + 0.08);
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.15, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      osc.connect(g).connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.04, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      osc.connect(g).connect(this.getMaster());
       osc.start(t);
-      osc.stop(t + 0.2);
+      osc.stop(t + 0.18);
     } catch {}
   }
 }

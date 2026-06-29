@@ -93,6 +93,7 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
     () => allocations.filter((allocation) => !allocation.claimed_at),
     [allocations],
   );
+  const claimableSummary = useMemo(() => summarizeClaimable(claimable), [claimable]);
 
   const claim = async (allocation: Allocation) => {
     if (writePending) return;
@@ -138,7 +139,9 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
           {ru ? "USDC ДРОП" : "USDC DROP"}
           <b>{ru ? "Клейм наград" : "Claim rewards"}</b>
         </span>
-        <span className={styles.badge}>{claimable.length}</span>
+        <span className={styles.badge}>
+          {loading ? "..." : claimableSummary ?? claimable.length}
+        </span>
       </div>
 
       {loading ? (
@@ -183,6 +186,27 @@ function campaignOf(allocation: Allocation) {
   return Array.isArray(allocation.drop_campaigns)
     ? allocation.drop_campaigns[0]
     : allocation.drop_campaigns;
+}
+
+function summarizeClaimable(allocations: Allocation[]) {
+  if (allocations.length === 0) return null;
+
+  const firstCampaign = campaignOf(allocations[0]);
+  const symbol = firstCampaign?.token_symbol ?? "TOKEN";
+  const decimals = firstCampaign?.decimals ?? 18;
+  const sameToken = allocations.every((allocation) => {
+    const campaign = campaignOf(allocation);
+    return (campaign?.token_symbol ?? "TOKEN") === symbol &&
+      (campaign?.decimals ?? 18) === decimals;
+  });
+
+  if (!sameToken) return `${allocations.length} drops`;
+
+  const total = allocations.reduce(
+    (sum, allocation) => sum + BigInt(allocation.amount_raw || "0"),
+    BigInt(0),
+  );
+  return `${formatRaw(total.toString(), decimals)} ${symbol}`;
 }
 
 function formatRaw(raw: string, decimals: number) {

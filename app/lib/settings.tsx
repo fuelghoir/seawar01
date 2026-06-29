@@ -4,29 +4,36 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 
 export type Theme = "ocean" | "midnight" | "abyss" | "inferno";
 export type Lang = "en" | "ru";
+export type EffectsMode = "full" | "reduced";
 
 interface SettingsCtx {
   theme: Theme;
   lang: Lang;
+  effects: EffectsMode;
   setTheme: (t: Theme) => void;
   setLang: (l: Lang) => void;
+  setEffects: (e: EffectsMode) => void;
 }
 
 const Ctx = createContext<SettingsCtx>({
   theme: "ocean", lang: "en",
-  setTheme: () => {}, setLang: () => {},
+  effects: "reduced",
+  setTheme: () => {}, setLang: () => {}, setEffects: () => {},
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("ocean");
   const [lang, setLangState] = useState<Lang>("en");
+  const [effects, setEffectsState] = useState<EffectsMode>("reduced");
   const [settingsReady, setSettingsReady] = useState(false);
 
   useEffect(() => {
     const t = localStorage.getItem("sw_theme") as Theme | null;
     const l = localStorage.getItem("sw_lang") as Lang | null;
+    const e = localStorage.getItem("sw_effects") as EffectsMode | null;
     if (t) setThemeState(t);
     if (l) setLangState(l);
+    if (e === "full" || e === "reduced") setEffectsState(e);
     setSettingsReady(true);
   }, []);
 
@@ -34,6 +41,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (!settingsReady) return;
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme, settingsReady]);
+
+  useEffect(() => {
+    if (!settingsReady) return;
+    document.documentElement.setAttribute("data-effects", effects);
+  }, [effects, settingsReady]);
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
@@ -45,7 +57,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("sw_lang", l);
   };
 
-  return <Ctx.Provider value={{ theme, lang, setTheme, setLang }}>{children}</Ctx.Provider>;
+  const setEffects = (e: EffectsMode) => {
+    setEffectsState(e);
+    localStorage.setItem("sw_effects", e);
+  };
+
+  return <Ctx.Provider value={{ theme, lang, effects, setTheme, setLang, setEffects }}>{children}</Ctx.Provider>;
 }
 
 export const useSettings = () => useContext(Ctx);
