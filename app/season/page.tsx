@@ -248,6 +248,7 @@ export default function SeasonPage() {
               functionName: "recordSoloResult",
               args: [sentinel, true],
             }),
+            dataSuffix: BUILDER_CODE_SUFFIX,
           }],
           capabilities: { paymasterService: { url: PAYMASTER_URL } },
         });

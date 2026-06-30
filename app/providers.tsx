@@ -1,15 +1,24 @@
 "use client";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { base } from "wagmi/chains";
-import { createConfig, createStorage, cookieStorage, http, fallback, WagmiProvider } from "wagmi";
+import { createConfig, createStorage, cookieStorage, http, fallback, useAccount, WagmiProvider } from "wagmi";
 import { baseAccount, injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Attribution } from "ox/erc8021";
-import { MiniAppProvider } from "./providers/MiniAppProvider";
+import { MiniAppProvider, useMiniApp } from "./providers/MiniAppProvider";
 import { WalletRequestRecovery } from "./components/WalletRequestRecovery";
+import {
+  rememberWalletReconnectPreference,
+  shouldReconnectWalletOnMount,
+} from "./lib/walletReconnect";
+
+const DEFAULT_BUILDER_CODE = "bc_fsbovfq1";
+
+export const BUILDER_CODE =
+  process.env.NEXT_PUBLIC_BUILDER_CODE || DEFAULT_BUILDER_CODE;
 
 export const BUILDER_CODE_SUFFIX = Attribution.toDataSuffix({
-  codes: ["bc_2pbrby2j"],
+  codes: [BUILDER_CODE],
 });
 
 const CUSTOM_RPC = process.env.NEXT_PUBLIC_BASE_RPC_URL;
@@ -54,12 +63,52 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <MiniAppProvider>
-      <WagmiProvider config={config}>
+      <WalletProvider>
         <QueryClientProvider client={queryClient}>
           <WalletRequestRecovery />
           {children}
         </QueryClientProvider>
-      </WagmiProvider>
+      </WalletProvider>
     </MiniAppProvider>
   );
+}
+
+function WalletProvider({ children }: { children: ReactNode }) {
+  const { isInMiniApp } = useMiniApp();
+  const [canReconnectOnDesktop] = useState(shouldReconnectWalletOnMount);
+  const [isNarrowScreen, setIsNarrowScreen] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return false;
+    }
+    return window.matchMedia("(max-width: 720px)").matches;
+  });
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 720px)");
+    const sync = () => setIsNarrowScreen(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  const reconnectOnMount = isInMiniApp || isNarrowScreen || canReconnectOnDesktop;
+
+  // First desktop visit still waits for Connect; refresh after a real connect restores silently.
+  return (
+    <WagmiProvider config={config} reconnectOnMount={reconnectOnMount}>
+      <WalletSessionPersistence />
+      {children}
+    </WagmiProvider>
+  );
+}
+
+function WalletSessionPersistence() {
+  const { address, isConnected } = useAccount();
+
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    rememberWalletReconnectPreference();
+  }, [address, isConnected]);
+
+  return null;
 }

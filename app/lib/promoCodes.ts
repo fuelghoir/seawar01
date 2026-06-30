@@ -8,6 +8,8 @@ export const PROMO_ITEM_SLUGS = [
   "torpedo",
 ] as const;
 
+export const PROMO_CAMPAIGN_WALLET = "0x0000000000000000000000000000000000000000";
+
 export type PromoItemSlug = (typeof PROMO_ITEM_SLUGS)[number];
 
 export type PromoCodePayload = {
@@ -22,8 +24,19 @@ export type PromoCodePayload = {
   expiresAt: string | null;
 };
 
+export type PromoCampaignRecord = {
+  points?: number | null;
+  item_slug?: string | null;
+  quantity?: number | null;
+  reward_label?: string | null;
+  admin_note?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+};
+
 type CreatePromoInput = {
   id?: unknown;
+  code?: unknown;
   title?: unknown;
   points?: unknown;
   itemSlug?: unknown;
@@ -32,10 +45,20 @@ type CreatePromoInput = {
   expiresDays?: unknown;
 };
 
-const CODE_PREFIX = "SBP1";
+const SIGNED_CODE_PREFIX = "SBP1";
 const PROMO_ID_RE = /^[a-z0-9][a-z0-9_-]{2,48}$/;
+const PUBLIC_CODE_RE = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 const MAX_POINTS = 10_000_000;
 const MAX_QUANTITY = 999;
+
+export function createPromoCampaign(input: CreatePromoInput) {
+  const code = normalizePromoPublicCode(input.code ?? input.id, { generate: true });
+  const payload = createPromoPayload({
+    ...input,
+    id: promoIdFromCode(code),
+  });
+  return { payload, code };
+}
 
 export function createPromoCode(input: CreatePromoInput) {
   const payload = createPromoPayload(input);
@@ -43,14 +66,14 @@ export function createPromoCode(input: CreatePromoInput) {
   const signature = sign(encoded);
   return {
     payload,
-    code: `${CODE_PREFIX}.${encoded}.${signature}`,
+    code: `${SIGNED_CODE_PREFIX}.${encoded}.${signature}`,
   };
 }
 
 export function verifyPromoCode(value: unknown): PromoCodePayload {
   const raw = normalizePromoCode(value);
   const [prefix, encoded, signature] = raw.split(".");
-  if (prefix !== CODE_PREFIX || !encoded || !signature) {
+  if (prefix !== SIGNED_CODE_PREFIX || !encoded || !signature) {
     throw new Error("Invalid promo code");
   }
 
@@ -72,10 +95,12 @@ export function verifyPromoCode(value: unknown): PromoCodePayload {
   }
 
   assertPromoPayload(payload);
-  if (payload.expiresAt && new Date(payload.expiresAt).getTime() < Date.now()) {
-    throw new Error("Promo code expired");
-  }
+  assertPromoNotExpired(payload);
   return payload;
+}
+
+export function isSignedPromoCode(value: unknown) {
+  return normalizePromoCode(value).startsWith(`${SIGNED_CODE_PREFIX}.`);
 }
 
 export function normalizePromoCode(value: unknown) {
@@ -84,17 +109,86 @@ export function normalizePromoCode(value: unknown) {
 
   try {
     const url = new URL(raw);
-    raw = url.searchParams.get("promo") || raw;
+    raw =
+      url.searchParams.get("code") ||
+      url.searchParams.get("promo") ||
+      promoCodeFromPath(url.pathname) ||
+      raw;
   } catch {
-    const match = /[?&]promo=([^&]+)/.exec(raw);
-    if (match) raw = decodeURIComponent(match[1]);
+    const queryMatch = /[?&](?:code|promo)=([^&]+)/i.exec(raw);
+    if (queryMatch) raw = decodeURIComponent(queryMatch[1]);
+    else raw = promoCodeFromPath(raw) || raw;
   }
 
-  return raw.replace(/\s+/g, "");
+  const compact = raw.trim().replace(/\s+/g, "");
+  return compact.startsWith(`${SIGNED_CODE_PREFIX}.`) ? compact : compact.toUpperCase();
+}
+
+export function normalizePromoPublicCode(
+  value: unknown,
+  options: { generate?: boolean } = {},
+) {
+  const raw = normalizePromoCode(value);
+  if (!raw && options.generate) return generatePromoPublicCode();
+  if (raw.startsWith(`${SIGNED_CODE_PREFIX}.`)) {
+    throw new Error("Use a short public code, not a signed token");
+  }
+
+  const cleaned = raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+
+  if (!PUBLIC_CODE_RE.test(cleaned)) {
+    throw new Error("Promo code must be 3-32 chars: A-Z, 0-9, - or _");
+  }
+  return cleaned;
+}
+
+export function promoIdFromCode(code: string) {
+  return normalizePromoPublicCode(code).toLowerCase();
+}
+
+export function promoCampaignMarker(promoId: string) {
+  return `promo_campaign:${promoId}`;
 }
 
 export function promoRedemptionMarker(promoId: string) {
   return `promo:${promoId}`;
+}
+
+export function serializePromoCampaignNote(payload: PromoCodePayload, code: string) {
+  return JSON.stringify({
+    v: 1,
+    code,
+    title: payload.title,
+    note: payload.note,
+    createdAt: payload.createdAt,
+    expiresAt: payload.expiresAt,
+  });
+}
+
+export function promoCampaignFromRecord(record: PromoCampaignRecord, code: string) {
+  const normalizedCode = normalizePromoPublicCode(code);
+  const meta = parsePromoCampaignNote(record.admin_note);
+  const itemSlug = normalizePromoItemSlug(record.item_slug);
+  const quantity = itemSlug ? clampInteger(record.quantity, 1, MAX_QUANTITY) : 0;
+  const payload: PromoCodePayload = {
+    v: 1,
+    id: promoIdFromCode(normalizedCode),
+    title: normalizeTitle(meta.title || record.reward_label || `Promo ${normalizedCode}`),
+    points: clampInteger(record.points, 0, MAX_POINTS),
+    itemSlug,
+    quantity,
+    note: String(meta.note ?? "").trim().slice(0, 500),
+    createdAt: normalizeIsoDate(meta.createdAt || record.created_at) || new Date(0).toISOString(),
+    expiresAt: normalizeIsoDate(meta.expiresAt),
+  };
+
+  assertPromoPayload(payload);
+  assertPromoNotExpired(payload);
+  return payload;
 }
 
 export function promoItemLabel(slug: PromoItemSlug | null) {
@@ -160,6 +254,12 @@ function assertPromoPayload(payload: PromoCodePayload) {
   }
 }
 
+function assertPromoNotExpired(payload: PromoCodePayload) {
+  if (payload.expiresAt && new Date(payload.expiresAt).getTime() < Date.now()) {
+    throw new Error("Promo code expired");
+  }
+}
+
 function normalizePromoId(value: unknown) {
   const raw = String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
   const cleaned = raw.replace(/^-+|-+$/g, "").slice(0, 48);
@@ -185,6 +285,35 @@ function clampInteger(value: unknown, min: number, max: number) {
   const number = Math.floor(Number(value ?? 0));
   if (!Number.isFinite(number)) return min;
   return Math.min(max, Math.max(min, number));
+}
+
+function parsePromoCampaignNote(value: unknown) {
+  try {
+    const parsed = JSON.parse(String(value ?? ""));
+    return {
+      title: typeof parsed?.title === "string" ? parsed.title : "",
+      note: typeof parsed?.note === "string" ? parsed.note : "",
+      createdAt: typeof parsed?.createdAt === "string" ? parsed.createdAt : "",
+      expiresAt: typeof parsed?.expiresAt === "string" ? parsed.expiresAt : "",
+    };
+  } catch {
+    return { title: "", note: String(value ?? ""), createdAt: "", expiresAt: "" };
+  }
+}
+
+function normalizeIsoDate(value: unknown) {
+  if (!value) return null;
+  const timestamp = new Date(String(value)).getTime();
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function promoCodeFromPath(path: string) {
+  const match = /(?:^|\/)(?:promo|p)\/([^/?#]+)/i.exec(path);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function generatePromoPublicCode() {
+  return `SEA-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
 function sign(value: string) {

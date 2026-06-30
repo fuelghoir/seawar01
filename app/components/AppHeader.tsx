@@ -4,21 +4,46 @@ import { useState, useRef, useEffect } from "react";
 import { useDisconnect } from "wagmi";
 import { StarIcon, AnchorIcon } from "./Icons";
 import { useSettings, TR } from "../lib/settings";
+import { forgetWalletReconnectPreference } from "../lib/walletReconnect";
 import styles from "./AppHeader.module.css";
+
+type ConnectOption = {
+  id: string;
+  name: string;
+  subtitle?: string;
+  badge?: string;
+  disabled?: boolean;
+  onSelect: () => void;
+};
 
 interface AppHeaderProps {
   points?: number | null;
   address?: string | null;
+  showDesktopConnect?: boolean;
+  connectLabel?: string;
+  connectDisabled?: boolean;
+  connectTitle?: string;
+  connectOptions?: ConnectOption[];
+  onConnectClick?: () => void;
 }
 
 function fmt(n: number) {
   return n.toLocaleString("en-US").replace(/,/g, " ");
 }
 
-export function AppHeader({ points, address }: AppHeaderProps) {
+export function AppHeader({
+  points,
+  address,
+  showDesktopConnect = false,
+  connectLabel,
+  connectDisabled = false,
+  connectTitle,
+  connectOptions = [],
+  onConnectClick,
+}: AppHeaderProps) {
   const { lang } = useSettings();
   const tr = TR[lang];
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync } = useDisconnect();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -46,9 +71,14 @@ export function AppHeader({ points, address }: AppHeaderProps) {
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     setOpen(false);
-    disconnect();
+    forgetWalletReconnectPreference();
+    try {
+      await disconnectAsync();
+    } finally {
+      forgetWalletReconnectPreference();
+    }
   };
 
   return (
@@ -68,6 +98,26 @@ export function AppHeader({ points, address }: AppHeaderProps) {
       <div className={styles.title}>SEA BATTLE</div>
 
       <div className={styles.right} ref={wrapRef}>
+        {showDesktopConnect && (
+          <button
+            className={styles.connectBtn}
+            onClick={() => {
+              if (onConnectClick) {
+                onConnectClick();
+                return;
+              }
+              setOpen((v) => !v);
+            }}
+            disabled={connectDisabled || (!onConnectClick && connectOptions.length === 0)}
+            title={connectTitle}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={open}
+          >
+            <AnchorIcon size={14} />
+            <span>{connectLabel ?? tr.wallet_menu}</span>
+          </button>
+        )}
         {short && (
           <button
             className={styles.address}
@@ -79,16 +129,18 @@ export function AppHeader({ points, address }: AppHeaderProps) {
             {short}
           </button>
         )}
-        <button
-          className={styles.avatar}
-          onClick={() => setOpen((v) => !v)}
-          type="button"
+        {address && (
+          <button
+            className={styles.avatar}
+            onClick={() => setOpen((v) => !v)}
+            type="button"
             aria-label={tr.wallet_menu}
-        >
-          <AnchorIcon size={16} />
-        </button>
+          >
+            <AnchorIcon size={16} />
+          </button>
+        )}
 
-        {open && (
+        {address && open && (
           <div className={styles.menu} role="menu">
             {address && (
               <>
@@ -115,6 +167,31 @@ export function AppHeader({ points, address }: AppHeaderProps) {
             >
               ⏏ {tr.wallet_disconnect}
             </button>
+          </div>
+        )}
+        {showDesktopConnect && !address && open && (
+          <div className={styles.menu} role="menu">
+            <div className={styles.menuLabel}>{tr.wallet_menu.toUpperCase()}</div>
+            {connectOptions.map((option) => (
+              <button
+                key={option.id}
+                className={`${styles.menuItem} ${styles.connectOption}`}
+                onClick={() => {
+                  setOpen(false);
+                  option.onSelect();
+                }}
+                disabled={option.disabled}
+                type="button"
+              >
+                <span className={styles.connectOptionText}>
+                  <b>{option.name}</b>
+                  {option.subtitle && <small>{option.subtitle}</small>}
+                </span>
+                {option.badge && (
+                  <span className={styles.connectOptionBadge}>{option.badge}</span>
+                )}
+              </button>
+            ))}
           </div>
         )}
       </div>

@@ -697,6 +697,7 @@ function PlayPageInner() {
               functionName: "createWagerGame",
               args: [BigInt(wa.amount)],
             }),
+            dataSuffix: BUILDER_CODE_SUFFIX,
           });
           sendWagerCalls({
             calls,
@@ -748,6 +749,7 @@ function PlayPageInner() {
             functionName: "joinWagerGame",
             args: [BigInt(oid)],
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         });
         sendWagerCalls({
           calls,
@@ -958,7 +960,7 @@ function PlayPageInner() {
             args: [BigInt(g.onchain_game_id)],
           });
       sendCancelCalls({
-        calls: [{ to: SEABATTLE_CONTRACT_ADDRESS, data }],
+        calls: [{ to: SEABATTLE_CONTRACT_ADDRESS, data, dataSuffix: BUILDER_CODE_SUFFIX }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });
       return;
@@ -1117,6 +1119,7 @@ function PlayPageInner() {
                   functionName: "recordResult",
                   args: [BigInt(win.onchain_game_id), address as `0x${string}`],
                 }),
+                dataSuffix: BUILDER_CODE_SUFFIX,
               },
               {
                 to: SEABATTLE_CONTRACT_ADDRESS,
@@ -1125,6 +1128,7 @@ function PlayPageInner() {
                   functionName: "claimPrize",
                   args: [BigInt(win.onchain_game_id)],
                 }),
+                dataSuffix: BUILDER_CODE_SUFFIX,
               },
             ],
             capabilities: { paymasterService: { url: PAYMASTER_URL } },
@@ -1187,6 +1191,7 @@ function PlayPageInner() {
               functionName: "claimPrize",
               args: [BigInt(win.onchain_game_id)],
             }),
+            dataSuffix: BUILDER_CODE_SUFFIX,
           }],
           capabilities: { paymasterService: { url: PAYMASTER_URL } },
         });
@@ -1501,6 +1506,7 @@ function PlayPageInner() {
             g.wager_amount > 0
         )
       : [];
+  const walletRequired = mode !== "bot" && !isConnected;
 
   return (
     <div className={`${styles.container} ${modeClass}`}>
@@ -1515,7 +1521,7 @@ function PlayPageInner() {
       </header>
 
       <main className={styles.main}>
-        {!isConnected ? (
+        {walletRequired ? (
           <section className={styles.playPanel}>
             <div className={styles.panelHeader}>
               <span className={styles.panelKicker}>{playCopy.walletKicker}</span>

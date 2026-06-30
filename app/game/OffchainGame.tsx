@@ -358,6 +358,7 @@ export function OffchainGameContent({
             functionName: "recordResult",
             args: [BigInt(onchainGameId), winner],
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });
@@ -525,6 +526,7 @@ export function OffchainGameContent({
             functionName: "claimPrize",
             args: [BigInt(onchainGameId)],
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });

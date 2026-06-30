@@ -4,15 +4,35 @@ const WALLET_RE = /^0x[a-f0-9]{40}$/;
 export function getPublicAppUrl() {
   const configured =
     process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_URL ||
+    process.env.NEXT_PUBLIC_URL;
+
+  if (configured) return configured.replace(/\/$/, "");
+  if (process.env.VERCEL_ENV === "production") return DEFAULT_PUBLIC_URL;
+
+  const vercelUrl =
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "") ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-  if (configured) return configured.replace(/\/$/, "");
+  if (vercelUrl) return vercelUrl.replace(/\/$/, "");
   if (typeof window !== "undefined") return window.location.origin;
   return DEFAULT_PUBLIC_URL;
+}
+
+export function buildPublicPromoUrl(code: string) {
+  return new URL(`/promo/${encodeURIComponent(code)}`, getPublicAppUrl()).toString();
+}
+
+export function buildPublicPromoShopUrl(code: string) {
+  const url = new URL("/shop", getPublicAppUrl());
+  url.searchParams.set("code", code);
+  return url.toString();
+}
+
+export function buildBaseAppMiniAppUrl(targetUrl: string) {
+  const url = new URL(targetUrl, getPublicAppUrl());
+  return `https://base.app/app/${url.host}${url.pathname}${url.search}${url.hash}`;
 }
 
 export function normalizePublicWallet(value: string | null | undefined) {

@@ -10,6 +10,7 @@ import { ChallengeShipPlacement } from "../components/ChallengeShipPlacement";
 import { CellState } from "../components/Cell";
 import { challengeAbi, CHALLENGE_CONTRACT_ADDRESS } from "../contracts/challengeAbi";
 import { erc20Abi, USDC_ADDRESS } from "../contracts/seaBattleAbi";
+import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   CHALLENGE_GRID_SIZE,
   CHALLENGE_TOTAL_SHIP_CELLS,
@@ -517,6 +518,8 @@ export default function ChallengePage() {
         abi: challengeAbi,
         functionName: "createChallenge",
         args: [creatorAmount, entryAmount, moves, commitment],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Create challenge reverted");
@@ -563,6 +566,8 @@ export default function ChallengePage() {
         abi: challengeAbi,
         functionName: "joinChallenge",
         args: [BigInt(challenge.onchainChallengeId)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Join challenge reverted");
@@ -632,6 +637,8 @@ export default function ChallengePage() {
           nextSettlement.hits,
           nextSettlement.signature,
         ],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Settlement reverted");
@@ -687,6 +694,8 @@ export default function ChallengePage() {
         address: CHALLENGE_CONTRACT_ADDRESS,
         abi: challengeAbi,
         functionName: "claimPayout",
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Claim reverted");
@@ -710,6 +719,8 @@ export default function ChallengePage() {
         abi: challengeAbi,
         functionName: "cancelOpenChallenge",
         args: [BigInt(challenge.onchainChallengeId)],
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       const receipt = await waitForReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("Cancel reverted");

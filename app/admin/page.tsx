@@ -81,6 +81,8 @@ type GeneratedPromo = {
   expiresAt: string | null;
   code: string;
   link: string;
+  shopLink: string;
+  baseAppLink: string;
 };
 
 const ITEM_OPTIONS = [
@@ -372,6 +374,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: promoForm.id,
+          code: promoForm.id,
           title: promoForm.title,
           points: promoForm.points,
           itemSlug: promoForm.itemSlug,
@@ -594,15 +597,15 @@ export default function AdminPage() {
             <section className={styles.panel}>
               <h2>Promo codes / links</h2>
               <p className={styles.modalHint}>
-                One wallet can redeem the same promo id only once. Use a new id for a new campaign.
+                Pick your own code. One wallet can redeem the same code only once.
               </p>
               <div className={styles.compactForm}>
                 <label>
-                  <span>Promo id</span>
+                  <span>Code</span>
                   <input
                     value={promoForm.id}
                     onChange={(e) => setPromoForm({ ...promoForm, id: e.target.value })}
-                    placeholder="creator-bonus-1"
+                    placeholder="SEA100"
                   />
                 </label>
                 <label>
@@ -699,7 +702,7 @@ export default function AdminPage() {
                     Copy code
                   </button>
                   <label>
-                    <span>Link</span>
+                    <span>Short link</span>
                     <textarea
                       readOnly
                       value={generatedPromo.link}
@@ -712,6 +715,21 @@ export default function AdminPage() {
                     type="button"
                   >
                     Copy link
+                  </button>
+                  <label>
+                    <span>Base App link</span>
+                    <textarea
+                      readOnly
+                      value={generatedPromo.baseAppLink}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                  </label>
+                  <button
+                    className={styles.inlineBtn}
+                    onClick={() => copyPromoText(generatedPromo.baseAppLink, "Base App link")}
+                    type="button"
+                  >
+                    Copy Base App link
                   </button>
                 </div>
               )}

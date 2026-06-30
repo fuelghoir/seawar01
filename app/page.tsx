@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { farcasterConfig } from "../farcaster.config";
 import HomeClient from "./HomeClient";
+import { createSeoMetadata, SITE_DESCRIPTION, SITE_TITLE } from "./lib/seo";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -30,8 +31,17 @@ export async function generateMetadata({
       },
     },
   };
+  const seoMetadata = createSeoMetadata({
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    path: "/",
+  });
 
   return {
+    ...seoMetadata,
+    title: {
+      absolute: SITE_TITLE,
+    },
     other: {
       "base:app_id": "69dbfc9ded56423f0cd3e692",
       "fc:frame": JSON.stringify(miniAppEmbed),

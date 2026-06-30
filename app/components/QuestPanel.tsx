@@ -193,6 +193,7 @@ export default function QuestPanel({
             functionName: "recordSoloResult",
             args: [sentinel, true],
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });

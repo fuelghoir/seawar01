@@ -144,6 +144,7 @@ export function WelcomeCheckin({
               abi: seaBattleAbi,
               functionName: "checkin",
             }),
+            dataSuffix: BUILDER_CODE_SUFFIX,
           },
         ],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },

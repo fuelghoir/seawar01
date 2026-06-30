@@ -101,6 +101,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [autoConnectGraceDone, setAutoConnectGraceDone] = useState(false);
   const [incomingRef, setIncomingRef] = useState<string | null>(null);
   const [showPlay, setShowPlay] = useState(false);
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
@@ -196,6 +197,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   useEffect(() => {
     if (connectStatus !== "pending") setConnectingConnectorId(null);
   }, [connectStatus]);
+
+  useEffect(() => {
+    if (isConnected) setShowWalletConnect(false);
+  }, [isConnected]);
 
   useEffect(() => {
     if (isConnected && chainId && chainId !== base.id) {
@@ -383,71 +388,101 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     </button>
   );
 
-  if (!isMobileHome && miniAppBootSettled && !isInMiniApp && !isConnected) {
-    return (
-      <div className={styles.welcomeContainer}>
-        <SettingsPanel />
-        <div className={styles.welcomeCard}>
-          <div className={styles.welcomeBadge}>SEA BATTLE ON-CHAIN</div>
-          <h1 className={styles.welcomeTitle}>SEA BATTLE</h1>
-          <p className={styles.welcomeSub}>{tr.home_pc_hint}</p>
-          <div className={styles.walletOptions}>
-            {pcWalletConnectors.length === 0 ? (
-              <button className={styles.welcomeBtn} disabled type="button">
-                <SwordIcon size={18} />
-                {walletCopy.noWallet}
-              </button>
-            ) : (
-              pcWalletConnectors.map((connector) => {
-                const isBase = isBaseAccountConnector(connector);
-                const isPending =
-                  connectStatus === "pending" &&
-                  connectingConnectorId === connector.id;
-
-                return (
-                  <button
-                    key={connector.id}
-                    className={`${styles.walletOption} ${
-                      isBase ? styles.walletOptionPrimary : ""
-                    }`}
-                    onClick={() => connectWallet(connector)}
-                    disabled={connectStatus === "pending"}
-                    type="button"
-                  >
-                    <span className={styles.walletOptionIcon}>
-                      {isBase ? <ShieldIcon size={20} /> : <UserIcon size={20} />}
-                    </span>
-                    <span className={styles.walletOptionText}>
-                      <b>{isBase ? "Base Account" : connector.name}</b>
-                      <small>{isBase ? walletCopy.baseSub : walletCopy.browserSub}</small>
-                    </span>
-                    <span className={styles.walletOptionBadge}>
-                      {isPending
-                        ? walletCopy.connecting
-                        : isBase
-                          ? walletCopy.recommended
-                          : walletCopy.connect}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          {connectError && (
-            <p className={styles.connectError}>{connectError.message}</p>
-          )}
-          <p className={styles.welcomeFeatures}>{tr.home_pc_features}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
       <SettingsPanel />
-      <AppHeader points={address ? profileView.points : undefined} address={address ?? null} />
+      <AppHeader
+        points={address ? profileView.points : undefined}
+        address={address ?? null}
+        showDesktopConnect={!isMobileHome && !address}
+        connectLabel={tr.connect}
+        connectTitle={tr.home_pc_hint}
+        connectDisabled={connectStatus === "pending"}
+        connectOptions={pcWalletConnectors.map((connector) => ({
+          id: connector.id,
+          name: connector.name,
+          onSelect: () => connectWallet(connector),
+        }))}
+        onConnectClick={() => setShowWalletConnect(true)}
+      />
 
-      <PlayModal open={showPlay} onClose={() => setShowPlay(false)} />
+      <PlayModal
+        open={showPlay}
+        onClose={() => setShowPlay(false)}
+        walletConnected={!!address}
+        onConnectRequest={() => setShowWalletConnect(true)}
+      />
+
+      {showWalletConnect && !address && (
+        <div className={styles.walletModalBackdrop} onClick={() => setShowWalletConnect(false)}>
+          <div
+            className={styles.walletModal}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <button
+              className={styles.walletModalClose}
+              onClick={() => setShowWalletConnect(false)}
+              type="button"
+              aria-label={tr.play_modal_close}
+            >
+              X
+            </button>
+            <div className={styles.walletModalHead}>
+              <span>{tr.wallet_menu.toUpperCase()}</span>
+              <h2>{tr.connect}</h2>
+              <p>{tr.home_pc_hint}</p>
+            </div>
+            <div className={styles.walletOptions}>
+              {pcWalletConnectors.length === 0 ? (
+                <button className={styles.welcomeBtn} disabled type="button">
+                  <SwordIcon size={18} />
+                  {walletCopy.noWallet}
+                </button>
+              ) : (
+                pcWalletConnectors.map((connector) => {
+                  const isBase = isBaseAccountConnector(connector);
+                  const isPending =
+                    connectStatus === "pending" &&
+                    connectingConnectorId === connector.id;
+
+                  return (
+                    <button
+                      key={connector.id}
+                      className={`${styles.walletOption} ${
+                        isBase ? styles.walletOptionPrimary : ""
+                      }`}
+                      onClick={() => connectWallet(connector)}
+                      disabled={connectStatus === "pending"}
+                      type="button"
+                    >
+                      <span className={styles.walletOptionIcon}>
+                        {isBase ? <ShieldIcon size={20} /> : <UserIcon size={20} />}
+                      </span>
+                      <span className={styles.walletOptionText}>
+                        <b>{isBase ? "Base Account" : connector.name}</b>
+                        <small>{isBase ? walletCopy.baseSub : walletCopy.browserSub}</small>
+                      </span>
+                      <span className={styles.walletOptionBadge}>
+                        {isPending
+                          ? walletCopy.connecting
+                          : isBase
+                            ? walletCopy.recommended
+                            : walletCopy.connect}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {connectError && (
+              <p className={styles.connectError}>{connectError.message}</p>
+            )}
+            <p className={styles.welcomeFeatures}>{tr.home_pc_features}</p>
+          </div>
+        </div>
+      )}
 
       {address && (
         <SeasonRewardsIntro
@@ -759,7 +794,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             badge={checkin?.canCheckin ? `+${checkin.nextReward} PTS` : undefined}
             accent="#00dcb4"
             active={!!checkin && !checkin.canCheckin}
-            onClick={() => setShowWelcome(true)}
+            onClick={() => {
+              if (address) setShowWelcome(true);
+              else setShowWalletConnect(true);
+            }}
           >
             <CheckinDots streak={checkin?.streak ?? 0} />
           </HomeCard>

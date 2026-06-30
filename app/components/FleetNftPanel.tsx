@@ -449,6 +449,7 @@ export default function FleetNftPanel() {
             abi: fleetPassAbi,
             functionName: "claimPassivePoints",
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });

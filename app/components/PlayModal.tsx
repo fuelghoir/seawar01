@@ -9,9 +9,16 @@ import styles from "./PlayModal.module.css";
 interface PlayModalProps {
   open: boolean;
   onClose: () => void;
+  walletConnected?: boolean;
+  onConnectRequest?: () => void;
 }
 
-export function PlayModal({ open, onClose }: PlayModalProps) {
+export function PlayModal({
+  open,
+  onClose,
+  walletConnected = true,
+  onConnectRequest,
+}: PlayModalProps) {
   const router = useRouter();
   const { lang } = useSettings();
   const tr = TR[lang];
@@ -42,7 +49,14 @@ export function PlayModal({ open, onClose }: PlayModalProps) {
       sub: tr.home_play_friend_sub,
       accent: "#3b82f6",
       Icon: UsersIcon,
-      onSelect: () => router.push("/play?mode=friend"),
+      onSelect: () => {
+        if (!walletConnected) {
+          onClose();
+          onConnectRequest?.();
+          return;
+        }
+        router.push("/play?mode=friend");
+      },
     },
     {
       id: "wager" as const,
@@ -50,7 +64,14 @@ export function PlayModal({ open, onClose }: PlayModalProps) {
       sub: tr.home_play_wager_sub,
       accent: "#a855f7",
       Icon: DollarIcon,
-      onSelect: () => router.push("/play?mode=wager"),
+      onSelect: () => {
+        if (!walletConnected) {
+          onClose();
+          onConnectRequest?.();
+          return;
+        }
+        router.push("/play?mode=wager");
+      },
     },
   ];
 

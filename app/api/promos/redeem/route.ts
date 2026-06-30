@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminSupabase } from "../../../lib/adminSupabase";
+import { adminSupabase, type AdminClient } from "../../../lib/adminSupabase";
 import {
+  PROMO_CAMPAIGN_WALLET,
+  isSignedPromoCode,
+  normalizePromoCode,
+  normalizePromoPublicCode,
+  promoCampaignFromRecord,
+  promoCampaignMarker,
   promoItemLabel,
   verifyPromoCode,
   type PromoCodePayload,
@@ -18,9 +24,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
   }
 
+  const rawCode = normalizePromoCode(body?.code ?? body?.promo);
+  if (!rawCode) {
+    return NextResponse.json({ error: "Promo code is required" }, { status: 400 });
+  }
+
+  const admin = adminSupabase();
   let promo: PromoCodePayload;
   try {
-    promo = verifyPromoCode(body?.code ?? body?.promo);
+    promo = isSignedPromoCode(rawCode)
+      ? verifyPromoCode(rawCode)
+      : await loadStoredPromo(admin, rawCode);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Invalid promo code" },
@@ -28,7 +42,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const admin = adminSupabase();
   const { error: rpcError } = await admin.rpc("redeem_promo_code", {
     p_wallet: wallet,
     p_promo_id: promo.id,
@@ -39,7 +52,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (rpcError) {
-    const status = rpcError.message.includes("already redeemed") ? 409 : 500;
+    const status = rpcError.message.toLowerCase().includes("already redeemed") ? 409 : 500;
     return NextResponse.json({ error: rpcError.message }, { status });
   }
 
@@ -55,6 +68,24 @@ export async function POST(req: NextRequest) {
       quantity: promo.quantity,
     },
   });
+}
+
+async function loadStoredPromo(admin: AdminClient, value: string) {
+  const code = normalizePromoPublicCode(value);
+  const marker = promoCampaignMarker(code.toLowerCase());
+  const { data, error } = await admin
+    .from("creator_rewards")
+    .select("points,item_slug,quantity,reward_label,admin_note,created_at,status")
+    .eq("wallet", PROMO_CAMPAIGN_WALLET)
+    .eq("created_by", marker)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Promo code not found");
+  return promoCampaignFromRecord(data, code);
 }
 
 function normalizeWallet(value: unknown) {

@@ -422,6 +422,95 @@
   text-transform: uppercase;
 }
 
+.walletModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(var(--accent-rgb), 0.18), transparent 42%),
+    rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fadeIn 0.18s ease;
+}
+
+.walletModal {
+  position: relative;
+  width: min(720px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(var(--accent-rgb), 0.34);
+  border-radius: 18px;
+  padding: 34px;
+  background:
+    linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(160deg, rgba(7, 22, 36, 0.98), rgba(3, 10, 18, 0.98));
+  background-size: 26px 26px, 26px 26px, auto;
+  box-shadow:
+    0 0 70px rgba(var(--accent-rgb), 0.18),
+    0 34px 90px rgba(0, 0, 0, 0.74);
+  animation: cardIn 0.28s cubic-bezier(0.2, 1.05, 0.5, 1.05);
+}
+
+.walletModalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.walletModalClose:hover {
+  border-color: rgba(var(--accent-rgb), 0.52);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: #fff;
+}
+
+.walletModalHead {
+  max-width: 520px;
+  margin-bottom: 22px;
+}
+
+.walletModalHead span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-bright);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+}
+
+.walletModalHead h2 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.walletModalHead p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 /* ───── Main 3-column layout (PC) ───── */
 
 .layout {
@@ -1935,6 +2024,21 @@
   }
   .welcomeCard {
     padding: 32px 24px 28px;
+  }
+  .walletModalBackdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .walletModal {
+    width: 100%;
+    border-right: none;
+    border-bottom: none;
+    border-left: none;
+    border-radius: 18px 18px 0 0;
+    padding: 28px 18px 24px;
+  }
+  .walletModalHead {
+    padding-right: 42px;
   }
 }
 

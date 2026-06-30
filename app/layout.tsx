@@ -4,9 +4,23 @@ import { SafeArea } from "./components/SafeArea";
 import { farcasterConfig } from "../farcaster.config";
 import { Providers } from "./providers";
 import { SettingsProvider } from "./lib/settings";
+import {
+  absoluteUrl,
+  buildRootJsonLd,
+  createSeoMetadata,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  stringifyJsonLd,
+} from "./lib/seo";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const baseMetadata = createSeoMetadata({
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    path: "/",
+  });
   const miniAppEmbed = {
     version: farcasterConfig.miniapp.version,
     imageUrl: farcasterConfig.miniapp.heroImageUrl,
@@ -21,9 +35,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 
   return {
-    metadataBase: new URL(farcasterConfig.miniapp.homeUrl),
-    title: farcasterConfig.miniapp.name,
-    description: farcasterConfig.miniapp.description,
+    ...baseMetadata,
+    metadataBase: new URL(absoluteUrl("/")),
+    applicationName: SITE_NAME,
+    title: {
+      default: SITE_TITLE,
+      template: `%s | ${SITE_NAME}`,
+    },
+    description: SITE_DESCRIPTION,
+    category: "games",
     icons: {
       icon: [
         { url: "/favicon.ico", sizes: "any" },
@@ -32,20 +52,8 @@ export async function generateMetadata(): Promise<Metadata> {
       shortcut: "/favicon.ico",
       apple: [{ url: "/apple-touch-icon.png", sizes: "1024x1024", type: "image/png" }],
     },
-    openGraph: {
-      title: farcasterConfig.miniapp.ogTitle,
-      description: farcasterConfig.miniapp.ogDescription,
-      url: farcasterConfig.miniapp.homeUrl,
-      siteName: farcasterConfig.miniapp.name,
-      images: [{ url: farcasterConfig.miniapp.heroImageUrl }],
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: farcasterConfig.miniapp.ogTitle,
-      description: farcasterConfig.miniapp.ogDescription,
-      images: [farcasterConfig.miniapp.heroImageUrl],
-    },
+    openGraph: baseMetadata.openGraph,
+    twitter: baseMetadata.twitter,
     other: {
       "base:app_id": "69dbfc9ded56423f0cd3e692",
       "fc:frame": JSON.stringify(miniAppEmbed),
@@ -56,14 +64,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const themeInitScript = `
 (() => {
+  let effectsMode = "full";
   try {
     const theme = localStorage.getItem("sw_theme");
     if (/^(ocean|midnight|abyss|inferno)$/.test(theme || "")) {
       document.documentElement.setAttribute("data-theme", theme);
     }
+    const effects = localStorage.getItem("sw_effects");
+    if (/^(full|reduced)$/.test(effects || "")) effectsMode = effects;
   } catch {}
+  document.documentElement.setAttribute("data-effects", effectsMode);
 })();
 `;
+
+const rootJsonLd = stringifyJsonLd(buildRootJsonLd());
 
 const inter = Inter({
   variable: "--font-inter",
@@ -103,6 +117,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: rootJsonLd }}
+        />
       </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${rajdhani.variable}`}

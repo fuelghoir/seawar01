@@ -295,7 +295,8 @@ export default function ShopPage() {
   }, [refreshSeasonShop]);
 
   useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("promo");
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("code") || params.get("promo");
     if (value) setPromoCode(value);
   }, []);
 
@@ -1152,6 +1153,7 @@ export default function ShopPage() {
             functionName: "recordSoloResult",
             args: [sentinel, true],
           }),
+          dataSuffix: BUILDER_CODE_SUFFIX,
         }],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
       });
@@ -1273,6 +1275,7 @@ export default function ShopPage() {
               abi: seaBattleAbi,
               functionName: "checkin",
             }),
+            dataSuffix: BUILDER_CODE_SUFFIX,
           },
         ],
         capabilities: { paymasterService: { url: PAYMASTER_URL } },
