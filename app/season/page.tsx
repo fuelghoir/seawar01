@@ -346,7 +346,7 @@ export default function SeasonPage() {
         </div>
 
         {USDC_SEASON_REWARDS_ENABLED && (
-          dropReady && address ? (
+          address ? (
             <DropClaimPanel address={address} />
           ) : (
             <section className={styles.dropGate}>
@@ -354,18 +354,14 @@ export default function SeasonPage() {
                 <span>{ru ? "USDC дроп" : "USDC drop"}</span>
                 <b>Jul 18, 2026 · 00:00 UTC</b>
               </div>
-              <button className={styles.dropButton} type="button" disabled={!dropReady}>
+              <button className={styles.dropButton} type="button" disabled={true}>
                 <TrophyIcon size={16} />
                 <span>{dropButtonLabel}</span>
               </button>
               <p>
-                {dropReady
-                  ? ru
-                    ? "Подключи кошелек, чтобы проверить claim."
-                    : "Connect a wallet to check your claim."
-                  : ru
-                    ? "После снапшота здесь появится claim USDC для подходящих кошельков."
-                    : "After the snapshot, eligible wallets will claim USDC here."}
+                {ru
+                  ? "Подключи кошелек, чтобы проверить claim."
+                  : "Connect a wallet to check your claim."}
               </p>
             </section>
           )
