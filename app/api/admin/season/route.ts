@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server";
+import { adminSupabase, requireAdminSession } from "../../../lib/adminAuth";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(_req: NextRequest) {
+  try {
+    await requireAdminSession();
+    const admin = adminSupabase();
+
+    const { data: config, error } = await admin
+      .from("season_config")
+      .select("end_date, is_ended")
+      .eq("id", "default")
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+
+    return NextResponse.json({
+      endDate: config?.end_date ?? "2026-07-18T00:00:00.000Z",
+      isEnded: config?.is_ended ?? false,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not load season config" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireAdminSession();
+    const admin = adminSupabase();
+    const body = await req.json().catch(() => null);
+    const action = String(body?.action ?? "").trim();
+
+    if (action === "update_config") {
+      const endDate = String(body?.endDate ?? "2026-07-18T00:00:00.000Z").trim();
+      const isEnded = Boolean(body?.isEnded);
+
+      const { error } = await admin
+        .from("season_config")
+        .upsert({
+          id: "default",
+          end_date: endDate,
+          is_ended: isEnded,
+        }, { onConflict: "id" });
+
+      if (error) throw new Error(error.message);
+
+      return NextResponse.json({ success: true, message: "Season config updated successfully." });
+    }
+
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Action failed" },
+      { status: 500 }
+    );
+  }
+}

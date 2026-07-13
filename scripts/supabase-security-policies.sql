@@ -43,7 +43,7 @@ DROP POLICY IF EXISTS update_games ON games;
 CREATE POLICY update_games ON games 
   FOR UPDATE TO anon, authenticated USING (true);
 
--- shots: Anyone can view shots and insert shots.
+-- shots: Anyone can view shots, insert shots, and update shots (critical for Friend PvP pings).
 DROP POLICY IF EXISTS select_shots ON shots;
 CREATE POLICY select_shots ON shots 
   FOR SELECT TO anon, authenticated USING (true);
@@ -51,6 +51,10 @@ CREATE POLICY select_shots ON shots
 DROP POLICY IF EXISTS insert_shots ON shots;
 CREATE POLICY insert_shots ON shots 
   FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS update_shots ON shots;
+CREATE POLICY update_shots ON shots 
+  FOR UPDATE TO anon, authenticated USING (true);
 
 -- sunk_reports: Anyone can read and insert sunk ship reports.
 DROP POLICY IF EXISTS select_sunk_reports ON sunk_reports;

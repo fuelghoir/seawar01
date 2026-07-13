@@ -42,7 +42,7 @@ import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
-import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro } from "./components/FleetMinerWidgets";
+import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro, SeasonEndedClaimIntro } from "./components/FleetMinerWidgets";
 import { DropClaimPanel } from "./components/DropClaimPanel";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
@@ -104,6 +104,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
+  const [showSeasonEndedIntro, setShowSeasonEndedIntro] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -274,19 +275,28 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   }, [address, loadProfile]);
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (!isConnected || !address || !profile) {
       setShowSeasonIntro(false);
+      setShowSeasonEndedIntro(false);
       return;
     }
 
-    const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
-    if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
-      setShowSeasonIntro(true);
-      return;
+    if (season?.isEnded) {
+      const key = `sea-battle-usdc-season-ended-${address.toLowerCase()}`;
+      if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
+        setShowSeasonEndedIntro(true);
+        return;
+      }
+    } else {
+      const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
+      if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
+        setShowSeasonIntro(true);
+        return;
+      }
     }
 
     setShowWelcome(true);
-  }, [isConnected, address]);
+  }, [isConnected, address, profile, season]);
 
   const closeSeasonIntro = useCallback(() => {
     if (address) {
@@ -295,6 +305,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     setShowSeasonIntro(false);
     setShowWelcome(true);
   }, [address]);
+
+  const openSeasonEndedClaim = useCallback(() => {
+    setShowSeasonEndedIntro(false);
+    if (address) {
+      sessionStorage.setItem(`sea-battle-usdc-season-ended-${address.toLowerCase()}`, "1");
+    }
+    router.push("/season");
+  }, [address, router]);
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
@@ -484,6 +502,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         </div>
       )}
 
+      {showSeasonEndedIntro && (
+        <SeasonEndedClaimIntro
+          lang={lang}
+          onClose={() => setShowSeasonEndedIntro(false)}
+          onOpenClaim={openSeasonEndedClaim}
+        />
+      )}
+
       {address && (
         <SeasonRewardsIntro
           open={showSeasonIntro}
@@ -492,7 +518,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         />
       )}
 
-      {!showSeasonIntro && showWelcome && address && (
+      {!showSeasonIntro && !showSeasonEndedIntro && showWelcome && address && (
         <WelcomeCheckin
           address={address}
           onClose={() => {
