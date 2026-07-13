@@ -19,6 +19,7 @@ import {
 } from "../lib/fleetNft";
 import { useSettings } from "../lib/settings";
 import { USDC_SEASON_REWARDS_ENABLED } from "../lib/featureFlags";
+import { getSeasonState } from "../lib/season";
 import styles from "./FleetMinerWidgets.module.css";
 
 function useFleetMinerState(address?: `0x${string}`) {
@@ -84,6 +85,18 @@ export function SeasonPoolCard({
     totalPoints: number;
     rank: number | null;
   } | null>(null);
+  const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string } | null>(null);
+
+  useEffect(() => {
+    getSeasonState(address || ZERO_ADDRESS)
+      .then((state) => {
+        setSeasonState({
+          isEnded: state.isEnded,
+          seasonKey: state.seasonKey,
+        });
+      })
+      .catch(() => {});
+  }, [address]);
   const { data: vaultBalance } = useReadContract({
     address: USDC_ADDRESS,
     abi: erc20Abi,
@@ -143,27 +156,36 @@ export function SeasonPoolCard({
     return formatSeasonEndDate(endDate || "2026-07-18T00:00:00.000Z", ru);
   }, [endDate, ru]);
 
+  const isEnded = seasonState?.isEnded ?? false;
+  const activeSeasonKey = seasonState?.seasonKey ?? "S1";
+
   const content = (
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        <b>S1</b>
+        {isEnded ? (
+          <b style={{ background: '#00dcb4', color: '#03111e' }}>{ru ? "КЛЕЙМ" : "CLAIM"}</b>
+        ) : (
+          <b>{activeSeasonKey}</b>
+        )}
       </div>
       <div className={styles.poolAmount}>
-        <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
+        <small>{isEnded ? (ru ? "ТВОЙ ДРОП" : "YOUR DROP") : (ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL")}</small>
         <strong>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</strong>
       </div>
       {showEstimate && (
         <div className={styles.poolEstimate}>
-          <span>{ru ? "ТВОЯ ПРИМЕРНАЯ НАГРАДА" : "YOUR EST. REWARD"}</span>
+          <span>{isEnded ? (ru ? "ЗАКЛЕЙМЛЕНО" : "CLAIMED STATUS") : (ru ? "ТВОЯ ПРИМЕРНАЯ НАГРАДА" : "YOUR EST. REWARD")}</span>
           <b>
             {!estimate
               ? "-- USDC"
               : !estimate.eligible
-                ? ru ? "ПОКА НЕ ELIGIBLE" : "NOT ELIGIBLE YET"
+                ? ru ? "НЕ УЧАСТВОВАЛ" : "NOT ELIGIBLE"
                 : estimatedReward === null
                   ? "-- USDC"
-                  : `≈ ${formatUsdc(estimatedReward)}`}
+                  : isEnded
+                    ? ru ? "ГОТОВО К КЛЕЙМУ" : "READY TO CLAIM"
+                    : `≈ ${formatUsdc(estimatedReward)}`}
           </b>
           <small>
             {estimate
@@ -174,14 +196,14 @@ export function SeasonPoolCard({
                     estimate.rank ? ` · #${estimate.rank}` : ""
                   }`
                 : ru
-                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts and ${
+                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts и ${
                       estimate.minTransactions
-                    } tx · сейчас ${estimate.walletPoints.toLocaleString()} pts / ${
+                    } tx · у тебя ${estimate.walletPoints.toLocaleString()} pts / ${
                       estimate.walletTransactions
                     } tx`
                   : `Need ${estimate.minPoints.toLocaleString()} pts and ${
                       estimate.minTransactions
-                    } tx · now ${estimate.walletPoints.toLocaleString()} pts / ${
+                    } tx · you have ${estimate.walletPoints.toLocaleString()} pts / ${
                       estimate.walletTransactions
                     } tx`
               : ru
@@ -191,11 +213,23 @@ export function SeasonPoolCard({
         </div>
       )}
       <div className={styles.poolMeta}>
-        <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
-        <span>{dateLabel}</span>
+        {isEnded ? (
+          <span style={{ color: '#00dcb4', fontWeight: 'bold' }}>
+            {ru ? "Сезон завершен! Награды доступны" : "Season completed! Rewards ready"}
+          </span>
+        ) : (
+          <>
+            <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
+            <span>{dateLabel}</span>
+          </>
+        )}
       </div>
       {clickable && (
-        <em className={styles.poolCta}>{ru ? "Открыть сезон →" : "Open season →"}</em>
+        <em className={styles.poolCta}>
+          {isEnded
+            ? (ru ? "Забрать USDC →" : "Claim USDC →")
+            : (ru ? "Открыть сезон →" : "Open season →")}
+        </em>
       )}
     </>
   );

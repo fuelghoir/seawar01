@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   MAX_SHOP_PURCHASE_QUANTITY,
   QUEST_REROLL_USDC_PRICE,
-  SEASON_KEY,
   SEASON_LEVELS,
   SHOP_ITEMS,
   itemBySlug,
@@ -358,6 +357,15 @@ export async function activateDoublePointsServer(
   return activeUntil;
 }
 
+async function getActiveSeasonKey(admin: SupabaseClient): Promise<string> {
+  const { data } = await admin
+    .from("season_config")
+    .select("season_key")
+    .eq("id", "default")
+    .maybeSingle();
+  return data?.season_key ?? "S1";
+}
+
 export async function addSeasonXpServer(
   admin: SupabaseClient,
   wallet: string,
@@ -366,11 +374,12 @@ export async function addSeasonXpServer(
   const xp = Math.floor(Number(xpValue));
   if (xp <= 0) return;
 
-  const state = await getSeasonProgress(admin, wallet);
+  const seasonKey = await getActiveSeasonKey(admin);
+  const state = await getSeasonProgress(admin, wallet, seasonKey);
   const { error } = await admin.from("season_progress").upsert(
     {
       wallet,
-      season_key: SEASON_KEY,
+      season_key: seasonKey,
       xp: state.xp + xp,
       claimed_levels: state.claimedLevels,
       updated_at: new Date().toISOString(),
@@ -388,7 +397,8 @@ export async function claimSeasonLevelsServer(
   const requestedLevels = normalizeSeasonClaimLevels(levelsValue);
   if (requestedLevels.length === 0) throw new Error("No rewards ready");
 
-  const state = await getSeasonProgress(admin, wallet);
+  const seasonKey = await getActiveSeasonKey(admin);
+  const state = await getSeasonProgress(admin, wallet, seasonKey);
   const targets = requestedLevels.map((level) => {
     const target = SEASON_LEVELS.find((entry) => entry.level === level);
     if (!target) throw new Error("Unknown season level");
@@ -404,7 +414,7 @@ export async function claimSeasonLevelsServer(
   const { error } = await admin.from("season_progress").upsert(
     {
       wallet,
-      season_key: SEASON_KEY,
+      season_key: seasonKey,
       xp: state.xp,
       claimed_levels: nextClaimed,
       updated_at: new Date().toISOString(),
@@ -434,7 +444,7 @@ export async function claimSeasonLevelsServer(
     await admin.from("season_progress").upsert(
       {
         wallet,
-        season_key: SEASON_KEY,
+        season_key: seasonKey,
         xp: state.xp,
         claimed_levels: state.claimedLevels,
         updated_at: new Date().toISOString(),
@@ -447,12 +457,12 @@ export async function claimSeasonLevelsServer(
   return targets.map((target) => target.reward);
 }
 
-async function getSeasonProgress(admin: SupabaseClient, wallet: string) {
+async function getSeasonProgress(admin: SupabaseClient, wallet: string, seasonKey: string) {
   const { data, error } = await admin
     .from("season_progress")
     .select("xp,claimed_levels")
     .eq("wallet", wallet)
-    .eq("season_key", SEASON_KEY)
+    .eq("season_key", seasonKey)
     .maybeSingle();
   if (error) throw new Error(error.message);
 

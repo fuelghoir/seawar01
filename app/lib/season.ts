@@ -444,11 +444,18 @@ export async function validatePointItemPurchase(
     throw new Error("Quest Reroll points purchase already used this week");
   }
 
+  const { data: config } = await supabase
+    .from("season_config")
+    .select("season_key")
+    .eq("id", "default")
+    .maybeSingle();
+  const seasonKey = config?.season_key ?? SEASON_KEY;
+
   const { data, error } = await supabase
     .from("season_progress")
     .select("points")
     .eq("wallet", addr)
-    .eq("season_key", SEASON_KEY)
+    .eq("season_key", seasonKey)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -524,22 +531,26 @@ export async function addSeasonXp(wallet: string, xp: number): Promise<void> {
 export async function getSeasonState(wallet: string): Promise<SeasonState> {
   const addr = normalizeWallet(wallet);
   
-  const [{ data: progressData, error: progressError }, { data: configData, error: configError }] = await Promise.all([
-    supabase
-      .from("season_progress")
-      .select("xp, claimed_levels, points")
-      .eq("wallet", addr)
-      .eq("season_key", SEASON_KEY)
-      .maybeSingle(),
-    supabase
-      .from("season_config")
-      .select("end_date, is_ended")
-      .eq("id", "default")
-      .maybeSingle()
-  ]);
+  const { data: configData, error: configError } = await supabase
+    .from("season_config")
+    .select("end_date, is_ended, season_key")
+    .eq("id", "default")
+    .maybeSingle();
+
+  if (configError) throw new Error(configError.message);
+
+  const seasonKey = configData?.season_key ?? SEASON_KEY;
+  const endDate = configData?.end_date ?? "2026-07-18T00:00:00.000Z";
+  const isEnded = configData?.is_ended ?? false;
+
+  const { data: progressData, error: progressError } = await supabase
+    .from("season_progress")
+    .select("xp, claimed_levels, points")
+    .eq("wallet", addr)
+    .eq("season_key", seasonKey)
+    .maybeSingle();
 
   if (progressError) throw new Error(progressError.message);
-  if (configError) throw new Error(configError.message);
 
   const xp = Number(progressData?.xp ?? 0);
   const points = Number(progressData?.points ?? 0);
@@ -549,11 +560,8 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
   const level = SEASON_LEVELS.filter((entry) => xp >= entry.xpRequired).length;
   const nextLevel = SEASON_LEVELS.find((entry) => xp < entry.xpRequired);
 
-  const endDate = configData?.end_date ?? "2026-07-18T00:00:00.000Z";
-  const isEnded = configData?.is_ended ?? false;
-
   return {
-    seasonKey: SEASON_KEY,
+    seasonKey,
     xp,
     level,
     nextLevelXp: nextLevel?.xpRequired ?? null,

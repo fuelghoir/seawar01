@@ -24,6 +24,7 @@ import { BUILDER_CODE_SUFFIX } from "../providers";
 import {
   commitOffchainBoard,
   shootOffchain,
+  shootAndResolveOffchain,
   shootBombOffchain,
   shootLineOffchain,
   reportHitOffchain,
@@ -595,7 +596,7 @@ export function OffchainGameContent({
       .on("postgres_changes", {
         event: "*", schema: "public", table: "games",
         filter: `id=eq.${gameIdNum}`,
-      }, () => { loadGame(); })
+      }, () => { loadGame(); loadShots(); })
       .on("postgres_changes", {
         event: "INSERT", schema: "public", table: "shots",
         filter: `game_id=eq.${gameIdNum}`,
@@ -834,9 +835,43 @@ export function OffchainGameContent({
     setLoading(false);
 
     try {
-      await shootOffchain(gameIdNum, address, x, y);
-      // Reload game + shots in parallel (not sequential)
-      Promise.all([loadGame(), loadShots()]).catch(() => {});
+      const result = await shootAndResolveOffchain(gameIdNum, address, x, y);
+
+      // If resolved instantly (opponent board available), update cell immediately
+      if (result.resolved && result.isHit !== null) {
+        setMyShots(prev => prev.map(s =>
+          s.x === x && s.y === y && s.is_hit === null
+            ? { ...s, is_hit: result.isHit }
+            : s
+        ));
+
+        // Detect sunk ships on the shooter's side
+        if (result.isHit) {
+          const opponentBoardStr = playerNum === 1 ? game.player2_board : game.player1_board;
+          if (opponentBoardStr) {
+            try {
+              const opponentBoard = JSON.parse(opponentBoardStr) as number[];
+              const idx = y * 10 + x;
+              const ships = findShips(opponentBoard);
+              const ship = ships.find(sh => sh.includes(idx));
+              if (ship) {
+                const hitCells = new Set<number>();
+                for (const s of myShots) {
+                  if (s.is_hit) hitCells.add(s.y * 10 + s.x);
+                }
+                hitCells.add(idx);
+                if (isShipSunk(ship, hitCells)) {
+                  const shipCells = ship.map(i => [i % 10, Math.floor(i / 10)]);
+                  reportSunkShip(`off_${gameIdNum}`, shipCells, address.toLowerCase()).catch(() => {});
+                }
+              }
+            } catch { /* ignore board parse errors */ }
+          }
+        }
+      }
+
+      // Reload game + shots + sunk reports in parallel
+      Promise.all([loadGame(), loadShots(), loadSunkReports()]).catch(() => {});
     } catch {
       // Revert optimistic shot on error
       setMyShots(prev => prev.filter(s => !(s.x === x && s.y === y)));

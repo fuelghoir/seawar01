@@ -63,14 +63,17 @@ DO UPDATE SET
 -- 5. Create season_config table and insert default row
 CREATE TABLE IF NOT EXISTS season_config (
   id text NOT NULL PRIMARY KEY,
+  season_key text NOT NULL DEFAULT 'S1',
   end_date timestamptz NOT NULL DEFAULT '2026-07-18 00:00:00+00',
   is_ended boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO season_config (id, end_date, is_ended)
-VALUES ('default', '2026-07-18 00:00:00+00', false)
-ON CONFLICT (id) DO NOTHING;
+ALTER TABLE season_config ADD COLUMN IF NOT EXISTS season_key text NOT NULL DEFAULT 'S1';
+
+INSERT INTO season_config (id, season_key, end_date, is_ended)
+VALUES ('default', 'S1', '2026-07-18 00:00:00+00', false)
+ON CONFLICT (id) DO UPDATE SET season_key = excluded.season_key;
 
 -- Enable RLS
 ALTER TABLE season_config ENABLE ROW LEVEL SECURITY;

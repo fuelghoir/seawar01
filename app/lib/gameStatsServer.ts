@@ -7,7 +7,6 @@ import {
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
-const SEASON_KEY = "S1";
 const RESOLVABLE_MODES = new Set(["bot", "friend", "wager", "offchain", "free", "hybrid"]);
 
 type GameStatsRow = {
@@ -219,13 +218,23 @@ async function getGamePointMultiplier(admin: SupabaseClient, wallet: string) {
   return data?.active_until && new Date(String(data.active_until)).getTime() > Date.now() ? 2 : 1;
 }
 
+async function getActiveSeasonKey(admin: SupabaseClient): Promise<string> {
+  const { data } = await admin
+    .from("season_config")
+    .select("season_key")
+    .eq("id", "default")
+    .maybeSingle();
+  return data?.season_key ?? "S1";
+}
+
 async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
   if (xp <= 0) return;
+  const seasonKey = await getActiveSeasonKey(admin);
   const { data, error } = await admin
     .from("season_progress")
     .select("xp,claimed_levels")
     .eq("wallet", wallet)
-    .eq("season_key", SEASON_KEY)
+    .eq("season_key", seasonKey)
     .maybeSingle();
   if (error) throw new Error(error.message);
 
@@ -234,7 +243,7 @@ async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
     .upsert(
       {
         wallet,
-        season_key: SEASON_KEY,
+        season_key: seasonKey,
         xp: Number(data?.xp ?? 0) + Math.floor(xp),
         claimed_levels: Array.isArray(data?.claimed_levels) ? data.claimed_levels : [],
         updated_at: new Date().toISOString(),

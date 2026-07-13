@@ -205,6 +205,7 @@ export default function AdminPage() {
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([]);
   const [seasonEndDate, setSeasonEndDate] = useState("2026-07-18T00:00");
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
+  const [seasonKey, setSeasonKey] = useState("S1");
   const [seasonConfigBusy, setSeasonConfigBusy] = useState(false);
   const [customTokenMode, setCustomTokenMode] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState("");
@@ -287,6 +288,7 @@ export default function AdminPage() {
           setSeasonEndDate("2026-07-18T00:00");
         }
         setSeasonIsEnded(!!seasonConfigData.isEnded);
+        setSeasonKey(seasonConfigData.seasonKey || "S1");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : (isRu ? "Не удалось загрузить админку" : "Failed to load admin panel"));
@@ -728,6 +730,7 @@ export default function AdminPage() {
           action: "update_config",
           endDate: isoDate,
           isEnded: seasonIsEnded,
+          seasonKey: seasonKey,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1465,6 +1468,23 @@ export default function AdminPage() {
                     type="datetime-local"
                     value={seasonEndDate}
                     onChange={(e) => setSeasonEndDate(e.target.value)}
+                    style={{
+                      background: 'rgba(5, 10, 22, 0.82)',
+                      border: '1px solid rgba(0, 212, 255, 0.24)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span>{isRu ? "Код текущего сезона" : "Current Season Key"}</span>
+                  <input
+                    type="text"
+                    value={seasonKey}
+                    onChange={(e) => setSeasonKey(e.target.value)}
+                    placeholder="S1"
                     style={{
                       background: 'rgba(5, 10, 22, 0.82)',
                       border: '1px solid rgba(0, 212, 255, 0.24)',
