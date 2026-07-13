@@ -147,7 +147,7 @@ export function SeasonPoolCard({
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        <b>S2</b>
+        <b>S1</b>
       </div>
       <div className={styles.poolAmount}>
         <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>

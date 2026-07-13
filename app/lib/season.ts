@@ -48,7 +48,7 @@ export interface SeasonState {
   isEnded: boolean;
 }
 
-export const SEASON_KEY = "S2";
+export const SEASON_KEY = "S1";
 export const SEASON_MAX_LEVEL = 100;
 export const QUEST_REROLL_USDC_PRICE = 300_000; // 0.3 USDC (6 decimals)
 export const MAX_SHOP_PURCHASE_QUANTITY = 99;

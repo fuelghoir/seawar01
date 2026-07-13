@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION sync_player_stats_points_to_season()
 RETURNS TRIGGER AS $$
 DECLARE
   v_diff integer;
-  v_active_season text := 'S2'; -- Current active season key
+  v_active_season text := 'S1'; -- Current active season key
 BEGIN
   IF TG_OP = 'UPDATE' THEN
     v_diff := NEW.points - OLD.points;
@@ -50,9 +50,9 @@ AFTER INSERT OR UPDATE ON player_stats
 FOR EACH ROW
 EXECUTE FUNCTION sync_player_stats_points_to_season();
 
--- 4. Copy current points balances to S2 season points for existing active players
+-- 4. Copy current points balances to S1 season points for existing active players
 INSERT INTO season_progress (wallet, season_key, xp, claimed_levels, points, updated_at)
-SELECT wallet, 'S2', 0, '{}'::integer[], points, now()
+SELECT wallet, 'S1', 0, '{}'::integer[], points, now()
 FROM player_stats
 WHERE points > 0
 ON CONFLICT (wallet, season_key)
