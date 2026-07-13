@@ -40,16 +40,38 @@ function useFleetMinerState(address?: `0x${string}`) {
   };
 }
 
+function formatSeasonEndDate(dateStr: string, isRu: boolean) {
+  try {
+    const d = new Date(dateStr);
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const year = d.getUTCFullYear();
+    const hours = String(d.getUTCHours()).padStart(2, "0");
+    const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+    if (isRu) {
+      return `${day}.${month}.${year} · ${hours}:${minutes} UTC`;
+    } else {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const monthText = months[d.getUTCMonth()];
+      return `${monthText} ${d.getUTCDate()}, ${year} · ${hours}:${minutes} UTC`;
+    }
+  } catch {
+    return isRu ? "18.07.2026 · 00:00 UTC" : "Jul 18, 2026 · 00:00 UTC";
+  }
+}
+
 export function SeasonPoolCard({
   variant = "default",
   address,
   showEstimate = false,
   clickable = true,
+  endDate,
 }: {
   variant?: "default" | "wide" | "sidebar";
   address?: `0x${string}`;
   showEstimate?: boolean;
   clickable?: boolean;
+  endDate?: string;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
@@ -117,11 +139,15 @@ export function SeasonPoolCard({
     variant === "wide" ? styles.poolCardWide : ""
   } ${variant === "sidebar" ? styles.poolCardSidebar : ""}`;
 
+  const dateLabel = useMemo(() => {
+    return formatSeasonEndDate(endDate || "2026-07-18T00:00:00.000Z", ru);
+  }, [endDate, ru]);
+
   const content = (
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        <b>S1</b>
+        <b>S2</b>
       </div>
       <div className={styles.poolAmount}>
         <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
@@ -148,7 +174,7 @@ export function SeasonPoolCard({
                     estimate.rank ? ` · #${estimate.rank}` : ""
                   }`
                 : ru
-                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts и ${
+                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts and ${
                       estimate.minTransactions
                     } tx · сейчас ${estimate.walletPoints.toLocaleString()} pts / ${
                       estimate.walletTransactions
@@ -166,7 +192,7 @@ export function SeasonPoolCard({
       )}
       <div className={styles.poolMeta}>
         <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
-        <span>{ru ? "18.07.2026 · 00:00 UTC" : "Jul 18, 2026 · 00:00 UTC"}</span>
+        <span>{dateLabel}</span>
       </div>
       {clickable && (
         <em className={styles.poolCta}>{ru ? "Открыть сезон →" : "Open season →"}</em>
@@ -193,13 +219,37 @@ export function SeasonRewardsIntro({
   open,
   onClose,
   onOpenProfile,
+  endDate,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenProfile: () => void;
+  endDate?: string;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
+
+  const dateKicker = useMemo(() => {
+    try {
+      const d = new Date(endDate || "2026-07-18T00:00:00.000Z");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+      return `${day}.${month}`;
+    } catch {
+      return "18.07";
+    }
+  }, [endDate]);
+
+  const dateTime = useMemo(() => {
+    try {
+      const d = new Date(endDate || "2026-07-18T00:00:00.000Z");
+      const hours = String(d.getUTCHours()).padStart(2, "0");
+      const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+      return `${hours}:${minutes} UTC`;
+    } catch {
+      return "00:00 UTC";
+    }
+  }, [endDate]);
 
   if (!open) return null;
 
@@ -219,10 +269,10 @@ export function SeasonRewardsIntro({
             ? "Играй, набирай очки и попади в снапшот. После окончания сезона claim появится в профиле."
             : "Play, earn points, and enter the snapshot. After the season ends, your claim appears in Profile."}
         </p>
-        <SeasonPoolCard variant="wide" />
+        <SeasonPoolCard variant="wide" endDate={endDate} />
         <div className={styles.modalStats}>
           <span><b>80%</b>{ru ? " В ПУЛ" : " TO POOL"}</span>
-          <span><b>18.07</b>00:00 UTC</span>
+          <span><b>{dateKicker}</b>{dateTime}</span>
         </div>
         <button type="button" className={styles.modalAction} onClick={openProfile}>
           {ru ? "ОТКРЫТЬ ПРОФИЛЬ" : "OPEN PROFILE"}
@@ -354,3 +404,59 @@ export function FleetMinerPromo({
     </div>
   );
 }
+
+export function SeasonEndedClaimIntro({
+  open,
+  onClose,
+  onOpenClaim,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenClaim: () => void;
+}) {
+  const { lang } = useSettings();
+  const ru = lang === "ru";
+
+  if (!open) return null;
+
+  return (
+    <div className={styles.modalBackdrop} onClick={onClose}>
+      <section className={`${styles.modal} ${styles.seasonModal}`} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">×</button>
+        <span className={styles.modalKicker} style={{ color: '#ff6600' }}>
+          {ru ? "СЕЗОН ЗАВЕРШЕН" : "SEASON ENDED"}
+        </span>
+        <h2>{ru ? "ЗАБЕРИТЕ СВОЙ ДРОП" : "CLAIM YOUR DROP"}</h2>
+        <p>
+          {ru
+            ? "Распределение наград успешно завершено! Перейдите на страницу сезона, чтобы заклеймить свой USDC дроп."
+            : "Reward distribution is finished! Go to the season page to claim your USDC drop."}
+        </p>
+        <div style={{ margin: '15px 0 25px 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            background: 'rgba(255, 102, 0, 0.1)',
+            border: '1px solid rgba(255, 102, 0, 0.3)',
+            borderRadius: '12px',
+            padding: '20px',
+            textAlign: 'center',
+            maxWidth: '300px'
+          }}>
+            <b style={{ display: 'block', fontSize: '18px', color: '#ff6600', marginBottom: '8px' }}>
+              {ru ? "ДРОП ДОСТУПЕН" : "DROP AVAILABLE"}
+            </b>
+            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
+              {ru ? "Твоя доля пула готова к получению на кошелек." : "Your share of the pool is ready to claim to your wallet."}
+            </span>
+          </div>
+        </div>
+        <button type="button" className={styles.modalAction} onClick={onOpenClaim} style={{ background: '#ff6600', borderColor: '#ff6600' }}>
+          {ru ? "ПЕРЕЙТИ К КЛЕЙМУ" : "GO TO CLAIM"}
+        </button>
+        <button type="button" className={styles.modalLater} onClick={onClose}>
+          {ru ? "ПОЗЖЕ" : "LATER"}
+        </button>
+      </section>
+    </div>
+  );
+}
+

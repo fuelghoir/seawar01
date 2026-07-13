@@ -42,7 +42,7 @@ import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
-import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro } from "./components/FleetMinerWidgets";
+import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro, SeasonEndedClaimIntro } from "./components/FleetMinerWidgets";
 import { DropClaimPanel } from "./components/DropClaimPanel";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
@@ -104,6 +104,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
+  const [showSeasonEndedIntro, setShowSeasonEndedIntro] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -274,25 +275,42 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   }, [address, loadProfile]);
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (!isConnected || !address || !profile) {
       setShowSeasonIntro(false);
+      setShowSeasonEndedIntro(false);
       return;
     }
 
-    const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
-    if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
-      setShowSeasonIntro(true);
-      return;
+    if (season?.isEnded) {
+      const key = `sea-battle-usdc-season-ended-${address.toLowerCase()}`;
+      if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
+        setShowSeasonEndedIntro(true);
+        return;
+      }
+    } else {
+      const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
+      if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
+        setShowSeasonIntro(true);
+        return;
+      }
     }
 
     setShowWelcome(true);
-  }, [isConnected, address]);
+  }, [isConnected, address, profile, season]);
 
   const closeSeasonIntro = useCallback(() => {
     if (address) {
       sessionStorage.setItem(`sea-battle-usdc-season-intro-${address.toLowerCase()}`, "1");
     }
     setShowSeasonIntro(false);
+    setShowWelcome(true);
+  }, [address]);
+
+  const closeSeasonEndedIntro = useCallback(() => {
+    if (address) {
+      sessionStorage.setItem(`sea-battle-usdc-season-ended-${address.toLowerCase()}`, "1");
+    }
+    setShowSeasonEndedIntro(false);
     setShowWelcome(true);
   }, [address]);
 
@@ -392,7 +410,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
       <SettingsPanel />
       <AppHeader
-        points={address ? profileView.points : undefined}
+        points={address ? profileView.seasonPoints : undefined}
         address={address ?? null}
         showDesktopConnect={!isMobileHome && !address}
         connectLabel={tr.connect}
@@ -489,10 +507,22 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           open={showSeasonIntro}
           onClose={closeSeasonIntro}
           onOpenProfile={() => setOpenSection("profile")}
+          endDate={season?.endDate}
         />
       )}
 
-      {!showSeasonIntro && showWelcome && address && (
+      {address && (
+        <SeasonEndedClaimIntro
+          open={showSeasonEndedIntro}
+          onClose={closeSeasonEndedIntro}
+          onOpenClaim={() => {
+            closeSeasonEndedIntro();
+            router.push("/season");
+          }}
+        />
+      )}
+
+      {!showSeasonIntro && !showSeasonEndedIntro && showWelcome && address && (
         <WelcomeCheckin
           address={address}
           onClose={() => {
@@ -527,7 +557,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             {openSection === "quests" ? (
               address && (
                 <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
-                  <SectionHeader label={tr.home_quests} accent="#3b82f6" />
+                  <SectionHeader label={tr.home_quests} accent="var(--accent)" />
                   <QuestHub
                     address={address}
                     isInMiniApp={isInMiniApp}
@@ -537,7 +567,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               )
             ) : openSection === "profile" ? (
               <section className={`${styles.mobilePanel} ${styles.mobileTabPanel} ${styles.mobileProfilePanel}`}>
-                <SectionHeader label={tr.home_profile_title} accent="#a855f7" />
+                <SectionHeader label={tr.home_profile_title} accent="var(--accent)" />
                 <div className={styles.mobileProfileHero}>
                   <div>
                     <span>{displayName}</span>
@@ -639,7 +669,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                 )}
                 {address && (
                   <div className={styles.mobileReferralBlock}>
-                    <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
+                    <SectionHeader label={tr.home_referrals_title} accent="var(--accent)" />
                     <ReferralPanel
                       address={address}
                       refParam={incomingRef}
@@ -656,7 +686,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     <span>{tr.mobile_your_fleet}</span>
                     <span>{tr.mobile_enemy_grid}</span>
                   </div>
-                  <HeroBattleGrid compact reducedFx={reducedFx} staticPreview={reducedFx} />
+                  <HeroBattleGrid compact reducedFx={reducedFx} staticPreview={false} />
                   <div className={styles.mobileBattleFooter}>
                     {tr.mobile_scanning.toUpperCase()}
                   </div>
@@ -695,7 +725,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                 </section>
 
                 <section className={styles.recentSection}>
-                  <SectionHeader label={tr.recent_games} accent="#3b82f6" />
+                  <SectionHeader label={tr.recent_games} accent="var(--accent)" />
                   {history.length === 0 ? (
                     <div className={styles.empty}>{tr.hist_empty}</div>
                   ) : (
@@ -783,6 +813,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           <HomeCard
             Icon={CheckIcon}
+            compact={!isNarrowScreen}
             title={tr.home_checkin_title}
             subtitle={
               checkin
@@ -792,7 +823,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                 : tr.home_checkin_sub
             }
             badge={checkin?.canCheckin ? `+${checkin.nextReward} PTS` : undefined}
-            accent="#00dcb4"
             active={!!checkin && !checkin.canCheckin}
             onClick={() => {
               if (address) setShowWelcome(true);
@@ -804,9 +834,9 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           <HomeCard
             Icon={ShieldIcon}
+            compact={!isNarrowScreen}
             title={tr.home_quests}
             subtitle={tr.home_quests_sub}
-            accent="#3b82f6"
             active={openSection === "quests"}
             onClick={() => toggleSection("quests")}
           />
@@ -822,10 +852,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           <HomeCard
             Icon={UserIcon}
+            compact={!isNarrowScreen}
             title={tr.home_profile_title}
             subtitle={`${displayName} - ${profileView.totalWins}W ${Math.max(0, profileView.onchainGames - profileView.onchainWins)}L`}
             badge={`${profileView.points}`}
-            accent="#a855f7"
             active={openSection === "profile"}
             onClick={() => toggleSection("profile")}
           >
@@ -918,13 +948,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             progressPct={sbtProgressPct}
             lang={lang}
             onOpen={openCaptainSbt}
+            compact={!isNarrowScreen}
           />
 
           <HomeCard
             Icon={UsersIcon}
+            compact={!isNarrowScreen}
             title={tr.home_referrals_title}
             subtitle={tr.referrals_sub}
-            accent="#f59e0b"
             active={openSection === "referrals"}
             onClick={() => toggleSection("referrals")}
           />
@@ -941,16 +972,16 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
           <HomeCard
             Icon={TrophyIcon}
+            compact={!isNarrowScreen}
             title={tr.home_leaderboard}
             subtitle={tr.home_leaderboard_sub}
-            accent="#fbbf24"
             onClick={() => router.push("/leaderboard")}
           />
         </aside>
 
         {/* ───── CENTER COLUMN ───── */}
         <section className={styles.centerCol}>
-          <HeroBattleGrid reducedFx={reducedFx} staticPreview={reducedFx} />
+          <HeroBattleGrid reducedFx={reducedFx} staticPreview={false} />
 
           <button
             className={styles.playNow}
@@ -965,7 +996,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           </button>
 
           <div className={styles.recentSection}>
-            <SectionHeader label={tr.recent_games} accent="#3b82f6" />
+            <SectionHeader label={tr.recent_games} accent="var(--accent)" />
             {history.length === 0 ? (
               <div className={styles.empty}>{tr.hist_empty}</div>
             ) : (
@@ -1072,19 +1103,21 @@ const bootFallback: Record<string, CSSProperties> = {
     padding: 16,
     color: "#eaf4ff",
     background:
-      "radial-gradient(circle at 50% 0%, rgba(0, 212, 255, 0.16), transparent 48%), linear-gradient(180deg, var(--bg-abyss, #020814), var(--bg-primary, #0a1628))",
+      "radial-gradient(circle at 50% 50%, rgba(var(--bg-abyss-rgb, 3, 7, 15), 0.4), rgba(var(--bg-abyss-rgb, 3, 7, 15), 0.78))",
     fontFamily: "var(--font-rajdhani), Rajdhani, system-ui, sans-serif",
   },
   panel: {
     width: "min(420px, 100%)",
     overflow: "hidden",
     border: "1px solid rgba(var(--accent-rgb, 0, 212, 255), 0.34)",
-    borderRadius: 8,
+    borderRadius: 16,
     padding: "30px 22px 24px",
     background:
-      "linear-gradient(rgba(var(--accent-rgb, 0, 212, 255), 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--accent-rgb, 0, 212, 255), 0.05) 1px, transparent 1px), linear-gradient(160deg, rgba(var(--bg-secondary-rgb, 15, 36, 64), 0.78), rgba(var(--bg-abyss-rgb, 2, 8, 20), 0.96))",
+      "linear-gradient(rgba(var(--accent-rgb, 0, 212, 255), 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--accent-rgb, 0, 212, 255), 0.05) 1px, transparent 1px), linear-gradient(160deg, rgba(var(--bg-secondary-rgb, 13, 33, 56), 0.6), rgba(var(--bg-abyss-rgb, 3, 7, 15), 0.85))",
     backgroundSize: "22px 22px, 22px 22px, auto",
-    boxShadow: "0 0 36px rgba(var(--accent-rgb, 0, 212, 255), 0.2), 0 20px 54px rgba(0, 0, 0, 0.52)",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.6), 0 0 32px rgba(var(--accent-rgb, 0, 212, 255), 0.15), inset 0 0 20px rgba(var(--accent-rgb, 0, 212, 255), 0.05)",
   },
   radar: {
     position: "relative",
@@ -1129,6 +1162,7 @@ const bootFallback: Record<string, CSSProperties> = {
     fontWeight: 900,
     letterSpacing: "0.12em",
     color: "#fff",
+    textShadow: "0 0 18px rgba(var(--accent-rgb, 0, 212, 255), 0.4)",
   },
   progress: {
     width: "100%",
@@ -1215,6 +1249,7 @@ function createEmptyProfile(wallet: string): PlayerProfile {
   return {
     wallet: wallet.toLowerCase(),
     points: 0,
+    seasonPoints: 0,
     totalCheckins: 0,
     checkinStreak: 0,
     totalWins: 0,
@@ -1287,17 +1322,23 @@ function SecretSbtCard({
   progressPct,
   lang,
   onOpen,
+  compact = false,
 }: {
   wins: number;
   winsLeft: number;
   progressPct: number;
   lang: string;
   onOpen: () => void;
+  compact?: boolean;
 }) {
   const ru = lang === "ru";
   const unlocked = winsLeft === 0;
   return (
-    <button className={styles.secretSbtCard} onClick={onOpen} type="button">
+    <button
+      className={`${styles.secretSbtCard} ${compact ? styles.secretSbtCompact : ""}`}
+      onClick={onOpen}
+      type="button"
+    >
       <span className={styles.secretSbtScan} aria-hidden="true" />
       <span className={styles.secretSbtIcon} aria-hidden="true">
         ?
@@ -1482,7 +1523,7 @@ function ShopPreview({
         </div>
       )}
 
-      <SectionHeader label={tr.shop_featured_armory.toUpperCase()} accent="#00dcb4" />
+      <SectionHeader label={tr.shop_featured_armory.toUpperCase()} accent="var(--accent)" />
       {shopPreviewItems.map((it, i) => (
         <button
           key={i}

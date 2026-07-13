@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { getItemQuantity } from "./season";
+import { getItemQuantity, SEASON_KEY } from "./season";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
@@ -970,6 +970,7 @@ export async function getLeaderboard(
 export interface PlayerProfile {
   wallet: string;
   points: number;
+  seasonPoints: number;
   totalCheckins: number;
   checkinStreak: number;
   totalWins: number;
@@ -985,7 +986,7 @@ export async function getPlayerProfile(
 ): Promise<PlayerProfile> {
   const addr = wallet.toLowerCase();
 
-  const [{ data: stats }, { data: games }] = await Promise.all([
+  const [{ data: stats }, { data: games }, { data: seasonProgress }] = await Promise.all([
     supabase
       .from("player_stats")
       .select("points, wins, games_played, checkin_streak, total_checkins")
@@ -995,6 +996,12 @@ export async function getPlayerProfile(
       .from("games")
       .select("id, player1, player2, winner, state, game_mode, wager_amount")
       .or(`player1.eq.${addr},player2.eq.${addr}`),
+    supabase
+      .from("season_progress")
+      .select("points")
+      .eq("wallet", addr)
+      .eq("season_key", SEASON_KEY)
+      .maybeSingle(),
   ]);
 
   const allGames = games || [];
@@ -1042,6 +1049,7 @@ export async function getPlayerProfile(
   return {
     wallet: addr,
     points: stats?.points ?? 0,
+    seasonPoints: seasonProgress?.points ?? 0,
     totalCheckins: stats?.total_checkins ?? 0,
     checkinStreak: stats?.checkin_streak ?? 0,
     totalWins,

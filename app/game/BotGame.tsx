@@ -868,92 +868,87 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         enemyShips={enemyShipsAlive}
       />
       <div className={styles.gameScroll}>
-        <div className={styles.botStatus}>
-          <div className={styles.turnIndicator}>
-            {botProcessing ? tr.bot_thinking : isMyTurn ? tr.your_turn : ""}
+        <div className={styles.battleLayout}>
+          {/* Main target board — large */}
+          <div className={styles.mainBoard}>
+            <Board
+              cells={enemyBoardCells}
+              onCellClick={handleEnemyCellClick}
+              isInteractive={isMyTurn && !botProcessing}
+              label={tr.bot_waters}
+              variant="target"
+              cellSize="clamp(32px, 4.2vw, 44px)"
+            />
           </div>
-          <div className={styles.hitCounters}>
-            <span>{tr.you_short}: {myHits}/20</span>
-            <span>{tr.bot_short}: {botHits}/20</span>
-          </div>
-        </div>
 
-        <div className={styles.boards}>
-          <Board
-            cells={enemyBoardCells}
-            onCellClick={handleEnemyCellClick}
-            isInteractive={isMyTurn && !botProcessing}
-            label={tr.bot_waters}
-            variant="target"
-          />
-          <Board cells={myBoardCells} isInteractive={false} label={tr.your_fleet} />
+          {/* Fleet minimap — small on the side */}
+          <div className={styles.fleetMinimap}>
+            <Board
+              cells={myBoardCells}
+              isInteractive={false}
+              label={tr.your_fleet}
+              cellSize="20px"
+            />
+            <div className={styles.minimapStatus}>
+              <span>{tr.you_short}: {myHits}/20</span>
+              <span>{tr.bot_short}: {botHits}/20</span>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className={styles.stickyFire}>
-        <div className={styles.tacticalSection}>
-          <div className={styles.tacticalButtons}>
-            <button
-              type="button"
-              className={`${styles.tacticalBtn} ${styles.radarBtn}`}
-              onClick={handleUseRadar}
-              disabled={!canUseTactical || radarQty <= 0}
-            >
-              Radar · {radarQty}
-            </button>
-            <button
-              type="button"
-              className={`${styles.tacticalBtn} ${styles.torpedoBtn} ${torpedoActive ? styles.tacticalActive : ""}`}
-              onClick={() => setTorpedoActive((active) => !active)}
-              disabled={!canUseTactical || torpedoQty <= 0}
-            >
-              Torpedo · {torpedoQty}
-            </button>
-          </div>
-          {torpedoActive && (
-            <>
-              <div className={styles.directionPanel}>
-                {(Object.keys(TACTICAL_DIRS) as TacticalDirection[]).map((direction) => (
-                  <button
-                    type="button"
-                    key={direction}
-                    className={`${styles.directionBtn} ${torpedoDir === direction ? styles.directionActive : ""}`}
-                    onClick={() => setTorpedoDir(direction)}
-                    disabled={!canUseTactical}
-                  >
-                    {TACTICAL_DIRS[direction].label}
-                  </button>
-                ))}
-              </div>
+        <div className={styles.fireRow}>
+          <button
+            type="button"
+            className={`${styles.tacticalBtn} ${styles.radarBtn}`}
+            onClick={handleUseRadar}
+            disabled={!canUseTactical || radarQty <= 0}
+          >
+            🛰 Radar · {radarQty}
+          </button>
+          <button
+            className={styles.fireButton}
+            onClick={torpedoActive ? handleUseTorpedo : handleShoot}
+            disabled={torpedoActive ? !canFireTorpedo : !canFire}
+          >
+            {torpedoActive
+              ? selectedCell
+                ? `🔥 TORPEDO ${formatCellLabel(selectedCell, lang)}`
+                : "SELECT TARGET"
+              : canFire
+                ? `🔥 ${tr.fire_at} ${formatCellLabel(selectedCell!, lang)}`
+                : botProcessing
+                  ? tr.bot_thinking
+                  : isMyTurn
+                    ? tr.select_cell
+                    : tr.waiting}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tacticalBtn} ${styles.torpedoBtn} ${torpedoActive ? styles.tacticalActive : ""}`}
+            onClick={() => setTorpedoActive((active) => !active)}
+            disabled={!canUseTactical || torpedoQty <= 0}
+          >
+            💣 Torpedo · {torpedoQty}
+          </button>
+        </div>
+        {torpedoActive && (
+          <div className={styles.directionPanel}>
+            {(Object.keys(TACTICAL_DIRS) as TacticalDirection[]).map((direction) => (
               <button
                 type="button"
-                className={styles.torpedoFireBtn}
-                onClick={handleUseTorpedo}
-                disabled={!canFireTorpedo}
+                key={direction}
+                className={`${styles.directionBtn} ${torpedoDir === direction ? styles.directionActive : ""}`}
+                onClick={() => setTorpedoDir(direction)}
+                disabled={!canUseTactical}
               >
-                {selectedCell
-                  ? `Fire Line ${formatCellLabel(selectedCell, lang)}`
-                  : "Select Torpedo Start"}
+                {TACTICAL_DIRS[direction].label}
               </button>
-            </>
-          )}
-          <div className={styles.itemHint}>{itemHint}</div>
-        </div>
-        <button
-          className={styles.fireButton}
-          onClick={handleShoot}
-          disabled={!canFire}
-        >
-          {canFire
-            ? `${tr.fire_at} ${formatCellLabel(selectedCell!, lang)}`
-            : botProcessing
-              ? tr.bot_thinking
-              : torpedoActive
-                ? "Use torpedo controls"
-              : isMyTurn
-                ? tr.select_cell
-                : tr.waiting}
-        </button>
+            ))}
+          </div>
+        )}
+        {itemHint && <div className={styles.itemHint}>{itemHint}</div>}
       </div>
     </div>
   );

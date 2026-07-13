@@ -39,7 +39,6 @@ import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
-const SEASON_DROP_AT = Date.UTC(2026, 6, 18, 0, 0, 0);
 
 export default function SeasonPage() {
   const { lang } = useSettings();
@@ -61,7 +60,18 @@ export default function SeasonPage() {
   const [seasonClaimFallbackMined, setSeasonClaimFallbackMined] = useState(false);
   const seasonClaimLevelsRef = useRef<number[]>([]);
   const seasonClaimHandledRef = useRef(false);
-  const countdown = useCountdown(SEASON_DROP_AT);
+  const targetMs = useMemo(() => {
+    if (season?.endDate) {
+      try {
+        return new Date(season.endDate).getTime();
+      } catch {
+        // ignore
+      }
+    }
+    return Date.UTC(2026, 6, 18, 0, 0, 0);
+  }, [season?.endDate]);
+
+  const countdown = useCountdown(targetMs);
 
   const orderedConnectors = useMemo(() => {
     const baseConnectors = connectors.filter(isBaseAccountConnector);
@@ -325,7 +335,7 @@ export default function SeasonPage() {
           <span>{tr.back}</span>
         </Link>
         <div className={styles.titleBlock}>
-          <span>{ru ? "Сезон S1" : "Season S1"}</span>
+          <span>{ru ? "Сезон S2" : "Season S2"}</span>
           <h1>{ru ? "Награды сезона" : "Season Rewards"}</h1>
           <p>
             {ru
@@ -342,6 +352,7 @@ export default function SeasonPage() {
             address={address}
             showEstimate={!!address}
             clickable={false}
+            endDate={season?.endDate}
           />
         </div>
 

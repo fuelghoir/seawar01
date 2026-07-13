@@ -62,8 +62,8 @@ BEGIN
       EXECUTE format('DROP POLICY IF EXISTS insert_%I ON public.%I', t_name, t_name);
       EXECUTE format('CREATE POLICY insert_%I ON public.%I FOR INSERT TO anon, authenticated WITH CHECK (true)', t_name, t_name);
       
-      -- Create UPDATE policy (if not shots or sunk_reports which shouldn't be updated by players)
-      IF t_name NOT IN ('shots', 'sunk_reports') THEN
+      -- Create UPDATE policy (if not sunk_reports which shouldn't be updated by players)
+      IF t_name NOT IN ('sunk_reports') THEN
         EXECUTE format('DROP POLICY IF EXISTS update_%I ON public.%I', t_name, t_name);
         EXECUTE format('CREATE POLICY update_%I ON public.%I FOR UPDATE TO anon, authenticated USING (true)', t_name, t_name);
       END IF;

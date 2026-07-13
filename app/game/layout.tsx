@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { createSeoMetadata } from "../lib/seo";
+import styles from "./page.module.css";
 
 export const metadata: Metadata = createSeoMetadata({
   title: "Sea Battle Match",
@@ -10,5 +11,10 @@ export const metadata: Metadata = createSeoMetadata({
 });
 
 export default function GameLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <div className={styles.container} style={{ minHeight: "100vh" }}>
+      {children}
+    </div>
+  );
 }
+

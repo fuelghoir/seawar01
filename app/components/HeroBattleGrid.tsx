@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, CSSProperties } from "react";
+import { useAccount } from "wagmi";
+import { useSettings } from "../lib/settings";
+import { isGameSoundEnabled } from "../lib/sounds";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import {
   createBotState,
   botChooseTarget,
@@ -186,6 +190,164 @@ export function HeroBattleGrid({
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [victory, setVictory] = useState(false);
 
+  // ─── Easter Egg State ───
+  const { lang } = useSettings();
+  const ru = lang === "ru";
+  const { address } = useAccount();
+
+  const [rotateX, setRotateX] = useState(12);
+  const [rotateY, setRotateY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [claimStatus, setClaimStatus] = useState<{
+    loading: boolean;
+    error: string | null;
+    points: number | null;
+    usdEligible: boolean;
+  }>({ loading: false, error: null, points: null, usdEligible: false });
+
+  const dragStart = useRef({ x: 0, y: 0 });
+  const lastPos = useRef({ x: 0, y: 0 });
+  const directionChanges = useRef<number[]>([]);
+  const lastDirection = useRef<"left" | "right" | null>(null);
+  const hasTriggeredThisDrag = useRef(false);
+
+  const playEasterEggSound = () => {
+    try {
+      if (!isGameSoundEnabled()) return;
+      const ctx = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const now = ctx.currentTime;
+      const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; // C Major arpeggio
+      notes.forEach((freq, idx) => {
+        const t = now + idx * 0.1;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.08, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      });
+    } catch {}
+  };
+
+  const handleStart = (clientX: number, clientY: number) => {
+    if (isFlipped || staticPreview) return;
+    setIsDragging(true);
+    dragStart.current = { x: clientX, y: clientY };
+    lastPos.current = { x: clientX, y: clientY };
+    directionChanges.current = [];
+    lastDirection.current = null;
+    hasTriggeredThisDrag.current = false;
+  };
+
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!isDragging || isFlipped || staticPreview || hasTriggeredThisDrag.current) return;
+
+    const dx = clientX - dragStart.current.x;
+    const dy = clientY - dragStart.current.y;
+
+    // drag Y movement controls rotateX (tilt up/down)
+    // drag X movement controls rotateY (tilt left/right)
+    setRotateX(Math.max(-45, Math.min(45, 12 + dy * 0.3)));
+    setRotateY(Math.max(-45, Math.min(45, dx * 0.3)));
+
+    const movementX = clientX - lastPos.current.x;
+    lastPos.current = { x: clientX, y: clientY };
+
+    if (Math.abs(movementX) > 12) {
+      const currentDir = movementX > 0 ? "right" : "left";
+      if (lastDirection.current && lastDirection.current !== currentDir) {
+        directionChanges.current.push(Date.now());
+        const now = Date.now();
+        directionChanges.current = directionChanges.current.filter((t) => now - t < 800);
+
+        // Shake detected! 5 rapid switches of direction in 800ms
+        if (directionChanges.current.length >= 5) {
+          triggerEasterEgg();
+        }
+      }
+      lastDirection.current = currentDir;
+    }
+  };
+
+  const handleEnd = () => {
+    setIsDragging(false);
+    if (!isFlipped) {
+      setRotateX(12);
+      setRotateY(0);
+    }
+  };
+
+  const triggerEasterEgg = async () => {
+    hasTriggeredThisDrag.current = true;
+    setIsDragging(false);
+    setIsFlipped(true);
+    playEasterEggSound();
+
+    setRotateX(12);
+    setRotateY(0);
+
+    if (address) {
+      setClaimStatus({ loading: true, error: null, points: null, usdEligible: false });
+      setShowModal(true);
+      try {
+        const res = await fetch("/api/easter-egg/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: address }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setClaimStatus({
+            loading: false,
+            error: data.error || "Claim failed",
+            points: null,
+            usdEligible: false,
+          });
+        } else {
+          setClaimStatus({
+            loading: false,
+            error: null,
+            points: data.points,
+            usdEligible: data.usdEligible,
+          });
+          notifyPlayerDataRefresh();
+        }
+      } catch {
+        setClaimStatus({
+          loading: false,
+          error: "Connection error",
+          points: null,
+          usdEligible: false,
+        });
+      }
+    } else {
+      setShowModal(true);
+      setClaimStatus({
+        loading: false,
+        error: ru
+          ? "Пожалуйста, подключите кошелек, чтобы получить награду!"
+          : "Please connect your wallet first to claim the reward!",
+        points: null,
+        usdEligible: false,
+      });
+    }
+
+    setTimeout(() => {
+      setIsFlipped(false);
+    }, 1800);
+  };
+
+  const defaultX = isHovered ? 0 : 12;
+  const currentRotateX = isDragging ? rotateX : defaultX;
+  const currentRotateY = isDragging ? rotateY : 0;
+
   const aliveRef = useRef(true);
   const layoutRef = useRef(layout);
   const botStateRef = useRef(createBotState());
@@ -366,24 +528,23 @@ export function HeroBattleGrid({
     const flashHit = isFlashNow && flash?.type === "hit";
     const flashMiss = isFlashNow && flash?.type === "miss";
 
-    if (flashHit) return { bg: "rgba(239,68,68,0.7)", border: "rgba(239,68,68,1)", shadow: "0 0 24px rgba(239,68,68,1), inset 0 0 12px rgba(239,68,68,0.5)", flashing: true };
-    if (flashMiss) return { bg: "rgba(100,130,200,0.25)", border: "rgba(100,150,255,0.7)", shadow: "0 0 16px rgba(100,150,255,0.8)", flashing: true };
-    if (isSunk && isHit) return { bg: "rgba(239,68,68,0.35)", border: "rgba(239,68,68,0.7)", shadow: "0 0 10px rgba(239,68,68,0.6)", flashing: false };
-    if (isPartial && isHit) return { bg: "rgba(251,191,36,0.35)", border: "rgba(251,191,36,0.8)", shadow: "0 0 10px rgba(251,191,36,0.6)", flashing: false };
-    if (isSunk && !isHit) return { bg: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)", shadow: "none", flashing: false };
-    if (isPartial && !isHit) return { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.3)", shadow: "none", flashing: false };
-    if (isHit) return { bg: "rgba(239,68,68,0.32)", border: "rgba(239,68,68,0.6)", shadow: "0 0 8px rgba(239,68,68,0.5)", flashing: false };
-    if (isMiss) return { bg: "rgba(59,130,246,0.06)", border: "rgba(59,130,246,0.2)", shadow: "none", flashing: false };
-    if (isCursor) return { bg: "rgba(0,220,180,0.12)", border: "rgba(0,220,180,0.9)", shadow: "0 0 16px rgba(0,220,180,0.7)", flashing: false };
-    if (isShip) return { bg: "rgba(0,220,180,0.08)", border: "rgba(0,220,180,0.22)", shadow: "none", flashing: false };
-    return { bg: "rgba(0,220,180,0.012)", border: "rgba(0,220,180,0.07)", shadow: "none", flashing: false };
+    if (flashHit) return { bg: "rgba(239,68,68,0.75)", border: "rgba(239,68,68,1)", shadow: "0 0 24px rgba(239,68,68,1), inset 0 0 12px rgba(239,68,68,0.5)", flashing: true };
+    if (flashMiss) return { bg: "rgba(var(--accent-rgb), 0.3)", border: "rgba(var(--accent-rgb), 0.8)", shadow: "0 0 16px rgba(var(--accent-rgb), 0.8)", flashing: true };
+    if (isSunk && isHit) return { bg: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", shadow: "0 0 18px var(--hit-glow), inset 0 0 10px rgba(255, 77, 77, 0.2)", flashing: false };
+    if (isPartial && isHit) return { bg: "rgba(255, 184, 77, 0.25)", border: "var(--amber)", shadow: "0 0 14px var(--amber-glow), inset 0 0 8px rgba(255, 184, 77, 0.15)", flashing: false };
+    if (isSunk && !isHit) return { bg: "rgba(255, 77, 77, 0.15)", border: "rgba(255, 77, 77, 0.4)", shadow: "none", flashing: false };
+    if (isPartial && !isHit) return { bg: "rgba(var(--accent-rgb), 0.16)", border: "rgba(var(--accent-rgb), 0.85)", shadow: "none", flashing: false };
+    if (isHit) return { bg: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", shadow: "0 0 12px var(--hit-glow)", flashing: false };
+    if (isMiss) return { bg: "rgba(var(--bg-abyss-rgb), 0.45)", border: "rgba(var(--accent-rgb), 0.06)", shadow: "none", flashing: false };
+    if (isCursor) return { bg: "rgba(var(--accent-rgb), 0.22)", border: "rgba(var(--accent-rgb), 0.95)", shadow: "0 0 16px rgba(var(--accent-rgb), 0.75)", flashing: false };
+    if (isShip) return { bg: "rgba(var(--accent-rgb), 0.16)", border: "rgba(var(--accent-rgb), 0.85)", shadow: "0 0 10px rgba(var(--accent-rgb), 0.25)", flashing: false };
+    return { bg: "rgba(var(--bg-primary-rgb), 0.35)", border: "rgba(var(--accent-rgb), 0.22)", shadow: "none", flashing: false };
   }
 
   return (
     <div className={`${styles.outer} ${compact ? styles.compact : ""}`}>
       {/* Stats header */}
       <div className={styles.statsRow}>
-        <div className={styles.brand}>SEA BATTLE</div>
         <div className={styles.stats}>
           {(
             [
@@ -402,7 +563,37 @@ export function HeroBattleGrid({
         </div>
       </div>
 
-      <div className={styles.frame}>
+      <div
+        className={styles.frame}
+        style={{
+          transform: isFlipped
+            ? "perspective(3500px) rotateY(720deg) rotateX(0deg)"
+            : `perspective(3500px) rotateX(${currentRotateX}deg) rotateY(${currentRotateY}deg)`,
+          transition: isDragging ? "none" : isFlipped ? "transform 1.4s cubic-bezier(0.19, 1, 0.22, 1)" : "transform 0.45s ease-out",
+          cursor: isDragging ? "grabbing" : "grab",
+          userSelect: "none",
+          touchAction: "none",
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          handleEnd();
+        }}
+        onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+        onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+        onMouseUp={handleEnd}
+        onTouchStart={(e) => {
+          if (e.touches[0]) {
+            handleStart(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }}
+        onTouchMove={(e) => {
+          if (e.touches[0]) {
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }}
+        onTouchEnd={handleEnd}
+      >
         <div className={styles.colHeader}>
           {COL_LETTERS.map((l) => (
             <div key={l} className={styles.headerCell}>
@@ -460,6 +651,7 @@ export function HeroBattleGrid({
                       {isHit && (
                         <span
                           className={`${styles.glyph} ${isFlashNow ? styles.glyphPop : ""} ${isSunk ? styles.glyphSunk : isPartial ? styles.glyphPartial : ""}`}
+                          style={{ zIndex: 11 }}
                           aria-hidden="true"
                         >
                           💥
@@ -484,16 +676,22 @@ export function HeroBattleGrid({
                 </div>
               </div>
             )}
+
+            {/* HUD bottom branding labels */}
+            <div className={styles.boardFooter}>
+              <span className={styles.footerBrand}>SEA BATTLE</span>
+              <span className={styles.footerBrand}>BASE</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className={styles.legend}>
         {[
-          { color: "rgba(0,220,180,0.5)", border: "rgba(0,220,180,0.4)", label: "INTACT" },
-          { color: "rgba(251,191,36,0.4)", border: "rgba(251,191,36,0.7)", label: "DAMAGED" },
-          { color: "rgba(239,68,68,0.4)", border: "rgba(239,68,68,0.7)", label: "DESTROYED" },
-          { color: "rgba(100,150,255,0.3)", border: "rgba(100,150,255,0.5)", label: "MISSED" },
+          { color: "rgba(0, 220, 180, 0.16)", border: "rgba(0, 220, 180, 0.85)", label: "INTACT" },
+          { color: "rgba(255, 184, 77, 0.25)", border: "var(--amber)", label: "DAMAGED" },
+          { color: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", label: "DESTROYED" },
+          { color: "rgba(var(--bg-abyss-rgb), 0.45)", border: "rgba(var(--accent-rgb), 0.06)", label: "MISSED" },
         ].map((item) => (
           <div key={item.label} className={styles.legendItem}>
             <div
@@ -504,6 +702,62 @@ export function HeroBattleGrid({
           </div>
         ))}
       </div>
+
+      {showModal && (
+        <div className={styles.easterEggModalBackdrop} onClick={() => setShowModal(false)}>
+          <div className={styles.easterEggModal} onClick={(e) => e.stopPropagation()}>
+            <button className={styles.easterEggClose} onClick={() => setShowModal(false)} type="button">
+              ✕
+            </button>
+            <div className={styles.easterEggHeader}>
+              <span>✨ {ru ? "ПАСХАЛКА НАЙДЕНА!" : "EASTER EGG FOUND!"}</span>
+              <h2>{ru ? "Секрет Сетки Сражений" : "Hero Grid Secret"}</h2>
+            </div>
+            <div className={styles.easterEggContent}>
+              {claimStatus.loading ? (
+                <div className={styles.easterEggLoader}>
+                  <div className={styles.spinner} />
+                  <p>{ru ? "Связываемся со спутником..." : "Connecting to satellite..."}</p>
+                </div>
+              ) : claimStatus.error ? (
+                <div className={styles.easterEggErrorBlock}>
+                  <p className={styles.errorText}>{claimStatus.error}</p>
+                  <p className={styles.cooldownHint}>
+                    {ru
+                      ? "Секретный отсек можно встряхивать раз в 3 дня."
+                      : "The secret compartment can be shaken once every 3 days."}
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.easterEggSuccessBlock}>
+                  <div className={styles.trophyIcon}>🏆</div>
+                  <h3 className={styles.rewardTitle}>
+                    +{claimStatus.points?.toLocaleString()} {ru ? "Очков" : "Points"}
+                  </h3>
+                  <p className={styles.successText}>
+                    {ru
+                      ? "Бонусные очки успешно зачислены на ваш баланс!"
+                      : "Bonus points have been successfully added to your balance!"}
+                  </p>
+                  {claimStatus.usdEligible && (
+                    <div className={styles.usdPrizeBadge}>
+                      <h4>🎁 {ru ? "СУПЕРПРИЗ!" : "GRAND PRIZE!"}</h4>
+                      <p>
+                        {ru
+                          ? "Вы первый, кто нашел пасхалку! Вам начислено $5 USDC. Заберите их на кошелек в панели 'USDC ДРОП'."
+                          : "You are the first finder! You won $5 USDC. Claim it to your wallet in the 'USDC DROP' panel."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <button className={styles.easterEggOkBtn} onClick={() => setShowModal(false)} type="button">
+              {ru ? "Отлично" : "Acknowledge"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1427,6 +1427,10 @@ export default function ShopPage() {
                     <span>{tr.shop_xp}</span>
                     <b>{currentSeasonXp.toLocaleString()}</b>
                   </div>
+                  <div>
+                    <span>{lang === "ru" ? "Очки сезона" : "Season points"}</span>
+                    <b>{(season?.points ?? 0).toLocaleString()}</b>
+                  </div>
                 </>
               )}
               <div>

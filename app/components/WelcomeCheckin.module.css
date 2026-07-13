@@ -70,8 +70,8 @@
   flex-wrap: wrap;
   margin-bottom: 18px;
   padding: 10px 14px;
-  background: rgba(0, 212, 255, 0.06);
-  border: 1px solid var(--border, rgba(0, 212, 255, 0.2));
+  background: rgba(var(--accent-rgb, 0, 212, 255), 0.06);
+  border: 1px solid var(--border, rgba(var(--accent-rgb, 0, 212, 255), 0.2));
   border-radius: 10px;
 }
 .rewardLabel {

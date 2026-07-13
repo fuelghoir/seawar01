@@ -95,8 +95,6 @@ export function AppHeader({
         )}
       </div>
 
-      <div className={styles.title}>SEA BATTLE</div>
-
       <div className={styles.right} ref={wrapRef}>
         {showDesktopConnect && (
           <button

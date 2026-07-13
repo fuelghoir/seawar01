@@ -70,6 +70,12 @@ export function Board({ cells, onCellClick, isInteractive, label, variant, cellS
                 ))}
               </div>
             ))}
+
+            {/* HUD bottom branding labels */}
+            <div className={styles.boardFooter}>
+              <span className={styles.footerBrand}>SEA BATTLE</span>
+              <span className={styles.footerBrand}>BASE</span>
+            </div>
           </div>
         </div>
       </div>
