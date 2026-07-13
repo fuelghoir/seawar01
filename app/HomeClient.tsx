@@ -502,13 +502,11 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         </div>
       )}
 
-      {showSeasonEndedIntro && (
-        <SeasonEndedClaimIntro
-          lang={lang}
-          onClose={() => setShowSeasonEndedIntro(false)}
-          onOpenClaim={openSeasonEndedClaim}
-        />
-      )}
+      <SeasonEndedClaimIntro
+        open={showSeasonEndedIntro}
+        onClose={() => setShowSeasonEndedIntro(false)}
+        onOpenClaim={openSeasonEndedClaim}
+      />
 
       {address && (
         <SeasonRewardsIntro
