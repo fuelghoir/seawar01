@@ -1,10 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, CSSProperties } from "react";
-import { useAccount } from "wagmi";
-import { useSettings } from "../lib/settings";
-import { isGameSoundEnabled } from "../lib/sounds";
-import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
+import { useState, useEffect, useRef } from "react";
 import {
   createBotState,
   botChooseTarget,
@@ -12,6 +8,8 @@ import {
   botNotifySunk,
 } from "../lib/botAI";
 import styles from "./HeroBattleGrid.module.css";
+import { useAccount } from "wagmi";
+import { useMiniApp } from "../providers/MiniAppProvider";
 
 const COLS = 10;
 const ROWS = 10;
@@ -175,7 +173,7 @@ type Flash = { key: string; type: "hit" | "miss" } | null;
 
 export function HeroBattleGrid({
   compact = false,
-  reducedFx = false,
+  reducedFx: _reducedFx = false,
   staticPreview = false,
 }: {
   compact?: boolean;
@@ -190,16 +188,11 @@ export function HeroBattleGrid({
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [victory, setVictory] = useState(false);
 
-  // ─── Easter Egg State ───
-  const { lang } = useSettings();
-  const ru = lang === "ru";
   const { address } = useAccount();
+  const { lang, notifyPlayerDataRefresh } = useMiniApp();
+  const ru = lang === "ru";
 
-  const [rotateX, setRotateX] = useState(12);
-  const [rotateY, setRotateY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [shipClicks, setShipClicks] = useState<number>(0);
   const [showModal, setShowModal] = useState(false);
   const [claimStatus, setClaimStatus] = useState<{
     loading: boolean;
@@ -208,145 +201,59 @@ export function HeroBattleGrid({
     usdEligible: boolean;
   }>({ loading: false, error: null, points: null, usdEligible: false });
 
-  const dragStart = useRef({ x: 0, y: 0 });
-  const lastPos = useRef({ x: 0, y: 0 });
-  const directionChanges = useRef<number[]>([]);
-  const lastDirection = useRef<"left" | "right" | null>(null);
-  const hasTriggeredThisDrag = useRef(false);
-
-  const playEasterEggSound = () => {
-    try {
-      if (!isGameSoundEnabled()) return;
-      const ctx = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
-      const now = ctx.currentTime;
-      const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; // C Major arpeggio
-      notes.forEach((freq, idx) => {
-        const t = now + idx * 0.1;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.linearRampToValueAtTime(0.08, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.35);
-      });
-    } catch {}
-  };
-
-  const handleStart = (clientX: number, clientY: number) => {
-    if (isFlipped || staticPreview) return;
-    setIsDragging(true);
-    dragStart.current = { x: clientX, y: clientY };
-    lastPos.current = { x: clientX, y: clientY };
-    directionChanges.current = [];
-    lastDirection.current = null;
-    hasTriggeredThisDrag.current = false;
-  };
-
-  const handleMove = (clientX: number, clientY: number) => {
-    if (!isDragging || isFlipped || staticPreview || hasTriggeredThisDrag.current) return;
-
-    const dx = clientX - dragStart.current.x;
-    const dy = clientY - dragStart.current.y;
-
-    // drag Y movement controls rotateX (tilt up/down)
-    // drag X movement controls rotateY (tilt left/right)
-    setRotateX(Math.max(-45, Math.min(45, 12 + dy * 0.3)));
-    setRotateY(Math.max(-45, Math.min(45, dx * 0.3)));
-
-    const movementX = clientX - lastPos.current.x;
-    lastPos.current = { x: clientX, y: clientY };
-
-    if (Math.abs(movementX) > 12) {
-      const currentDir = movementX > 0 ? "right" : "left";
-      if (lastDirection.current && lastDirection.current !== currentDir) {
-        directionChanges.current.push(Date.now());
-        const now = Date.now();
-        directionChanges.current = directionChanges.current.filter((t) => now - t < 800);
-
-        // Shake detected! 5 rapid switches of direction in 800ms
-        if (directionChanges.current.length >= 5) {
-          triggerEasterEgg();
-        }
-      }
-      lastDirection.current = currentDir;
-    }
-  };
-
-  const handleEnd = () => {
-    setIsDragging(false);
-    if (!isFlipped) {
-      setRotateX(12);
-      setRotateY(0);
-    }
-  };
-
-  const triggerEasterEgg = async () => {
-    hasTriggeredThisDrag.current = true;
-    setIsDragging(false);
-    setIsFlipped(true);
-    playEasterEggSound();
-
-    setRotateX(12);
-    setRotateY(0);
-
-    if (address) {
-      setClaimStatus({ loading: true, error: null, points: null, usdEligible: false });
-      setShowModal(true);
-      try {
-        const res = await fetch("/api/easter-egg/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ wallet: address }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
+  const handleShipClick = async () => {
+    if (staticPreview) return;
+    const nextClicks = shipClicks + 1;
+    setShipClicks(nextClicks);
+    if (nextClicks >= 5) {
+      setShipClicks(0);
+      if (address) {
+        setClaimStatus({ loading: true, error: null, points: null, usdEligible: false });
+        setShowModal(true);
+        try {
+          const res = await fetch("/api/easter-egg/claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ wallet: address }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setClaimStatus({
+              loading: false,
+              error: data.error || "Claim failed",
+              points: null,
+              usdEligible: false,
+            });
+          } else {
+            setClaimStatus({
+              loading: false,
+              error: null,
+              points: data.points,
+              usdEligible: data.usdEligible,
+            });
+            notifyPlayerDataRefresh();
+          }
+        } catch {
           setClaimStatus({
             loading: false,
-            error: data.error || "Claim failed",
+            error: "Connection error",
             points: null,
             usdEligible: false,
           });
-        } else {
-          setClaimStatus({
-            loading: false,
-            error: null,
-            points: data.points,
-            usdEligible: data.usdEligible,
-          });
-          notifyPlayerDataRefresh();
         }
-      } catch {
+      } else {
+        setShowModal(true);
         setClaimStatus({
           loading: false,
-          error: "Connection error",
+          error: ru
+            ? "Пожалуйста, подключите кошелек, чтобы забрать награду!"
+            : "Please connect your wallet first to claim the reward!",
           points: null,
           usdEligible: false,
         });
       }
-    } else {
-      setShowModal(true);
-      setClaimStatus({
-        loading: false,
-        error: ru
-          ? "Пожалуйста, подключите кошелек, чтобы получить награду!"
-          : "Please connect your wallet first to claim the reward!",
-        points: null,
-        usdEligible: false,
-      });
     }
-
-    setTimeout(() => {
-      setIsFlipped(false);
-    }, 1800);
   };
-
-  const defaultX = isHovered ? 0 : 12;
-  const currentRotateX = isDragging ? rotateX : defaultX;
-  const currentRotateY = isDragging ? rotateY : 0;
 
   const aliveRef = useRef(true);
   const layoutRef = useRef(layout);
@@ -499,7 +406,6 @@ export function HeroBattleGrid({
     };
   }, [compact, staticPreview]);
 
-  const trimVisualFx = reducedFx || staticPreview;
   const partialIds = new Set<number>();
   hits.forEach((k) => {
     const sid = layout.shipMap[k];
@@ -510,41 +416,11 @@ export function HeroBattleGrid({
   const sunkCount = sunkIds.size;
   const remain = layout.ships.length - sunkCount;
 
-  function cellStyle(col: number, row: number): {
-    bg: string;
-    border: string;
-    shadow: string;
-    flashing: boolean;
-  } {
-    const key = `${col},${row}`;
-    const sid = layout.shipMap[key];
-    const isShip = sid !== undefined;
-    const isSunk = isShip && sunkIds.has(sid);
-    const isPartial = isShip && partialIds.has(sid);
-    const isHit = hits.has(key);
-    const isMiss = misses.has(key);
-    const isCursor = cursor?.x === col && cursor?.y === row;
-    const isFlashNow = flash?.key === key;
-    const flashHit = isFlashNow && flash?.type === "hit";
-    const flashMiss = isFlashNow && flash?.type === "miss";
-
-    if (flashHit) return { bg: "rgba(239,68,68,0.75)", border: "rgba(239,68,68,1)", shadow: "0 0 24px rgba(239,68,68,1), inset 0 0 12px rgba(239,68,68,0.5)", flashing: true };
-    if (flashMiss) return { bg: "rgba(var(--accent-rgb), 0.3)", border: "rgba(var(--accent-rgb), 0.8)", shadow: "0 0 16px rgba(var(--accent-rgb), 0.8)", flashing: true };
-    if (isSunk && isHit) return { bg: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", shadow: "0 0 18px var(--hit-glow), inset 0 0 10px rgba(255, 77, 77, 0.2)", flashing: false };
-    if (isPartial && isHit) return { bg: "rgba(255, 184, 77, 0.25)", border: "var(--amber)", shadow: "0 0 14px var(--amber-glow), inset 0 0 8px rgba(255, 184, 77, 0.15)", flashing: false };
-    if (isSunk && !isHit) return { bg: "rgba(255, 77, 77, 0.15)", border: "rgba(255, 77, 77, 0.4)", shadow: "none", flashing: false };
-    if (isPartial && !isHit) return { bg: "rgba(var(--accent-rgb), 0.16)", border: "rgba(var(--accent-rgb), 0.85)", shadow: "none", flashing: false };
-    if (isHit) return { bg: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", shadow: "0 0 12px var(--hit-glow)", flashing: false };
-    if (isMiss) return { bg: "rgba(var(--bg-abyss-rgb), 0.45)", border: "rgba(var(--accent-rgb), 0.06)", shadow: "none", flashing: false };
-    if (isCursor) return { bg: "rgba(var(--accent-rgb), 0.22)", border: "rgba(var(--accent-rgb), 0.95)", shadow: "0 0 16px rgba(var(--accent-rgb), 0.75)", flashing: false };
-    if (isShip) return { bg: "rgba(var(--accent-rgb), 0.16)", border: "rgba(var(--accent-rgb), 0.85)", shadow: "0 0 10px rgba(var(--accent-rgb), 0.25)", flashing: false };
-    return { bg: "rgba(var(--bg-primary-rgb), 0.35)", border: "rgba(var(--accent-rgb), 0.22)", shadow: "none", flashing: false };
-  }
-
   return (
     <div className={`${styles.outer} ${compact ? styles.compact : ""}`}>
       {/* Stats header */}
       <div className={styles.statsRow}>
+        <div className={styles.brand}>SEA BATTLE</div>
         <div className={styles.stats}>
           {(
             [
@@ -563,37 +439,7 @@ export function HeroBattleGrid({
         </div>
       </div>
 
-      <div
-        className={styles.frame}
-        style={{
-          transform: isFlipped
-            ? "perspective(3500px) rotateY(720deg) rotateX(0deg)"
-            : `perspective(3500px) rotateX(${currentRotateX}deg) rotateY(${currentRotateY}deg)`,
-          transition: isDragging ? "none" : isFlipped ? "transform 1.4s cubic-bezier(0.19, 1, 0.22, 1)" : "transform 0.45s ease-out",
-          cursor: isDragging ? "grabbing" : "grab",
-          userSelect: "none",
-          touchAction: "none",
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          handleEnd();
-        }}
-        onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-        onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
-        onMouseUp={handleEnd}
-        onTouchStart={(e) => {
-          if (e.touches[0]) {
-            handleStart(e.touches[0].clientX, e.touches[0].clientY);
-          }
-        }}
-        onTouchMove={(e) => {
-          if (e.touches[0]) {
-            handleMove(e.touches[0].clientX, e.touches[0].clientY);
-          }
-        }}
-        onTouchEnd={handleEnd}
-      >
+      <div className={styles.frame}>
         <div className={styles.colHeader}>
           {COL_LETTERS.map((l) => (
             <div key={l} className={styles.headerCell}>
@@ -627,19 +473,23 @@ export function HeroBattleGrid({
                   const isMiss = misses.has(key);
                   const isCursor = cursor?.x === col && cursor?.y === row;
                   const isFlashNow = flash?.key === key;
-                  const cs = cellStyle(col, row);
+                  const flashHit = isFlashNow && flash?.type === "hit";
+                  const flashMiss = isFlashNow && flash?.type === "miss";
 
-                  const cellStyleObj: CSSProperties = {
-                    background: cs.bg,
-                    borderColor: cs.border,
-                    boxShadow: trimVisualFx ? "none" : cs.shadow,
-                  };
+                  let cellStateClass = styles.empty;
+                  if (flashHit || isSunk || isPartial || isHit) {
+                    cellStateClass = (isSunk || flashHit) ? styles.sunk : styles.hit;
+                  } else if (flashMiss || isMiss) {
+                    cellStateClass = styles.miss;
+                  } else if (isShip) {
+                    cellStateClass = styles.ship;
+                  }
 
                   return (
                     <div
                       key={col}
-                      className={`${styles.cell} ${cs.flashing ? styles.cellFlash : ""}`}
-                      style={cellStyleObj}
+                      className={`${styles.cell} ${cellStateClass} ${isFlashNow ? styles.cellFlash : ""}`}
+                      onClick={isShip ? handleShipClick : undefined}
                     >
                       {isCursor && !isHit && !isMiss && (
                         <>
@@ -648,19 +498,11 @@ export function HeroBattleGrid({
                           <div className={styles.crosshairDot} />
                         </>
                       )}
-                      {isHit && (
-                        <span
-                          className={`${styles.glyph} ${isFlashNow ? styles.glyphPop : ""} ${isSunk ? styles.glyphSunk : isPartial ? styles.glyphPartial : ""}`}
-                          style={{ zIndex: 11 }}
-                          aria-hidden="true"
-                        >
-                          💥
-                        </span>
+                      {(isHit || isSunk || flashHit) && (
+                        <span className={styles.marker}>X</span>
                       )}
-                      {!isHit && isMiss && (
-                        <div
-                          className={`${styles.missDot} ${isFlashNow ? styles.missDotIn : ""}`}
-                        />
+                      {(isMiss || flashMiss) && (
+                        <div className={styles.missDot} />
                       )}
                     </div>
                   );
@@ -676,22 +518,16 @@ export function HeroBattleGrid({
                 </div>
               </div>
             )}
-
-            {/* HUD bottom branding labels */}
-            <div className={styles.boardFooter}>
-              <span className={styles.footerBrand}>SEA BATTLE</span>
-              <span className={styles.footerBrand}>BASE</span>
-            </div>
           </div>
         </div>
       </div>
 
       <div className={styles.legend}>
         {[
-          { color: "rgba(0, 220, 180, 0.16)", border: "rgba(0, 220, 180, 0.85)", label: "INTACT" },
-          { color: "rgba(255, 184, 77, 0.25)", border: "var(--amber)", label: "DAMAGED" },
-          { color: "rgba(255, 77, 77, 0.28)", border: "var(--hit)", label: "DESTROYED" },
-          { color: "rgba(var(--bg-abyss-rgb), 0.45)", border: "rgba(var(--accent-rgb), 0.06)", label: "MISSED" },
+          { color: "rgba(0,220,180,0.5)", border: "rgba(0,220,180,0.4)", label: "INTACT" },
+          { color: "rgba(251,191,36,0.4)", border: "rgba(251,191,36,0.7)", label: "DAMAGED" },
+          { color: "rgba(239,68,68,0.4)", border: "rgba(239,68,68,0.7)", label: "DESTROYED" },
+          { color: "rgba(100,150,255,0.3)", border: "rgba(100,150,255,0.5)", label: "MISSED" },
         ].map((item) => (
           <div key={item.label} className={styles.legendItem}>
             <div

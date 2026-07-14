@@ -1247,6 +1247,7 @@ function createEmptyProfile(wallet: string): PlayerProfile {
     onchainWins: 0,
     onchainWinRate: 0,
     earningsUsdc: 0,
+    seasonPoints: 0,
   };
 }
 

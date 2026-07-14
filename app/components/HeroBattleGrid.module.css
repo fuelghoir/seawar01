@@ -17,10 +17,21 @@
 .statsRow {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   width: 100%;
   max-width: 440px;
   gap: 14px;
+}
+
+.brand {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.88), var(--accent-bright));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .stats { display: flex; gap: 12px; }
@@ -46,18 +57,6 @@
   flex-direction: column;
 }
 
-@media (min-width: 721px) {
-  .frame {
-    transform: perspective(3500px) rotateX(12deg);
-    transform-style: preserve-3d;
-    transform-origin: 50% 50%;
-    transition: transform 0.18s ease-out;
-  }
-  .frame:hover {
-    transform: perspective(3500px) rotateX(0deg);
-  }
-}
-
 /* Column letters — offset to start above the first cell column inside panel.
    Offset = row-labels width + their gap to panel + panel padding-left. */
 .colHeader {
@@ -73,9 +72,8 @@
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
   font-weight: 700;
-  color: rgba(var(--accent-rgb), 0.72) !important;
+  color: rgba(var(--accent-rgb), 0.58);
   letter-spacing: 0.04em;
-  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 .colHeader .headerCell:last-child { margin-right: 0; }
 
@@ -105,25 +103,26 @@
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
   font-weight: 700;
-  color: rgba(var(--accent-rgb), 0.72) !important;
-  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+  color: rgba(var(--accent-rgb), 0.58);
 }
 .rowLabels > .rowLabel:last-child { margin-bottom: 0; }
 
 /* ── Grid panel (symmetric padding now that labels are outside) ── */
 .panel {
   position: relative;
-  background: rgba(var(--bg-abyss-rgb), 0.82) !important;
-  border: 2px solid rgba(var(--accent-rgb), 0.45) !important;
-  border-radius: 12px !important;
-  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.78) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 4px;
+  padding: var(--panel-pad, 8px);
   box-shadow:
-    0 25px 60px rgba(0, 0, 0, 0.7),
-    0 0 35px rgba(var(--accent-rgb), 0.12),
-    inset 0 0 25px rgba(var(--accent-rgb), 0.05) !important;
+    inset 0 0 0 2px rgba(0, 0, 0, 0.34),
+    inset 0 0 26px rgba(0, 0, 0, 0.42),
+    0 7px 0 -3px rgba(0, 0, 0, 0.68),
+    0 14px 22px rgba(0, 0, 0, 0.24);
   overflow: hidden;
   display: inline-block;
-  backdrop-filter: blur(12px);
 }
 
 .bgGridLines {
@@ -154,31 +153,110 @@
   z-index: 1;
 }
 .panel > .row:last-of-type { margin-bottom: 0; }
+.row > .cell:last-child { margin-right: 0; }
 
 .cell {
+  position: relative;
+  z-index: 1;
   width: var(--cell);
   height: var(--cell);
-  margin-right: 2px;
-  border: 1px solid rgba(var(--accent-rgb), 0.24) !important;
-  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  position: relative;
   flex-shrink: 0;
-  background: rgba(var(--accent-rgb), 0.035);
-  transition:
-    background 0.18s,
-    box-shadow 0.18s,
-    border-color 0.18s;
+  border-radius: 3px;
+  transition: transform 140ms ease, border-color 160ms ease, background 160ms ease;
+  margin-right: 2px;
 }
-.row > .cell:last-child { margin-right: 0; }
 
-.cellFlash { animation: flashCell 0.25s ease; }
-@keyframes flashCell {
-  0% { transform: scale(1.15); }
-  100% { transform: scale(1); }
+.cell::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.cell::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+
+.empty {
+  border: 1px solid rgba(170, 196, 207, 0.22);
+  background:
+    radial-gradient(circle at 72% 24%, rgba(255, 255, 255, 0.12) 0 5%, transparent 7%),
+    linear-gradient(145deg, #607681, #405661 58%, #293b43);
+  box-shadow:
+    inset 0 -4px 0 rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ship {
+  border: 1px solid rgba(155, 205, 235, 0.66);
+  background: linear-gradient(145deg, #9fb8c4, #587b90 45%, #294659);
+  box-shadow:
+    inset 0 -4px 0 rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 0 8px rgba(74, 151, 190, 0.34);
+}
+
+.hit {
+  border: 1px solid #e7c94b;
+  background:
+    radial-gradient(circle, rgba(255, 248, 198, 0.72) 0 8%, transparent 10%),
+    linear-gradient(145deg, #e4cf65, #c9a928 52%, #765612);
+  box-shadow:
+    inset 0 -3px 0 rgba(113, 63, 18, 0.52),
+    0 0 11px rgba(217, 181, 48, 0.5);
+}
+
+.sunk {
+  border: 1px solid #e16f6f;
+  background:
+    radial-gradient(circle, rgba(255, 220, 151, 0.66) 0 9%, transparent 11%),
+    linear-gradient(145deg, #dc6a64, #b83f3f 48%, #641f24);
+  box-shadow:
+    inset 0 -3px 0 rgba(69, 10, 10, 0.58),
+    0 0 12px rgba(196, 59, 59, 0.54);
+}
+
+.miss {
+  border: 1px solid rgba(128, 149, 166, 0.14);
+  background: linear-gradient(145deg, #1d2930, #10181d 58%, #070b0e);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.marker {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.52), 0 0 8px rgba(255, 255, 255, 0.74);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+}
+
+.missDot {
+  width: 7px;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(157, 184, 203, 0.4);
+  border-radius: 50%;
+  background: rgba(92, 115, 132, 0.5);
+  box-shadow: 0 0 5px rgba(112, 140, 160, 0.28);
 }
 
 /* Cursor crosshair */
@@ -318,57 +396,186 @@
   gap: 10px;
 }
 
+:global(html[data-effects="full"]) .brand {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
 :global(html[data-effects="full"]) .panel {
-  background: linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.88) 0%, rgba(var(--bg-abyss-rgb), 0.94) 100%) !important;
-  border-color: rgba(var(--accent-rgb), 0.5) !important;
+  background: linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-abyss) 100%);
+  border-color: rgba(var(--accent-rgb), 0.2);
   border-radius: 12px;
   padding: 8px;
   box-shadow:
-    0 0 50px rgba(var(--accent-rgb), 0.12),
-    inset 0 0 60px rgba(var(--accent-rgb), 0.04) !important;
+    0 0 50px rgba(var(--accent-rgb), 0.08),
+    inset 0 0 60px rgba(var(--accent-rgb), 0.03);
 }
 
 :global(html[data-effects="full"]) .bgGridLines {
   background-image:
-    linear-gradient(rgba(var(--accent-rgb), 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--accent-rgb), 0.08) 1px, transparent 1px);
+    linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
 }
 
 :global(html[data-effects="full"]) .bgGlow {
   background: radial-gradient(
     ellipse 70% 50% at 50% 50%,
-    rgba(var(--accent-rgb), 0.05) 0%,
+    rgba(var(--accent-rgb), 0.07) 0%,
     transparent 70%
   );
 }
 
 :global(html[data-effects="full"]) .cell {
-  border-color: rgba(var(--accent-rgb), 0.24) !important;
-  transform-style: preserve-3d;
-  perspective: 400px;
+  border-color: rgba(var(--accent-rgb), 0.09);
 }
 
-/* ── Ship render cleanup completed ── */
+@media (max-width: 720px) {
+  .outer {
+    --cell: 28px;
+    --label-w: 18px;
+    --gap: 3px;
+  }
+  .glyph { font-size: 12px; }
+  .glyphSunk { font-size: 14px; }
+  .missDot { width: 7px; height: 7px; }
+  .brand { font-size: 13px; letter-spacing: 0.2em; }
+  .statValue { font-size: 14px; }
+  .victoryText { font-size: 28px; letter-spacing: 0.24em; }
+}
 
-.boardFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 6px;
-  padding-inline: 4px;
-  border-top: 1px solid rgba(var(--accent-rgb), 0.15);
+@media (max-width: 460px) {
+  .outer {
+    --cell: 24px;
+    --label-w: 16px;
+    --gap: 2px;
+  }
+  .panel { padding: 6px; }
+  .glyph { font-size: 10px; }
+  .glyphSunk { font-size: 12px; }
+  .missDot { width: 6px; height: 6px; }
+  .legend { gap: 10px; }
+  .legendLabel { font-size: 8px; }
+  .victoryText { font-size: 22px; letter-spacing: 0.18em; }
+}
+
+/* Compact preview used by the Base App mobile home. It keeps the same battle
+   simulation as desktop, only trims chrome and scales the board down. */
+.compact {
+  --cell: clamp(18px, 6.6vw, 23px);
+  --label-w: 14px;
+  --gap: 2px;
+  gap: 5px;
+}
+
+.compact .statsRow,
+.compact .legend {
+  display: none;
+}
+
+.compact .colHeader {
+  margin-left: calc(var(--label-w) + var(--gap) + 5px);
+  margin-bottom: 2px;
+}
+
+.compact .headerCell,
+.compact .rowLabel {
+  font-size: 7px;
+  color: rgba(var(--accent-rgb), 0.5);
+}
+
+.compact .rowLabels {
   padding-top: 5px;
+  padding-bottom: 5px;
 }
 
-.footerBrand {
-  font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: rgba(var(--accent-rgb), 0.42);
+.compact .panel {
+  padding: 5px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.84) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border-color: rgba(var(--accent-rgb), 0.22);
+  box-shadow:
+    0 0 34px rgba(var(--accent-rgb), 0.1),
+    inset 0 0 34px rgba(var(--accent-rgb), 0.04);
 }
 
-/* ── Easter Egg Modal & Animations ── */
+.compact .cell {
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.compact .glyph {
+  font-size: 10px;
+}
+
+.compact .glyphSunk {
+  font-size: 11px;
+}
+
+.compact .missDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .crosshairH {
+  left: 3px;
+  right: 3px;
+}
+
+.compact .crosshairV {
+  top: 3px;
+  bottom: 3px;
+}
+
+.compact .crosshairDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .victoryText {
+  font-size: 18px;
+  letter-spacing: 0.16em;
+}
+
+.compact .victorySub {
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 720px) {
+  .compact .panel {
+    box-shadow: none;
+  }
+
+  .compact .bgGlow {
+    display: none;
+  }
+
+  .compact .cell {
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .compact .cellFlash {
+    animation-duration: 0.16s;
+  }
+
+  .compact .glyphSunk,
+  .compact .glyphPartial {
+    filter: none;
+  }
+
+  .compact .missDot,
+  .compact .crosshairDot {
+    box-shadow: none;
+  }
+
+  .compact .victoryText {
+    animation: none;
+    text-shadow: 0 0 12px var(--accent-glow);
+  }
+}
+
+
 .easterEggModalBackdrop {
   position: fixed;
   inset: 0;
@@ -548,25 +755,4 @@
 @keyframes modalScaleIn {
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
-}
-
-@media (max-width: 440px) {
-  .outer {
-    --cell: 26px;
-    --label-w: 16px;
-    --gap: 3px;
-  }
-  .panel {
-    padding: 6px;
-  }
-  .cell { font-size: 12px; }
-  .headerCell, .rowLabel { font-size: 8px; }
-}
-
-@media (max-width: 360px) {
-  .outer {
-    --cell: 22px;
-    --label-w: 12px;
-    --gap: 2px;
-  }
 }
