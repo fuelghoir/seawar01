@@ -572,7 +572,7 @@ export function HeroBattleGrid({
           transition: isDragging ? "none" : isFlipped ? "transform 1.4s cubic-bezier(0.19, 1, 0.22, 1)" : "transform 0.45s ease-out",
           cursor: isDragging ? "grabbing" : "grab",
           userSelect: "none",
-          touchAction: "none",
+          touchAction: "pan-y",
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {

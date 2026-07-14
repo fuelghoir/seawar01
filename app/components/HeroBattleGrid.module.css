@@ -1,4 +1,4 @@
-﻿/* в”Ђв”Ђ Battle Grid (labels OUTSIDE panel for true symmetric grid) в”Ђв”Ђ */
+﻿/* РІвЂќР‚РІвЂќР‚ Battle Grid (labels OUTSIDE panel for true symmetric grid) РІвЂќР‚РІвЂќР‚ */
 
 .outer {
   display: flex;
@@ -8,20 +8,12 @@
   width: 100%;
   font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
   user-select: none;
-  --cell: clamp(27px, 3.2vw, 34px);
-  --label-w: 20px;
-  --gap: 3px;
+  --cell: 32px;
+  --label-w: 22px;
+  --gap: 4px;
 }
 
-@media (max-width: 420px) {
-  .outer {
-    --cell: clamp(22px, 8vw, 28px);
-    --label-w: 16px;
-    --gap: 2px;
-  }
-}
-
-/* в”Ђв”Ђ Stats header в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Stats header РІвЂќР‚РІвЂќР‚ */
 .statsRow {
   display: flex;
   align-items: center;
@@ -48,7 +40,7 @@
   margin-top: 2px;
 }
 
-/* в”Ђв”Ђ Frame: holds column letters above + (row labels | panel) below в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Frame: holds column letters above + (row labels | panel) below РІвЂќР‚РІвЂќР‚ */
 .frame {
   display: inline-flex;
   flex-direction: column;
@@ -68,7 +60,7 @@
 
 
 
-/* Column letters вЂ” offset to start above the first cell column inside panel.
+/* Column letters РІР‚вЂќ offset to start above the first cell column inside panel.
    Offset = row-labels width + their gap to panel + panel padding-left. */
 .colHeader {
   display: flex;
@@ -96,7 +88,7 @@
   gap: var(--gap);
 }
 
-/* Row numbers вЂ” column outside panel */
+/* Row numbers РІР‚вЂќ column outside panel */
 .rowLabels {
   display: flex;
   flex-direction: column;
@@ -120,7 +112,7 @@
 }
 .rowLabels > .rowLabel:last-child { margin-bottom: 0; }
 
-/* в”Ђв”Ђ Grid panel (symmetric padding now that labels are outside) в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Grid panel (symmetric padding now that labels are outside) РІвЂќР‚РІвЂќР‚ */
 .panel {
   position: relative;
   background: rgba(var(--bg-abyss-rgb), 0.82) !important;
@@ -257,7 +249,7 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-/* в”Ђв”Ђ Victory flash в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Victory flash РІвЂќР‚РІвЂќР‚ */
 .victory {
   position: absolute;
   inset: 0;
@@ -300,7 +292,7 @@
   50% { transform: scale(1.05); }
 }
 
-/* в”Ђв”Ђ Legend в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Legend РІвЂќР‚РІвЂќР‚ */
 .legend {
   display: flex;
   gap: 18px;
@@ -323,7 +315,7 @@
   letter-spacing: 0.12em;
 }
 
-/* в”Ђв”Ђ Responsive в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Responsive РІвЂќР‚РІвЂќР‚ */
 :global(html[data-effects="full"]) .outer {
   gap: 10px;
 }
@@ -358,7 +350,7 @@
   perspective: 400px;
 }
 
-/* в”Ђв”Ђ Ship render cleanup completed в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Ship render cleanup completed РІвЂќР‚РІвЂќР‚ */
 
 .boardFooter {
   display: flex;
@@ -378,7 +370,7 @@
   color: rgba(var(--accent-rgb), 0.42);
 }
 
-/* в”Ђв”Ђ Easter Egg Modal & Animations в”Ђв”Ђ */
+/* РІвЂќР‚РІвЂќР‚ Easter Egg Modal & Animations РІвЂќР‚РІвЂќР‚ */
 .easterEggModalBackdrop {
   position: fixed;
   inset: 0;
@@ -569,3 +561,83 @@
     backdrop-filter: none !important;
   }
 }
+
+.compact {
+  --cell: clamp(18px, 6.6vw, 23px);
+  --label-w: 14px;
+  --gap: 2px;
+  gap: 5px;
+}
+
+.compact .statsRow,
+.compact .legend {
+  display: none;
+}
+
+.compact .colHeader {
+  margin-left: calc(var(--label-w) + var(--gap) + 5px);
+  margin-bottom: 2px;
+}
+
+.compact .headerCell,
+.compact .rowLabel {
+  font-size: 7px;
+  color: rgba(var(--accent-rgb), 0.5);
+}
+
+.compact .rowLabels {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.compact .panel {
+  padding: 5px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.84) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border-color: rgba(var(--accent-rgb), 0.22);
+  box-shadow:
+    0 0 34px rgba(var(--accent-rgb), 0.1),
+    inset 0 0 34px rgba(var(--accent-rgb), 0.04);
+}
+
+.compact .cell {
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.compact .glyph {
+  font-size: 10px;
+}
+
+.compact .glyphSunk {
+  font-size: 11px;
+}
+
+.compact .missDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .crosshairH {
+  left: 3px;
+  right: 3px;
+}
+
+.compact .crosshairV {
+  top: 3px;
+  bottom: 3px;
+}
+
+.compact .crosshairDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .victoryText {
+  font-size: 18px;
+  letter-spacing: 0.16em;
+}
+
+.compact .victorySub {
+  font-size: 7px;
+

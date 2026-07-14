@@ -1,0 +1,120 @@
+﻿.compact {
+  --cell: clamp(18px, 6.6vw, 23px);
+  --label-w: 14px;
+  --gap: 2px;
+  gap: 5px;
+}
+
+.compact .statsRow,
+.compact .legend {
+  display: none;
+}
+
+.compact .colHeader {
+  margin-left: calc(var(--label-w) + var(--gap) + 5px);
+  margin-bottom: 2px;
+}
+
+.compact .headerCell,
+.compact .rowLabel {
+  font-size: 7px;
+  color: rgba(var(--accent-rgb), 0.5);
+}
+
+.compact .rowLabels {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.compact .panel {
+  padding: 5px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(var(--bg-primary-rgb), 0.84) 0%, rgba(var(--bg-abyss-rgb), 0.96) 100%);
+  border-color: rgba(var(--accent-rgb), 0.22);
+  box-shadow:
+    0 0 34px rgba(var(--accent-rgb), 0.1),
+    inset 0 0 34px rgba(var(--accent-rgb), 0.04);
+}
+
+.compact .cell {
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.compact .glyph {
+  font-size: 10px;
+}
+
+.compact .glyphSunk {
+  font-size: 11px;
+}
+
+.compact .missDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .crosshairH {
+  left: 3px;
+  right: 3px;
+}
+
+.compact .crosshairV {
+  top: 3px;
+  bottom: 3px;
+}
+
+.compact .crosshairDot {
+  width: 5px;
+  height: 5px;
+}
+
+.compact .victoryText {
+  font-size: 18px;
+  letter-spacing: 0.16em;
+}
+
+.compact .victorySub {
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 720px) {
+  .compact .panel {
+    box-shadow: none;
+  }
+
+  .compact .bgGlow {
+    display: none;
+  }
+
+  .compact .cell {
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .compact .cellFlash {
+    animation-duration: 0.16s;
+  }
+
+  .compact .glyphSunk,
+  .compact .glyphPartial {
+    filter: none;
+  }
+
+  .compact .missDot,
+  .compact .crosshairDot {
+    box-shadow: none;
+  }
+
+  .compact .victoryText {
+    animation: none;
+    text-shadow: 0 0 12px var(--accent-glow);
+  }
+}
+
+
+.easterEggModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(2, 7, 13, 0.88);
