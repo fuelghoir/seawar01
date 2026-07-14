@@ -1303,8 +1303,6 @@ export function OffchainGameContent({
         phase="battle"
         turnLabel={turnLabel}
         turnAccent={turnAccent}
-        yourShips={yourShipsAlive}
-        enemyShips={enemyShipsAlive}
       />
       <EmojiReactions gameId={gameIdNum} playerNum={playerNum} />
 
@@ -1332,6 +1330,20 @@ export function OffchainGameContent({
       </div>
 
       <div className={styles.stickyFire}>
+        <div className={styles.hitBars}>
+          <div className={styles.hitBarWrap}>
+            <div className={styles.hitBarLabel}>YOU <span>{myHits}/20</span></div>
+            <div className={styles.hitBarTrack}>
+              <div className={styles.hitBarFill} style={{ width: `${(myHits / 20) * 100}%`, background: modeAccent, boxShadow: `0 0 8px ${modeAccent}` }} />
+            </div>
+          </div>
+          <div className={styles.hitBarWrap}>
+            <div className={styles.hitBarLabel}>ENEMY <span>{enemyHits}/20</span></div>
+            <div className={styles.hitBarTrack}>
+              <div className={styles.hitBarFill} style={{ width: `${(enemyHits / 20) * 100}%`, background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
+            </div>
+          </div>
+        </div>
         {mode === "friend" && game.state === 2 && (
           <div className={styles.tacticalSection}>
             <div className={styles.tacticalButtons}>

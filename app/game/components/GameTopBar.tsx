@@ -51,16 +51,18 @@ export function GameTopBar({
 
   return (
     <div className={styles.topBar}>
-      <button
-        className={styles.exit}
-        onClick={() => router.push("/")}
-        type="button"
-        aria-label="Exit"
-      >
-        ←
-      </button>
+      <div className={styles.left}>
+        <button
+          className={styles.exit}
+          onClick={() => router.push("/")}
+          type="button"
+          aria-label="Exit"
+        >
+          ←
+        </button>
 
-      <div className={styles.title}>SEA BATTLE</div>
+        <div className={styles.title}>SEA BATTLE</div>
+      </div>
 
       {phase === "battle" && turnLabel ? (
         <div className={styles.turnBlock}>
@@ -107,28 +109,7 @@ export function GameTopBar({
       )}
 
       <div className={styles.right}>
-        {phase === "battle" && yourShips != null && enemyShips != null ? (
-          <>
-            <div className={styles.shipCount}>
-              <span className={styles.shipCountLabel}>YOU</span>
-              <span
-                className={styles.shipCountValue}
-                style={{ color: info.accent }}
-              >
-                {yourShips}
-              </span>
-            </div>
-            <div className={styles.shipCount}>
-              <span className={styles.shipCountLabel}>ENEMY</span>
-              <span
-                className={styles.shipCountValue}
-                style={{ color: "#ef4444" }}
-              >
-                {enemyShips}
-              </span>
-            </div>
-          </>
-        ) : (
+        {phase !== "battle" && (
           <span className={styles.phase}>{phaseLabel}</span>
         )}
       </div>
