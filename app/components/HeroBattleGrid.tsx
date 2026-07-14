@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, CSSProperties } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   createBotState,
   botChooseTarget,
@@ -171,7 +171,7 @@ type Flash = { key: string; type: "hit" | "miss" } | null;
 
 export function HeroBattleGrid({
   compact = false,
-  reducedFx = false,
+  reducedFx: _reducedFx = false,
   staticPreview = false,
 }: {
   compact?: boolean;
@@ -337,7 +337,6 @@ export function HeroBattleGrid({
     };
   }, [compact, staticPreview]);
 
-  const trimVisualFx = reducedFx || staticPreview;
   const partialIds = new Set<number>();
   hits.forEach((k) => {
     const sid = layout.shipMap[k];
@@ -347,37 +346,6 @@ export function HeroBattleGrid({
   const hitCount = [...hits].filter((k) => layout.shipCells.has(k)).length;
   const sunkCount = sunkIds.size;
   const remain = layout.ships.length - sunkCount;
-
-  function cellStyle(col: number, row: number): {
-    bg: string;
-    border: string;
-    shadow: string;
-    flashing: boolean;
-  } {
-    const key = `${col},${row}`;
-    const sid = layout.shipMap[key];
-    const isShip = sid !== undefined;
-    const isSunk = isShip && sunkIds.has(sid);
-    const isPartial = isShip && partialIds.has(sid);
-    const isHit = hits.has(key);
-    const isMiss = misses.has(key);
-    const isCursor = cursor?.x === col && cursor?.y === row;
-    const isFlashNow = flash?.key === key;
-    const flashHit = isFlashNow && flash?.type === "hit";
-    const flashMiss = isFlashNow && flash?.type === "miss";
-
-    if (flashHit) return { bg: "rgba(239,68,68,0.7)", border: "rgba(239,68,68,1)", shadow: "0 0 24px rgba(239,68,68,1), inset 0 0 12px rgba(239,68,68,0.5)", flashing: true };
-    if (flashMiss) return { bg: "rgba(100,130,200,0.25)", border: "rgba(100,150,255,0.7)", shadow: "0 0 16px rgba(100,150,255,0.8)", flashing: true };
-    if (isSunk && isHit) return { bg: "rgba(239,68,68,0.35)", border: "rgba(239,68,68,0.7)", shadow: "0 0 10px rgba(239,68,68,0.6)", flashing: false };
-    if (isPartial && isHit) return { bg: "rgba(251,191,36,0.35)", border: "rgba(251,191,36,0.8)", shadow: "0 0 10px rgba(251,191,36,0.6)", flashing: false };
-    if (isSunk && !isHit) return { bg: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)", shadow: "none", flashing: false };
-    if (isPartial && !isHit) return { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.3)", shadow: "none", flashing: false };
-    if (isHit) return { bg: "rgba(239,68,68,0.32)", border: "rgba(239,68,68,0.6)", shadow: "0 0 8px rgba(239,68,68,0.5)", flashing: false };
-    if (isMiss) return { bg: "rgba(59,130,246,0.06)", border: "rgba(59,130,246,0.2)", shadow: "none", flashing: false };
-    if (isCursor) return { bg: "rgba(0,220,180,0.12)", border: "rgba(0,220,180,0.9)", shadow: "0 0 16px rgba(0,220,180,0.7)", flashing: false };
-    if (isShip) return { bg: "rgba(0,220,180,0.08)", border: "rgba(0,220,180,0.22)", shadow: "none", flashing: false };
-    return { bg: "rgba(0,220,180,0.012)", border: "rgba(0,220,180,0.07)", shadow: "none", flashing: false };
-  }
 
   return (
     <div className={`${styles.outer} ${compact ? styles.compact : ""}`}>
@@ -436,19 +404,22 @@ export function HeroBattleGrid({
                   const isMiss = misses.has(key);
                   const isCursor = cursor?.x === col && cursor?.y === row;
                   const isFlashNow = flash?.key === key;
-                  const cs = cellStyle(col, row);
+                  const flashHit = isFlashNow && flash?.type === "hit";
+                  const flashMiss = isFlashNow && flash?.type === "miss";
 
-                  const cellStyleObj: CSSProperties = {
-                    background: cs.bg,
-                    borderColor: cs.border,
-                    boxShadow: trimVisualFx ? "none" : cs.shadow,
-                  };
+                  let cellStateClass = styles.empty;
+                  if (flashHit || isSunk || isPartial || isHit) {
+                    cellStateClass = (isSunk || flashHit) ? styles.sunk : styles.hit;
+                  } else if (flashMiss || isMiss) {
+                    cellStateClass = styles.miss;
+                  } else if (isShip) {
+                    cellStateClass = styles.ship;
+                  }
 
                   return (
                     <div
                       key={col}
-                      className={`${styles.cell} ${cs.flashing ? styles.cellFlash : ""}`}
-                      style={cellStyleObj}
+                      className={`${styles.cell} ${cellStateClass} ${isFlashNow ? styles.cellFlash : ""}`}
                     >
                       {isCursor && !isHit && !isMiss && (
                         <>
@@ -457,18 +428,11 @@ export function HeroBattleGrid({
                           <div className={styles.crosshairDot} />
                         </>
                       )}
-                      {isHit && (
-                        <span
-                          className={`${styles.glyph} ${isFlashNow ? styles.glyphPop : ""} ${isSunk ? styles.glyphSunk : isPartial ? styles.glyphPartial : ""}`}
-                          aria-hidden="true"
-                        >
-                          💥
-                        </span>
+                      {(isHit || isSunk || flashHit) && (
+                        <span className={styles.marker}>X</span>
                       )}
-                      {!isHit && isMiss && (
-                        <div
-                          className={`${styles.missDot} ${isFlashNow ? styles.missDotIn : ""}`}
-                        />
+                      {(isMiss || flashMiss) && (
+                        <div className={styles.missDot} />
                       )}
                     </div>
                   );
