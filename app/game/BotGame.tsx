@@ -862,6 +862,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         phase="battle"
         turnLabel={turnLabel}
         turnAccent={turnAccent}
+        myHits={myHits}
+        enemyHits={botHits}
       />
       <div className={styles.gameScroll}>
         <div className={styles.battleLayout}>
@@ -892,21 +894,6 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       </div>
 
       <div className={styles.stickyFire}>
-        <div className={styles.hitBars}>
-          <div className={styles.hitBarWrap}>
-            <div className={styles.hitBarLabel}>YOU <span>{myHits}/20</span></div>
-            <div className={styles.hitBarTrack}>
-              <div className={styles.hitBarFill} style={{ width: `${(myHits / 20) * 100}%`, background: "var(--accent)", boxShadow: "0 0 8px var(--accent)" }} />
-            </div>
-          </div>
-          <div className={styles.hitBarWrap}>
-            <div className={styles.hitBarLabel}>ENEMY <span>{botHits}/20</span></div>
-            <div className={styles.hitBarTrack}>
-              <div className={styles.hitBarFill} style={{ width: `${(botHits / 20) * 100}%`, background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
-            </div>
-          </div>
-        </div>
-
         <div className={styles.fireRow}>
           <button
             type="button"

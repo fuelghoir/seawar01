@@ -8,6 +8,8 @@ interface GameTopBarProps {
   phase: "lobby" | "placement" | "battle" | "result";
   turnLabel?: string;
   turnAccent?: string;
+  myHits?: number;
+  enemyHits?: number;
   timer?: number;
 }
 
@@ -31,6 +33,8 @@ export function GameTopBar({
   phase,
   turnLabel,
   turnAccent,
+  myHits,
+  enemyHits,
   timer,
 }: GameTopBarProps) {
   const router = useRouter();
@@ -105,7 +109,14 @@ export function GameTopBar({
       )}
 
       <div className={styles.right}>
-        {phase !== "battle" && (
+        {phase === "battle" && myHits != null && enemyHits != null ? (
+          <div className={styles.compactCounters}>
+            <span className={styles.compactLabel}>YOU</span>
+            <span className={styles.compactValue} style={{ color: info.accent }}>{myHits}</span>
+            <span className={styles.compactDivider}>:</span>
+            <span className={styles.compactValue} style={{ color: "#ef4444" }}>{enemyHits}</span>
+          </div>
+        ) : phase !== "battle" && (
           <span className={styles.phase}>{phaseLabel}</span>
         )}
       </div>

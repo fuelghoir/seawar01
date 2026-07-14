@@ -116,6 +116,39 @@
   flex-shrink: 0;
 }
 
+.compactCounters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.compactLabel {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-right: 4px;
+}
+
+.compactValue {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compactDivider {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 2px;
+}
+
 .shipCount {
   display: flex;
   align-items: center;
