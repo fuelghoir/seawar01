@@ -1,46 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { adminSupabase, requireAdminSession } from "../../../lib/adminAuth";
-import { createPublicClient, http } from "viem";
-import { base } from "viem/chains";
-import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 export const runtime = "nodejs";
 
 const ADDR_RE = /^0x[a-f0-9]{40}$/;
 const DROP_ID_RE = /^[a-zA-Z0-9_.:-]{1,80}$/;
-const _MIN_ELIGIBLE_POINTS = 3_000;
-const _MIN_ELIGIBLE_TRANSACTIONS = 10;
 
-type PlayerStatsRow = {
-  wallet?: string | null;
-  points?: number | string | null;
-  games_played?: number | string | null;
-  total_checkins?: number | string | null;
-};
 
-const erc20Abi = [
-  {
-    type: "function",
-    name: "symbol",
-    inputs: [],
-    outputs: [{ type: "string" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "decimals",
-    inputs: [],
-    outputs: [{ type: "uint8" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "balanceOf",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256" }],
-    stateMutability: "view",
-  },
-] as const;
 
 function formatRaw(raw: string, decimals: number) {
   const value = BigInt(raw || "0");
@@ -52,18 +18,29 @@ function formatRaw(raw: string, decimals: number) {
   return `${whole.toLocaleString()}${fractionText ? `.${fractionText}` : ""}`;
 }
 
-function _seasonTransactionCount(row: PlayerStatsRow) {
-  return (
-    Math.max(0, Math.floor(Number(row.games_played ?? 0))) +
-    Math.max(0, Math.floor(Number(row.total_checkins ?? 0)))
-  );
-}
-
 export async function GET(req: NextRequest) {
   try {
-    await requireAdminSession();
-        const admin = adminSupabase();
-    let allWallets: { wallet: string; points: bigint; gamesPlayed: number; totalCheckins: number; transactions: number; }[] = [];
+    const session = await requireAdminSession();
+    const admin = adminSupabase();
+    
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id") || "";
+    const title = searchParams.get("title") || "";
+    const tokenAddress = searchParams.get("tokenAddress") || "";
+    const tokenSymbol = searchParams.get("tokenSymbol") || "";
+    const decimals = parseInt(searchParams.get("decimals") || "18");
+    const total = BigInt(searchParams.get("total") || "0");
+    const minPoints = parseInt(searchParams.get("minPoints") || "0");
+    const minTransactions = parseInt(searchParams.get("minTransactions") || "0");
+    const minCheckins = parseInt(searchParams.get("minCheckins") || "0");
+    const pointsSource = searchParams.get("pointsSource") || "standard";
+    const preview = searchParams.get("preview") === "true";
+    const contractAddress = searchParams.get("contractAddress");
+    const signerAddress = searchParams.get("signerAddress");
+
+    if (!DROP_ID_RE.test(id)) return NextResponse.json({ error: "Invalid drop ID" }, { status: 400 });
+
+    const allWallets: { wallet: string; points: bigint; gamesPlayed: number; totalCheckins: number; transactions: number; }[] = [];
 
     if (pointsSource === "season_current") {
       const seasonConfig = await admin.from("season_config").select("season_key").eq("id", "default").single();
@@ -235,10 +212,4 @@ export async function GET(req: NextRequest) {
       { status: 401 },
     );
   }
-}
-
-function parseBigInt(value: unknown) {
-  const raw = String(value ?? "0").trim();
-  if (!/^\d+$/.test(raw)) return BigInt(0);
-  return BigInt(raw);
 }
