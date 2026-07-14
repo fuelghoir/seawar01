@@ -877,7 +877,6 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
               isInteractive={isMyTurn && !botProcessing}
               label={tr.bot_waters}
               variant="target"
-              cellSize="clamp(32px, 4.2vw, 44px)"
             />
           </div>
 
@@ -887,7 +886,6 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
               cells={myBoardCells}
               isInteractive={false}
               label={tr.your_fleet}
-              cellSize="20px"
             />
             <div className={styles.minimapStatus}>
               <span>{tr.you_short}: {myHits}/20</span>
