@@ -9,7 +9,8 @@ import {
 } from "../lib/botAI";
 import styles from "./HeroBattleGrid.module.css";
 import { useAccount } from "wagmi";
-import { useMiniApp } from "../providers/MiniAppProvider";
+import { useSettings } from "../lib/settings";
+import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 
 const COLS = 10;
 const ROWS = 10;
@@ -189,7 +190,7 @@ export function HeroBattleGrid({
   const [victory, setVictory] = useState(false);
 
   const { address } = useAccount();
-  const { lang, notifyPlayerDataRefresh } = useMiniApp();
+  const { lang } = useSettings();
   const ru = lang === "ru";
 
   const [shipClicks, setShipClicks] = useState<number>(0);

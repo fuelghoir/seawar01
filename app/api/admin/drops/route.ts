@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase, requireAdminSession } from "../../../lib/adminAuth";
 
 export const runtime = "nodejs";
