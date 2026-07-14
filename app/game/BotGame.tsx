@@ -848,8 +848,6 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   const canUseTactical = isMyTurn && !botProcessing && phase === "playing" && !itemBusy;
   const canFire = canUseTactical && !!selectedCell && !torpedoActive;
   const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0;
-  const yourShipsAlive = Math.max(0, 20 - botHits);
-  const enemyShipsAlive = Math.max(0, 20 - myHits);
   const turnLabel = botProcessing
     ? tr.turn_bot_thinking
     : isMyTurn

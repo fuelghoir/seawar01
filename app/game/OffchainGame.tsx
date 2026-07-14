@@ -1283,9 +1283,6 @@ export function OffchainGameContent({
   const canShoot = isMyTurn && game.turn_phase === 0 && !loading && !torpedoActive;
   const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0;
 
-  // Hit-count proxies for the top bar (each board has 20 ship cells).
-  const enemyShipsAlive = Math.max(0, 20 - myHits);
-  const yourShipsAlive = Math.max(0, 20 - enemyHits);
 
   const turnLabel = needsReport
     ? "REPORT HIT"

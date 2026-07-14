@@ -8,8 +8,6 @@ interface GameTopBarProps {
   phase: "lobby" | "placement" | "battle" | "result";
   turnLabel?: string;
   turnAccent?: string;
-  yourShips?: number;
-  enemyShips?: number;
   timer?: number;
 }
 
@@ -33,8 +31,6 @@ export function GameTopBar({
   phase,
   turnLabel,
   turnAccent,
-  yourShips,
-  enemyShips,
   timer,
 }: GameTopBarProps) {
   const router = useRouter();
