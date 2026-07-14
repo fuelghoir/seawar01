@@ -686,6 +686,7 @@
   .battleLayout {
     flex-direction: row;
     align-items: flex-start;
+    justify-content: center;
     gap: 24px;
   }
 
@@ -724,17 +725,26 @@
   .hitCounters { gap: 8px; font-size: 9px; }
 
   .stickyFire {
-    padding: 8px;
+    padding: 6px;
+  }
+  .fireRow {
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .fireButton {
-    min-height: 38px;
-    padding: 8px 12px;
+    order: -1;
+    flex: 1 1 100%;
+    min-height: 42px;
+    padding: 6px 8px;
     font-size: 11px;
+    letter-spacing: 0.1em;
   }
   .tacticalBtn {
+    flex: 1 1 calc(50% - 3px);
     min-height: 38px;
-    padding: 0 10px;
+    padding: 0 6px;
     font-size: 9px;
+    letter-spacing: 0.05em;
   }
 }
 
