@@ -144,9 +144,9 @@
 /* ── Battle layout: large target + minimap ── */
 .battleLayout {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 18px;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   width: 100%;
 }
 
@@ -683,6 +683,12 @@
     padding: 20px 20px 30px;
   }
 
+  .battleLayout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
   .botStatus {
     width: min(100%, 760px);
   }
@@ -716,6 +722,20 @@
 
   .turnIndicator { font-size: 9px; }
   .hitCounters { gap: 8px; font-size: 9px; }
+
+  .stickyFire {
+    padding: 8px;
+  }
+  .fireButton {
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .tacticalBtn {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 9px;
+  }
 }
 
 /* Bomb controls */
