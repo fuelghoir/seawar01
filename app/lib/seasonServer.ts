@@ -180,15 +180,28 @@ export async function buyPointItemServer(
 
   const totalPricePoints = item.pricePoints * qty;
   const weekKey = getSeasonWeekKey();
-  const { data, error } = await admin
+
+  // Query spendable active season points balance
+  const { data: seasonData, error: seasonError } = await admin
+    .from("season_progress")
+    .select("points")
+    .eq("wallet", wallet)
+    .eq("season_key", SEASON_KEY)
+    .maybeSingle();
+  if (seasonError) throw new Error(seasonError.message);
+
+  const seasonPoints = Number(seasonData?.points ?? 0);
+  if (seasonPoints < totalPricePoints) throw new Error("Not enough points");
+
+  // Query permanent leaderboard stats points
+  const { data: playerStatsData, error: statsError } = await admin
     .from("player_stats")
     .select("points")
     .eq("wallet", wallet)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (statsError) throw new Error(statsError.message);
 
-  const points = Number(data?.points ?? 0);
-  if (points < totalPricePoints) throw new Error("Not enough points");
+  const playerStatsPoints = Number(playerStatsData?.points ?? 0);
 
   let weeklyPurchaseRecorded = false;
   if (slug === "quest_reroll") {
@@ -218,21 +231,50 @@ export async function buyPointItemServer(
       .eq("item_slug", slug);
   };
 
-  const { error: updateError } = await admin
+  // Decrement season points balance
+  const { error: updateSeasonError } = await admin
+    .from("season_progress")
+    .update({
+      points: seasonPoints - totalPricePoints,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("wallet", wallet)
+    .eq("season_key", SEASON_KEY);
+  if (updateSeasonError) {
+    await rollbackWeeklyPurchase();
+    throw new Error(updateSeasonError.message);
+  }
+
+  // Decrement permanent leaderboard points
+  const { error: updateStatsError } = await admin
     .from("player_stats")
     .update({
-      points: points - totalPricePoints,
+      points: Math.max(0, playerStatsPoints - totalPricePoints),
       updated_at: new Date().toISOString(),
     })
     .eq("wallet", wallet);
-  if (updateError) {
+  if (updateStatsError) {
+    // Rollback season points
+    try {
+      await admin
+        .from("season_progress")
+        .update({
+          points: seasonPoints,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("wallet", wallet)
+        .eq("season_key", SEASON_KEY);
+    } catch {
+      // ignore
+    }
     await rollbackWeeklyPurchase();
-    throw new Error(updateError.message);
+    throw new Error(updateStatsError.message);
   }
 
   try {
     await grantItemServer(admin, wallet, slug, qty);
   } catch (err) {
+    // Refund permanent points (the DB trigger will automatically refund season points too)
     await grantRawPointsServer(admin, wallet, totalPricePoints).catch(() => {});
     await rollbackWeeklyPurchase();
     throw err;

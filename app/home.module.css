@@ -219,13 +219,13 @@
 .welcomeCard {
   width: 100%;
   max-width: 460px;
-  background: linear-gradient(160deg, #071624 0%, #050d14 100%);
-  border: 1px solid rgba(0, 220, 180, 0.3);
+  background: linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-abyss) 100%);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 22px;
   padding: 44px 36px 36px;
   text-align: center;
   box-shadow:
-    0 0 60px rgba(0, 220, 180, 0.15),
+    0 0 60px rgba(var(--accent-rgb), 0.15),
     0 30px 60px rgba(0, 0, 0, 0.6);
   animation: cardIn 0.5s cubic-bezier(0.2, 1.05, 0.5, 1.05);
 }
@@ -234,7 +234,7 @@
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
   letter-spacing: 0.4em;
-  color: #00dcb4;
+  color: var(--accent);
   margin-bottom: 14px;
 }
 
@@ -244,7 +244,7 @@
   font-weight: 900;
   letter-spacing: 0.16em;
   margin: 0 0 12px;
-  background: linear-gradient(90deg, #00dcb4 0%, #3b82f6 50%, #a855f7 100%);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
   background-size: 200% auto;
   background-clip: text;
   -webkit-background-clip: text;
@@ -270,8 +270,8 @@
   font-size: 14px;
   font-weight: 900;
   letter-spacing: 0.18em;
-  color: #050d14;
-  background: linear-gradient(90deg, #00dcb4 0%, #00b896 50%, #0da874 100%);
+  color: var(--bg-abyss);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 100%);
   border: none;
   border-radius: 14px;
   cursor: pointer;
@@ -281,7 +281,7 @@
   gap: 10px;
   transition: transform 0.18s ease, box-shadow 0.25s ease;
   box-shadow:
-    0 0 30px rgba(0, 220, 180, 0.5),
+    0 0 30px rgba(var(--accent-rgb), 0.5),
     0 8px 24px rgba(0, 0, 0, 0.5);
   text-transform: uppercase;
 }
@@ -289,7 +289,7 @@
 .welcomeBtn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow:
-    0 0 40px rgba(0, 220, 180, 0.7),
+    0 0 40px rgba(var(--accent-rgb), 0.7),
     0 12px 32px rgba(0, 0, 0, 0.55);
 }
 .welcomeBtn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -448,7 +448,7 @@
   background:
     linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
-    linear-gradient(160deg, rgba(7, 22, 36, 0.98), rgba(3, 10, 18, 0.98));
+    linear-gradient(160deg, rgba(var(--bg-secondary-rgb), 0.98), rgba(var(--bg-abyss-rgb), 0.98));
   background-size: 26px 26px, 26px 26px, auto;
   box-shadow:
     0 0 70px rgba(var(--accent-rgb), 0.18),
@@ -516,36 +516,28 @@
 .layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 300px;
-  gap: 12px;
+  gap: 16px;
   height: calc(100vh - 52px);
   align-items: stretch;
-  padding: 14px;
+  padding: 16px 20px;
+  box-sizing: border-box;
 }
 
 .leftCol,
 .rightCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px 14px;
+  gap: 12px;
+  padding: 16px 14px;
   overflow-y: auto;
   height: 100%;
-  border: 1px solid rgba(var(--accent-rgb), 0.1);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
-    rgba(var(--bg-abyss-rgb), 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-}
-
-.leftCol {
-  border-right-color: rgba(var(--accent-rgb), 0.1);
-}
-
-.rightCol {
-  border-left-color: rgba(var(--accent-rgb), 0.1);
-  padding: 0;
-  gap: 0;
+  box-sizing: border-box;
+  background: rgba(6, 15, 24, 0.72) !important;
+  border: 1px solid rgba(0, 220, 180, 0.15) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 
 .centerCol {
@@ -554,14 +546,13 @@
   align-items: center;
   justify-content: flex-start;
   gap: 16px;
-  padding: 18px 20px 24px;
+  padding: 16px 20px 24px;
   overflow-y: auto;
   height: 100%;
-  border: 1px solid rgba(var(--accent-rgb), 0.1);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.008)),
-    rgba(var(--bg-abyss-rgb), 0.28);
+  box-sizing: border-box;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* ───── Center column: PLAY NOW button ───── */
@@ -571,11 +562,11 @@
   width: 100%;
   max-width: 440px;
   height: 56px;
-  border: 1px solid rgba(var(--accent-bright-rgb), 0.55);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 48%, var(--accent-bright) 100%);
-  color: #050d14;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.6) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(90deg, var(--accent-dark) 0%, var(--accent) 100%) !important;
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 15px;
   font-weight: 900;
@@ -583,17 +574,20 @@
   cursor: pointer;
   overflow: hidden;
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.34),
-    0 0 18px rgba(var(--accent-rgb), 0.2);
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(var(--accent-rgb), 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   transition: transform 0.12s, box-shadow 0.16s, border-color 0.16s;
   text-transform: uppercase;
   flex-shrink: 0;
+  animation: playPulse 2.2s infinite ease-in-out;
 }
 .playNow:hover {
-  border-color: rgba(var(--accent-bright-rgb), 0.78);
+  border-color: rgba(var(--accent-bright-rgb), 0.9) !important;
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.38),
-    0 0 24px rgba(var(--accent-rgb), 0.24);
+    0 12px 35px rgba(0, 0, 0, 0.55),
+    0 0 30px rgba(var(--accent-rgb), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
 }
 .playNow:active { transform: scale(0.97); }
 
@@ -1886,27 +1880,7 @@
   background: none;
 }
 
-:global(html[data-effects="full"]) .layout {
-  gap: 0;
-  padding: 0;
-}
 
-:global(html[data-effects="full"]) .leftCol,
-:global(html[data-effects="full"]) .rightCol,
-:global(html[data-effects="full"]) .centerCol {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-:global(html[data-effects="full"]) .leftCol {
-  border-right: 1px solid rgba(0, 220, 180, 0.08);
-}
-
-:global(html[data-effects="full"]) .rightCol {
-  border-left: 1px solid rgba(0, 220, 180, 0.08);
-}
 
 :global(html[data-effects="full"]) .playNow {
   height: 60px;
@@ -2865,4 +2839,103 @@
   .mobileNavActive {
     text-shadow: none;
   }
+}
+
+/* ── Compact Secret SBT Card ── */
+.secretSbtCard.secretSbtCompact {
+  min-height: 72px !important;
+  padding: 8px 10px !important;
+  gap: 8px !important;
+  border-radius: 8px !important;
+}
+
+.secretSbtCompact .secretSbtIcon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px !important;
+  font-size: 16px !important;
+}
+
+.secretSbtCompact .secretSbtBody {
+  gap: 2px !important;
+}
+
+.secretSbtCompact .secretSbtTitle {
+  font-size: 11px !important;
+}
+
+.secretSbtCompact .secretSbtDesc {
+  font-size: 10px !important;
+}
+
+.secretSbtCompact .secretSbtMeta {
+  display: none !important;
+}
+
+.secretSbtCompact::after {
+  font-size: 14px !important;
+  right: 6px !important;
+  bottom: 4px !important;
+}
+
+/* ── Compact Fleet Miner and Pool Card in Sidebar ── */
+.leftCol :global([class*="summaryStack"]) {
+  gap: 6px !important;
+}
+
+.leftCol :global([class*="minerCard"]) {
+  min-height: 128px !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+}
+
+.leftCol :global([class*="minerGlow"]) {
+  width: 90px !important;
+  height: 90px !important;
+  top: -20px !important;
+  right: -10px !important;
+}
+
+.leftCol :global([class*="minerShip"]) {
+  width: 58% !important;
+  right: -5px !important;
+  top: 2px !important;
+}
+
+.leftCol :global([class*="minerCopy"]) h2 {
+  font-size: 11px !important;
+  margin: 2px 0 1px !important;
+}
+
+.leftCol :global([class*="minerCopy"]) p {
+  font-size: 9px !important;
+  line-height: 1.2 !important;
+}
+
+.leftCol :global([class*="minerCard"]) button {
+  min-height: 26px !important;
+  margin-top: 6px !important;
+  font-size: 8px !important;
+}
+
+.leftCol :global([class*="poolCard"]) {
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  gap: 6px !important;
+}
+
+.leftCol :global([class*="poolAmount"]) strong {
+  font-size: 18px !important;
+}
+
+.leftCol :global([class*="poolEstimate"]) b {
+  font-size: 11px !important;
+}
+
+.leftCol :global([class*="poolEstimate"]) small {
+  font-size: 9px !important;
+}
+
+.leftCol :global([class*="poolMeta"]) {
+  margin-top: 2px !important;
 }

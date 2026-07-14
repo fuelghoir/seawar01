@@ -14,6 +14,7 @@ interface HomeCardProps {
   active?: boolean;
   onClick?: () => void;
   children?: ReactNode;
+  compact?: boolean;
 }
 
 export function HomeCard({
@@ -22,10 +23,11 @@ export function HomeCard({
   title,
   subtitle,
   badge,
-  accent = "#00dcb4",
+  accent = "var(--accent)",
   active = false,
   onClick,
   children,
+  compact = false,
 }: HomeCardProps) {
   return (
     <div
@@ -34,6 +36,7 @@ export function HomeCard({
         styles.card,
         active && styles.cardActive,
         onClick && styles.cardClickable,
+        compact && styles.cardCompact,
       ]
         .filter(Boolean)
         .join(" ")}

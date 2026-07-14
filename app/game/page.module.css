@@ -21,7 +21,6 @@
   animation: pageIn 0.3s ease-out;
 }
 
-/* App-shell layout for active game — Fire bar always visible without scroll. */
 .gameShell {
   position: relative;
   display: flex;
@@ -101,7 +100,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  padding: 10px 16px max(12px, env(safe-area-inset-bottom));
   background:
     linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.08), transparent) top / 100% 1px no-repeat,
     linear-gradient(180deg, rgba(10, 28, 43, 0.92), rgba(2, 7, 13, 0.99));
@@ -112,6 +111,15 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 -12px 30px rgba(0, 0, 0, 0.34);
   z-index: 40;
+}
+
+/* Single row: [Radar] [FIRE] [Torpedo] */
+.fireRow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
 }
 
 .centered {
@@ -131,6 +139,39 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
+}
+
+/* ── Battle layout: large target + minimap ── */
+.battleLayout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.mainBoard {
+  flex: 0 0 auto;
+}
+
+.fleetMinimap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.92;
+}
+
+.minimapStatus {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  color: rgba(var(--accent-rgb), 0.7);
 }
 
 /* Loading */
@@ -499,16 +540,15 @@
   gap: 4px;
 }
 
-/* Generic fire button (used by BotGame inside .stickyFire) */
+/* Generic fire button (used by BotGame inside .stickyFire / .fireRow) */
 .fireButton {
-  width: 100%;
-  max-width: 360px;
-  min-height: 52px;
-  padding: 14px 24px;
+  flex: 1 1 0;
+  min-height: 48px;
+  padding: 12px 18px;
   font-family: var(--font-orbitron), "Orbitron", monospace;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 50%, var(--accent-dark) 100%);
   border: none;
@@ -519,6 +559,7 @@
     0 0 28px rgba(var(--accent-rgb), 0.45),
     0 6px 18px rgba(0, 0, 0, 0.4);
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .fireButton:hover:not(:disabled) {
@@ -536,52 +577,38 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Shop tactical items */
-.tacticalSection {
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.tacticalButtons {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
+/* Tactical buttons sit inside .fireRow alongside .fireButton */
 
 .tacticalBtn,
-.directionBtn,
-.torpedoFireBtn {
+.directionBtn {
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   border-radius: 6px;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .tacticalBtn {
-  min-height: 42px;
-  padding: 10px 12px;
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 130px;
+  padding: 10px 14px;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.78);
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
 }
 
 .tacticalBtn:not(:disabled):hover,
-.directionBtn:not(:disabled):hover,
-.torpedoFireBtn:not(:disabled):hover {
+.directionBtn:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
 .tacticalBtn:disabled,
-.directionBtn:disabled,
-.torpedoFireBtn:disabled {
+.directionBtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -614,17 +641,23 @@
 
 .directionPanel {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-width: 360px;
 }
 
 .directionBtn {
   min-height: 36px;
   padding: 8px;
-  font-size: 14px;
+  font-size: 16px;
   color: rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .directionActive {
@@ -634,17 +667,6 @@
   box-shadow: 0 0 16px rgba(251, 113, 133, 0.28);
 }
 
-.torpedoFireBtn {
-  width: 100%;
-  min-height: 42px;
-  padding: 10px 14px;
-  font-size: 11px;
-  color: var(--bg-abyss);
-  background: linear-gradient(90deg, #fb7185 0%, #fda4af 50%, #f43f5e 100%);
-  border: none;
-  box-shadow: 0 0 22px rgba(251, 113, 133, 0.28);
-}
-
 .itemHint {
   min-height: 16px;
   color: rgba(255, 255, 255, 0.48);
@@ -652,23 +674,6 @@
   font-weight: 700;
   text-align: center;
   letter-spacing: 0.04em;
-}
-
-@media (min-width: 820px) {
-  .stickyFire {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 12px;
-  }
-
-  .tacticalSection {
-    max-width: 460px;
-  }
-
-  .fireButton {
-    flex: 0 1 360px;
-  }
 }
 
 @media (min-width: 980px) {
@@ -692,7 +697,7 @@
   }
 
   .stickyFire {
-    min-height: 74px;
+    min-height: 64px;
     align-items: center;
   }
 }

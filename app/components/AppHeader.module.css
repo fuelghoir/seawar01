@@ -5,10 +5,7 @@
   right: 0;
   height: 52px;
   z-index: 50;
-  background: rgba(var(--bg-abyss-rgb), 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.12);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -68,10 +65,10 @@
 }
 
 :global(html[data-effects="full"]) .header {
-  background: rgba(var(--bg-abyss-rgb), 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom-color: rgba(var(--accent-rgb), 0.18);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom-color: transparent;
 }
 
 :global(html[data-effects="full"]) .title {
@@ -89,18 +86,21 @@
 .address {
   font-size: 11px;
   font-family: var(--font-mono-raw), monospace;
-  color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  background: rgba(var(--bg-secondary-rgb), 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding: 5px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   letter-spacing: 0.04em;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .address:hover {
-  border-color: rgba(var(--accent-rgb), 0.4);
-  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(var(--accent-rgb), 0.6);
+  color: var(--text-primary);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.15);
 }
 
 .connectBtn {
@@ -109,12 +109,12 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid rgba(var(--accent-rgb), 0.42);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(var(--accent-2-rgb), 0.16)),
-    rgba(255, 255, 255, 0.04);
-  color: var(--accent-bright);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 6px;
+  background: rgba(var(--bg-secondary-rgb), 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--accent);
   padding: 0 12px;
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 10px;
@@ -123,6 +123,7 @@
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.05);
   transition:
     border-color 0.15s,
     color 0.15s,
@@ -130,10 +131,10 @@
     box-shadow 0.15s;
 }
 .connectBtn:hover:not(:disabled) {
-  border-color: rgba(var(--accent-rgb), 0.76);
+  border-color: rgba(var(--accent-rgb), 0.8);
   color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.18);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.25);
 }
 .connectBtn:disabled {
   cursor: not-allowed;
