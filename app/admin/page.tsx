@@ -149,6 +149,7 @@ export default function AdminPage() {
     minPoints: "3000",
     minTransactions: "10",
     minCheckins: "0",
+    pointsSource: "all_time",
   });
 
   const [previewResults, setPreviewResults] = useState<{
@@ -459,6 +460,7 @@ export default function AdminPage() {
           minPoints: Number(dropForm.minPoints || 0),
           minTransactions: Number(dropForm.minTransactions || 0),
           minCheckins: Number(dropForm.minCheckins || 0),
+          pointsSource: dropForm.pointsSource,
           preview: true,
         }),
       });
@@ -503,6 +505,7 @@ export default function AdminPage() {
         minPoints: Number(dropForm.minPoints || 0),
         minTransactions: Number(dropForm.minTransactions || 0),
         minCheckins: Number(dropForm.minCheckins || 0),
+        pointsSource: dropForm.pointsSource,
         preview: false,
       }),
     });
@@ -990,11 +993,18 @@ export default function AdminPage() {
                 </label>
                 <div style={{ gridColumn: "1 / -1", margin: "15px 0 5px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "15px" }}>
                   <h4 style={{ margin: 0, fontSize: "14px", color: "var(--accent-bright, #66e9ff)" }}>
-                    {isRu ? "Критерии отбора участников" : "Participant Eligibility Rules"}
+                    {isRu ? "Правила отбора участников" : "Participant Eligibility Rules"}
                   </h4>
                 </div>
                 <label>
-                  <span>{isRu ? "Мин. очков" : "Min Points"}</span>
+                  <span>{isRu ? "Источник очков" : "Points Source"}</span>
+                  <select value={dropForm.pointsSource} onChange={(e) => setDropForm({ ...dropForm, pointsSource: e.target.value })}>
+                    <option value="all_time">{isRu ? "За все время (Общие поинты)" : "All-time Points"}</option>
+                    <option value="season_current">{isRu ? "Текущий сезон (XP)" : "Current Season XP"}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{isRu ? "Мин. Очки/XP" : "Min Points/XP"}</span>
                   <input
                     type="number"
                     value={dropForm.minPoints}

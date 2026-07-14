@@ -549,3 +549,24 @@
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
 }
+
+@media (max-width: 440px) {
+  .outer {
+    --cell: 26px;
+    --label-w: 16px;
+    --gap: 3px;
+  }
+  .panel {
+    padding: 6px;
+  }
+  .cell { font-size: 12px; }
+  .headerCell, .rowLabel { font-size: 8px; }
+}
+
+@media (max-width: 360px) {
+  .outer {
+    --cell: 22px;
+    --label-w: 12px;
+    --gap: 2px;
+  }
+}

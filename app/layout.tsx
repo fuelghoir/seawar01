@@ -81,12 +81,12 @@ const rootJsonLd = stringifyJsonLd(buildRootJsonLd());
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono-raw",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
 });
 
