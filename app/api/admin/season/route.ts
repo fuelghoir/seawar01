@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest) {
 
     const { data: config, error } = await admin
       .from("season_config")
-      .select("end_date, is_ended, season_key")
+      .select("end_date, is_ended")
       .eq("id", "default")
       .maybeSingle();
 
@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({
       endDate: config?.end_date ?? "2026-07-18T00:00:00.000Z",
       isEnded: config?.is_ended ?? false,
-      seasonKey: config?.season_key ?? "S1",
+      seasonKey: "S1",
     });
   } catch (err) {
     return NextResponse.json(
@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
     if (action === "update_config") {
       const endDate = String(body?.endDate ?? "2026-07-18T00:00:00.000Z").trim();
       const isEnded = Boolean(body?.isEnded);
-      const seasonKey = String(body?.seasonKey ?? "S1").trim();
 
       const { error } = await admin
         .from("season_config")
@@ -48,7 +47,6 @@ export async function POST(req: NextRequest) {
           id: "default",
           end_date: endDate,
           is_ended: isEnded,
-          season_key: seasonKey,
         }, { onConflict: "id" });
 
       if (error) throw new Error(error.message);

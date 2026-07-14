@@ -680,7 +680,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     <span>{tr.mobile_your_fleet}</span>
                     <span>{tr.mobile_enemy_grid}</span>
                   </div>
-                  <HeroBattleGrid compact reducedFx={reducedFx} staticPreview={reducedFx} />
+                  <HeroBattleGrid compact reducedFx={reducedFx} />
                   <div className={styles.mobileBattleFooter}>
                     {tr.mobile_scanning.toUpperCase()}
                   </div>
@@ -717,15 +717,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     />
                   )}
                 </section>
-
-                <FleetMinerSummary
-                  address={address}
-                  onOpen={() => router.push("/shop#fleet-nft")}
-                />
-
-                {USDC_SEASON_REWARDS_ENABLED && (
-                  <SeasonPoolCard variant="wide" address={address} showEstimate />
-                )}
 
                 <section className={styles.recentSection}>
                   <SectionHeader label={tr.recent_games} accent="#3b82f6" />
@@ -983,7 +974,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
         {/* ───── CENTER COLUMN ───── */}
         <section className={styles.centerCol}>
-          <HeroBattleGrid reducedFx={reducedFx} staticPreview={reducedFx} />
+          <HeroBattleGrid reducedFx={reducedFx} />
 
           <button
             className={styles.playNow}
