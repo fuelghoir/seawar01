@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { getLeaderboard, LEADERBOARD_PAGE_SIZE, LeaderboardEntry } from "../lib/offchainGame";
+import {
+  getSeasonLeaderboard,
+  SEASON_LEADERBOARD_PAGE_SIZE,
+  SeasonLeaderboardEntry,
+} from "../lib/season";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { FleetMinerSummary } from "../components/FleetMinerWidgets";
@@ -11,6 +16,7 @@ import { useSettings, TR } from "../lib/settings";
 import styles from "./page.module.css";
 
 type PageItem = number | "gap";
+type LeaderboardTab = "alltime" | "season";
 
 function getPageItems(page: number, totalPages: number): PageItem[] {
   if (totalPages <= 5) {
@@ -35,26 +41,36 @@ export default function LeaderboardPage() {
   const { lang } = useSettings();
   const tr = TR[lang];
 
+  const [tab, setTab] = useState<LeaderboardTab>("alltime");
+
+  // All-time state
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // Season state
+  const [seasonEntries, setSeasonEntries] = useState<SeasonLeaderboardEntry[]>([]);
+  const [seasonPage, setSeasonPage] = useState(1);
+  const [seasonTotal, setSeasonTotal] = useState(0);
+  const [seasonTotalPages, setSeasonTotalPages] = useState(1);
+  const [seasonLoading, setSeasonLoading] = useState(true);
+
   const [showHelp, setShowHelp] = useState(false);
 
+  // All-time data
   useEffect(() => {
+    if (tab !== "alltime") return;
     let active = true;
-
     setLoading(true);
     getLeaderboard(page)
       .then((result) => {
         if (!active) return;
-
         if (page > result.totalPages && result.total > 0) {
           setPage(result.totalPages);
           return;
         }
-
         setEntries(result.entries);
         setTotal(result.total);
         setTotalPages(result.totalPages);
@@ -62,16 +78,44 @@ export default function LeaderboardPage() {
       .finally(() => {
         if (active) setLoading(false);
       });
+    return () => { active = false; };
+  }, [page, tab]);
 
-    return () => {
-      active = false;
-    };
-  }, [page]);
+  // Season data
+  useEffect(() => {
+    if (tab !== "season") return;
+    let active = true;
+    setSeasonLoading(true);
+    getSeasonLeaderboard(seasonPage)
+      .then((result) => {
+        if (!active) return;
+        if (seasonPage > result.totalPages && result.total > 0) {
+          setSeasonPage(result.totalPages);
+          return;
+        }
+        setSeasonEntries(result.entries);
+        setSeasonTotal(result.total);
+        setSeasonTotalPages(result.totalPages);
+      })
+      .finally(() => {
+        if (active) setSeasonLoading(false);
+      });
+    return () => { active = false; };
+  }, [seasonPage, tab]);
 
   const myAddr = address?.toLowerCase();
-  const pageItems = getPageItems(page, totalPages);
-  const firstRank = (page - 1) * LEADERBOARD_PAGE_SIZE + 1;
-  const lastRank = firstRank + entries.length - 1;
+
+  // Active tab values
+  const activePage = tab === "alltime" ? page : seasonPage;
+  const activeTotal = tab === "alltime" ? total : seasonTotal;
+  const activeTotalPages = tab === "alltime" ? totalPages : seasonTotalPages;
+  const activeLoading = tab === "alltime" ? loading : seasonLoading;
+  const activePageSize = tab === "alltime" ? LEADERBOARD_PAGE_SIZE : SEASON_LEADERBOARD_PAGE_SIZE;
+  const setActivePage = tab === "alltime" ? setPage : setSeasonPage;
+
+  const pageItems = getPageItems(activePage, activeTotalPages);
+  const firstRank = (activePage - 1) * activePageSize + 1;
+  const lastRank = firstRank + (tab === "alltime" ? entries.length : seasonEntries.length) - 1;
   const pageLabel = lang === "ru" ? "Страница" : "Page";
   const prevLabel = lang === "ru" ? "Предыдущая страница" : "Previous page";
   const nextLabel = lang === "ru" ? "Следующая страница" : "Next page";
@@ -107,7 +151,27 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        <div className={styles.subtitle}>{tr.lb_subtitle}</div>
+        {/* ── Tab switcher ── */}
+        <div className={styles.tabBar}>
+          <button
+            className={`${styles.tabBtn} ${tab === "alltime" ? styles.tabActive : ""}`}
+            onClick={() => setTab("alltime")}
+            type="button"
+          >
+            {tr.lb_tab_alltime}
+          </button>
+          <button
+            className={`${styles.tabBtn} ${tab === "season" ? styles.tabActive : ""}`}
+            onClick={() => setTab("season")}
+            type="button"
+          >
+            {tr.lb_tab_season}
+          </button>
+        </div>
+
+        <div className={styles.subtitle}>
+          {tab === "alltime" ? tr.lb_subtitle : tr.lb_season_subtitle}
+        </div>
 
         <div className={styles.mobileSeasonIntel}>
           <FleetMinerSummary
@@ -116,11 +180,11 @@ export default function LeaderboardPage() {
           />
         </div>
 
-        {loading ? (
+        {activeLoading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
           </div>
-        ) : entries.length === 0 ? (
+        ) : (tab === "alltime" ? entries.length : seasonEntries.length) === 0 ? (
           <p className={styles.empty}>{tr.lb_empty}</p>
         ) : (
           <>
@@ -128,46 +192,72 @@ export default function LeaderboardPage() {
               <div className={styles.tableHeader}>
                 <span className={styles.colRank}>#</span>
                 <span className={styles.colWallet}>{tr.lb_player}</span>
-                <span className={styles.colStat}>{tr.wins}</span>
-                <span className={styles.colStat}>{tr.streak}</span>
-                <span className={styles.colPoints}>{tr.lb_points}</span>
+                {tab === "alltime" ? (
+                  <>
+                    <span className={styles.colStat}>{tr.wins}</span>
+                    <span className={styles.colStat}>{tr.streak}</span>
+                    <span className={styles.colPoints}>{tr.lb_points}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.colStat}>{tr.lb_col_level}</span>
+                    <span className={styles.colPoints}>{tr.lb_col_xp}</span>
+                  </>
+                )}
               </div>
 
-              {entries.map((entry, i) => {
-                const rank = (page - 1) * LEADERBOARD_PAGE_SIZE + i + 1;
-                const isMe = entry.wallet === myAddr;
-
-                return (
-                  <div
-                    key={entry.wallet}
-                    className={`${styles.row} ${isMe ? styles.rowMe : ""} ${rank <= 3 ? styles.rowTop : ""}`}
-                    style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
-                  >
-                    <span className={`${styles.colRank} ${rank === 1 ? styles.gold : rank === 2 ? styles.silver : rank === 3 ? styles.bronze : ""}`}>
-                      {rank}
-                    </span>
-                    <span className={styles.colWallet}>
-                      <WalletName address={entry.wallet} className={styles.walletText} />
-                      {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
-                    </span>
-                    <span className={styles.colStat}>
-                      {entry.wins}
-                    </span>
-                    <span className={styles.colStat}>
-                      {entry.checkin_streak}d
-                    </span>
-                    <span className={styles.colPoints}>{entry.points}</span>
-                  </div>
-                );
-              })}
+              {tab === "alltime"
+                ? entries.map((entry, i) => {
+                    const rank = (activePage - 1) * activePageSize + i + 1;
+                    const isMe = entry.wallet === myAddr;
+                    return (
+                      <div
+                        key={entry.wallet}
+                        className={`${styles.row} ${isMe ? styles.rowMe : ""} ${rank <= 3 ? styles.rowTop : ""}`}
+                        style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+                      >
+                        <span className={`${styles.colRank} ${rank === 1 ? styles.gold : rank === 2 ? styles.silver : rank === 3 ? styles.bronze : ""}`}>
+                          {rank}
+                        </span>
+                        <span className={styles.colWallet}>
+                          <WalletName address={entry.wallet} className={styles.walletText} />
+                          {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
+                        </span>
+                        <span className={styles.colStat}>{entry.wins}</span>
+                        <span className={styles.colStat}>{entry.checkin_streak}d</span>
+                        <span className={styles.colPoints}>{entry.points}</span>
+                      </div>
+                    );
+                  })
+                : seasonEntries.map((entry, i) => {
+                    const rank = (activePage - 1) * activePageSize + i + 1;
+                    const isMe = entry.wallet === myAddr;
+                    return (
+                      <div
+                        key={entry.wallet}
+                        className={`${styles.row} ${isMe ? styles.rowMe : ""} ${rank <= 3 ? styles.rowTop : ""}`}
+                        style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+                      >
+                        <span className={`${styles.colRank} ${rank === 1 ? styles.gold : rank === 2 ? styles.silver : rank === 3 ? styles.bronze : ""}`}>
+                          {rank}
+                        </span>
+                        <span className={styles.colWallet}>
+                          <WalletName address={entry.wallet} className={styles.walletText} />
+                          {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
+                        </span>
+                        <span className={styles.colStat}>Lv.{entry.level}</span>
+                        <span className={styles.colPoints}>{entry.xp.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
             </div>
 
-            {totalPages > 1 && (
+            {activeTotalPages > 1 && (
               <div className={styles.pagination} aria-label="Leaderboard pages">
                 <button
                   className={styles.pageNavBtn}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={loading || page <= 1}
+                  onClick={() => setActivePage((p) => Math.max(1, p - 1))}
+                  disabled={activeLoading || activePage <= 1}
                   aria-label={prevLabel}
                 >
                   ‹
@@ -180,11 +270,11 @@ export default function LeaderboardPage() {
                     ) : (
                       <button
                         key={item}
-                        className={`${styles.pageNum} ${item === page ? styles.pageNumActive : ""}`}
-                        onClick={() => setPage(item)}
-                        disabled={loading || item === page}
+                        className={`${styles.pageNum} ${item === activePage ? styles.pageNumActive : ""}`}
+                        onClick={() => setActivePage(item)}
+                        disabled={activeLoading || item === activePage}
                         aria-label={`${pageLabel} ${item}`}
-                        aria-current={item === page ? "page" : undefined}
+                        aria-current={item === activePage ? "page" : undefined}
                       >
                         {item}
                       </button>
@@ -194,15 +284,15 @@ export default function LeaderboardPage() {
 
                 <button
                   className={styles.pageNavBtn}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={loading || page >= totalPages}
+                  onClick={() => setActivePage((p) => Math.min(activeTotalPages, p + 1))}
+                  disabled={activeLoading || activePage >= activeTotalPages}
                   aria-label={nextLabel}
                 >
                   ›
                 </button>
 
                 <span className={styles.pageSummary}>
-                  {pageLabel} {page} / {totalPages} · {firstRank}-{lastRank} / {total}
+                  {pageLabel} {activePage} / {activeTotalPages} · {firstRank}-{lastRank} / {activeTotal}
                 </span>
               </div>
             )}

@@ -633,3 +633,68 @@ export async function validateSeasonLevelClaims(
   const state = await getSeasonState(wallet);
   return getSeasonClaimTargets(state, levels).map((target) => target.reward);
 }
+
+// ─── Season leaderboard ───
+
+export const SEASON_LEADERBOARD_PAGE_SIZE = 25;
+
+export interface SeasonLeaderboardEntry {
+  wallet: string;
+  xp: number;
+  level: number;
+  points: number;
+}
+
+export interface SeasonLeaderboardPage {
+  entries: SeasonLeaderboardEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function getSeasonLeaderboard(
+  page = 1,
+  pageSize = SEASON_LEADERBOARD_PAGE_SIZE
+): Promise<SeasonLeaderboardPage> {
+  const { data: configData } = await supabase
+    .from("season_config")
+    .select("season_key")
+    .eq("id", "default")
+    .maybeSingle();
+  const seasonKey = configData?.season_key ?? SEASON_KEY;
+
+  const safePage = Math.max(1, Math.floor(page));
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+
+  const { data, count } = await supabase
+    .from("season_progress")
+    .select("wallet, xp, points", { count: "exact" })
+    .eq("season_key", seasonKey)
+    .gt("xp", 0)
+    .order("xp", { ascending: false })
+    .range(from, to);
+
+  const total = count ?? 0;
+
+  const entries: SeasonLeaderboardEntry[] = (data || []).map((row) => {
+    const xp = Number(row.xp ?? 0);
+    const level = SEASON_LEVELS.filter((l) => xp >= l.xpRequired).length;
+    return {
+      wallet: row.wallet as string,
+      xp,
+      level,
+      points: Number(row.points ?? 0),
+    };
+  });
+
+  return {
+    entries,
+    total,
+    page: safePage,
+    pageSize: safePageSize,
+    totalPages: Math.max(1, Math.ceil(total / safePageSize)),
+  };
+}

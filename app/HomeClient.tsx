@@ -718,6 +718,15 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   )}
                 </section>
 
+                <FleetMinerSummary
+                  address={address}
+                  onOpen={() => router.push("/shop#fleet-nft")}
+                />
+
+                {USDC_SEASON_REWARDS_ENABLED && (
+                  <SeasonPoolCard variant="wide" address={address} showEstimate />
+                )}
+
                 <section className={styles.recentSection}>
                   <SectionHeader label={tr.recent_games} accent="#3b82f6" />
                   {history.length === 0 ? (
