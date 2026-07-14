@@ -641,3 +641,40 @@
 .compact .victorySub {
   font-size: 7px;
 
+
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 720px) {
+  .compact .panel {
+    box-shadow: none;
+  }
+
+  .compact .bgGlow {
+    display: none;
+  }
+
+  .compact .cell {
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .compact .cellFlash {
+    animation-duration: 0.16s;
+  }
+
+  .compact .glyphSunk,
+  .compact .glyphPartial {
+    filter: none;
+  }
+
+  .compact .missDot,
+  .compact .crosshairDot {
+    box-shadow: none;
+  }
+
+  .compact .victoryText {
+    animation: none;
+    text-shadow: 0 0 12px var(--accent-glow);
+  }
+}
+
