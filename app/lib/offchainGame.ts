@@ -940,12 +940,41 @@ export interface LeaderboardPage {
 
 export async function getLeaderboard(
   page = 1,
-  pageSize = LEADERBOARD_PAGE_SIZE
+  pageSize = LEADERBOARD_PAGE_SIZE,
+  mode: "allTime" | "season" = "allTime"
 ): Promise<LeaderboardPage> {
   const safePage = Math.max(1, Math.floor(page));
   const safePageSize = Math.max(1, Math.floor(pageSize));
   const from = (safePage - 1) * safePageSize;
   const to = from + safePageSize - 1;
+
+  if (mode === "season") {
+    const { data, count } = await supabase
+      .from("season_progress")
+      .select("wallet, xp", { count: "exact" })
+      .gt("xp", 0)
+      .eq("season_key", SEASON_KEY)
+      .order("xp", { ascending: false })
+      .range(from, to);
+      
+    const total = count ?? 0;
+    const entries: LeaderboardEntry[] = (data || []).map((row: { wallet: string; xp: number }) => ({
+      wallet: row.wallet,
+      points: row.xp,
+      wins: 0,
+      games_played: 0,
+      total_hits: 0,
+      checkin_streak: 0
+    }));
+
+    return {
+      entries,
+      total,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: Math.max(1, Math.ceil(total / safePageSize)),
+    };
+  }
 
   const { data, count } = await supabase
     .from("player_stats")

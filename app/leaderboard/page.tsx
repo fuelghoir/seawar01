@@ -37,6 +37,7 @@ export default function LeaderboardPage() {
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [page, setPage] = useState(1);
+  const [mode, setMode] = useState<"allTime" | "season">("allTime");
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export default function LeaderboardPage() {
     let active = true;
 
     setLoading(true);
-    getLeaderboard(page)
+    getLeaderboard(page, LEADERBOARD_PAGE_SIZE, mode)
       .then((result) => {
         if (!active) return;
 
@@ -66,7 +67,7 @@ export default function LeaderboardPage() {
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, mode]);
 
   const myAddr = address?.toLowerCase();
   const pageItems = getPageItems(page, totalPages);
@@ -91,6 +92,21 @@ export default function LeaderboardPage() {
             aria-label="How points work"
           >
             ?
+          </button>
+        </div>
+
+        <div className={styles.tabsContainer}>
+          <button
+            className={`${styles.tabBtn} ${mode === "allTime" ? styles.tabActive : ""}`}
+            onClick={() => { setMode("allTime"); setPage(1); }}
+          >
+            {tr.leaderboard_alltime || "All-Time"}
+          </button>
+          <button
+            className={`${styles.tabBtn} ${mode === "season" ? styles.tabActive : ""}`}
+            onClick={() => { setMode("season"); setPage(1); }}
+          >
+            {tr.leaderboard_season || "Current Season"}
           </button>
         </div>
 
