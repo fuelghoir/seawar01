@@ -1881,21 +1881,26 @@ export default function ShopPage() {
                   <span className={styles.streak}>
                     {tr.streak}: <b>{checkin.streak}d</b>
                   </span>
-                  <button
-                    className={`${styles.btn} ${styles.btnPrimary}`}
-                    onClick={handleCheckin}
-                    disabled={!checkin.canCheckin || checkinLoading || checkinPending}
-                  >
-                    {checkinPending
-                      ? tr.shop_bomb_pending
-                      : checkinLoading
-                        ? tr.quest_processing
-                        : !checkin.canCheckin
-                          ? tr.shop_checkin_done
+                  {!checkin.canCheckin ? (
+                    <div className={styles.checkinStamp}>
+                      <CheckIcon size={14} />
+                      <span>{tr.shop_checkin_done}</span>
+                    </div>
+                  ) : (
+                    <button
+                      className={`${styles.btn} ${styles.btnPrimary}`}
+                      onClick={handleCheckin}
+                      disabled={!checkin.canCheckin || checkinLoading || checkinPending}
+                    >
+                      {checkinPending
+                        ? tr.shop_bomb_pending
+                        : checkinLoading
+                          ? tr.quest_processing
                           : paymasterSupported
                             ? `+${checkin.nextReward} ${tr.shop_pts} · ${tr.checkin_free}`
                             : `+${checkin.nextReward} ${tr.shop_pts}`}
-                  </button>
+                    </button>
+                  )}
                 </div>
               )}
               {checkinMsg && <p className={styles.msg}>{checkinMsg}</p>}
@@ -1926,20 +1931,25 @@ export default function ShopPage() {
                     </span>
                   </span>
                 </div>
-                <label className={styles.quantityControl}>
-                  <span>{lang === "ru" ? "К-во" : "Qty"}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={MAX_SHOP_PURCHASE_QUANTITY}
-                    value={bombQuantity}
-                    onChange={(event) =>
-                      setBombQuantity(normalizeShopPurchaseQuantity(Number(event.target.value)))
-                    }
-                    disabled={buying}
-                    aria-label={`${tr.shop_bomb_title} quantity`}
-                  />
-                </label>
+                <div className={styles.bombStepper}>
+                  <button 
+                    className={styles.stepperBtn} 
+                    type="button"
+                    onClick={() => setBombQuantity(Math.max(1, normalizeShopPurchaseQuantity(bombQuantity - 1)))}
+                    disabled={buying || bombQuantity <= 1}
+                    aria-label="Decrease quantity"
+                  >-</button>
+                  <span className={styles.stepperValue}>
+                    {lang === "ru" ? "К-ВО:" : "QTY:"} <b>{bombQuantity}</b>
+                  </span>
+                  <button 
+                    className={styles.stepperBtn} 
+                    type="button"
+                    onClick={() => setBombQuantity(Math.min(MAX_SHOP_PURCHASE_QUANTITY, normalizeShopPurchaseQuantity(bombQuantity + 1)))}
+                    disabled={buying || bombQuantity >= MAX_SHOP_PURCHASE_QUANTITY}
+                    aria-label="Increase quantity"
+                  >+</button>
+                </div>
                 <button
                   className={`${styles.btn} ${styles.btnBuy}`}
                   onClick={handleBuy}
@@ -1964,20 +1974,20 @@ export default function ShopPage() {
                 </div>
               </div>
 
-              <form className={styles.promoForm} onSubmit={handleRedeemPromo}>
+              <form className={styles.unifiedPromoForm} onSubmit={handleRedeemPromo}>
                 <input
                   value={promoCode}
                   onChange={(event) => setPromoCode(event.target.value)}
-                  placeholder={lang === "ru" ? "Код или ссылка" : "Code or link"}
+                  placeholder={lang === "ru" ? "Введите код..." : "Enter code..."}
                   aria-label={lang === "ru" ? "Промокод" : "Promo code"}
                   autoComplete="off"
                 />
                 <button
-                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  className={styles.unifiedPromoBtn}
                   disabled={!isConnected || promoBusy || !promoCode.trim()}
                   type="submit"
                 >
-                  {promoBusy ? (lang === "ru" ? "Проверяем..." : "Checking...") : lang === "ru" ? "Забрать" : "Redeem"}
+                  {promoBusy ? (lang === "ru" ? "Проверка..." : "Checking...") : lang === "ru" ? "Забрать" : "Redeem"}
                 </button>
               </form>
               {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
