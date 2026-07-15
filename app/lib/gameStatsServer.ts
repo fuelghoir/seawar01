@@ -126,6 +126,7 @@ export async function resolveFinishedGameStats(
         hits: player.hits,
       });
       await addSeasonXp(admin, player.wallet, rawPoints).catch(() => {});
+      await addSeasonLeaderboardPoints(admin, player.wallet, rawPoints).catch(() => {});
       await awardReferralGamePointsServer(admin, player.wallet, points).catch(() => {});
       await awardReferralFirstGameBonusServer(admin, player.wallet).catch(() => {});
       resolvedPlayers.push({ ...player, points });
@@ -251,4 +252,29 @@ async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
       { onConflict: "wallet,season_key" },
     );
   if (upsertError) throw new Error(upsertError.message);
+}
+
+async function addSeasonLeaderboardPoints(admin: SupabaseClient, wallet: string, points: number) {
+  if (points <= 0) return;
+  const seasonKey = await getActiveSeasonKey(admin);
+  const { data, error } = await admin
+    .from("season_points")
+    .select("points")
+    .eq("wallet", wallet)
+    .eq("season_key", seasonKey)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') return;
+
+  const { error: _upsertError } = await admin
+    .from("season_points")
+    .upsert(
+      {
+        wallet,
+        season_key: seasonKey,
+        points: Number(data?.points ?? 0) + Math.floor(points),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "wallet,season_key" }
+    );
 }

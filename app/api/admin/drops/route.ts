@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
 
       const [statsRes, seasonRes] = await Promise.all([
         admin.from("player_stats").select("wallet,games_played,total_checkins").limit(100000),
-        admin.from("season_progress").select("wallet,xp").eq("season_key", seasonKey).gte("xp", minPoints).limit(100000)
+        admin.from("season_points").select("wallet,points").eq("season_key", seasonKey).gte("points", minPoints).limit(100000)
       ]);
 
       if (seasonRes.error) return NextResponse.json({ error: seasonRes.error.message }, { status: 500 });
@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
         const transactions = gamesPlayed + totalCheckins;
         allWallets.push({
           wallet: w,
-          points: BigInt(Math.max(0, Math.floor(Number(row.xp ?? 0)))),
+          points: BigInt(Math.floor(Number(row.points))),
           gamesPlayed,
           totalCheckins,
           transactions

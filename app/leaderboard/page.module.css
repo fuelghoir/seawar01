@@ -148,6 +148,47 @@
   font-style: italic;
 }
 
+/* ✧✧✧✧✧ Tabs ✧✧✧✧✧ */
+
+.tabsContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: -6px;
+  margin-bottom: 16px;
+}
+
+.tabBtn {
+  background: rgba(var(--accent-rgb), 0.05);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0);
+}
+
+.tabBtn:hover {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+.tabActive {
+  background: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.3), inset 0 0 8px rgba(var(--accent-rgb), 0.2);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
 /* ───── Subtitle ───── */
 
 .subtitle {
@@ -221,6 +262,11 @@
   text-transform: uppercase;
   color: rgba(var(--accent-rgb), 0.58);
   border-bottom: 1px solid rgba(var(--accent-rgb), 0.1);
+}
+
+.tableHeaderSeason,
+.rowSeason {
+  grid-template-columns: 34px minmax(0, 1fr) minmax(82px, 96px);
 }
 
 .row {
@@ -479,6 +525,10 @@
   .row {
     grid-template-columns: 24px minmax(0, 1fr) 34px 44px 68px;
     column-gap: 4px;
+  }
+  .tableHeaderSeason,
+  .rowSeason {
+    grid-template-columns: 24px minmax(0, 1fr) 68px;
   }
   .tableHeader {
     padding: 6px 8px 8px;

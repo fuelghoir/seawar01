@@ -950,17 +950,17 @@ export async function getLeaderboard(
 
   if (mode === "season") {
     const { data, count } = await supabase
-      .from("season_progress")
-      .select("wallet, xp", { count: "exact" })
-      .gt("xp", 0)
+      .from("season_points")
+      .select("wallet, points", { count: "exact" })
+      .gt("points", 0)
       .eq("season_key", SEASON_KEY)
-      .order("xp", { ascending: false })
+      .order("points", { ascending: false })
       .range(from, to);
       
     const total = count ?? 0;
-    const entries: LeaderboardEntry[] = (data || []).map((row: { wallet: string; xp: number }) => ({
+    const entries: LeaderboardEntry[] = (data || []).map((row: { wallet: string; points: number }) => ({
       wallet: row.wallet,
-      points: row.xp,
+      points: row.points,
       wins: 0,
       games_played: 0,
       total_hits: 0,

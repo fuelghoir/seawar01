@@ -141,11 +141,11 @@ export default function LeaderboardPage() {
         ) : (
           <>
             <div className={styles.table}>
-              <div className={styles.tableHeader}>
+              <div className={`${styles.tableHeader} ${mode === "season" ? styles.tableHeaderSeason : ""}`}>
                 <span className={styles.colRank}>#</span>
                 <span className={styles.colWallet}>{tr.lb_player}</span>
-                <span className={styles.colStat}>{tr.wins}</span>
-                <span className={styles.colStat}>{tr.streak}</span>
+                {mode !== "season" && <span className={styles.colStat}>{tr.wins}</span>}
+                {mode !== "season" && <span className={styles.colStat}>{tr.streak}</span>}
                 <span className={styles.colPoints}>{tr.lb_points}</span>
               </div>
 
@@ -156,7 +156,7 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={entry.wallet}
-                    className={`${styles.row} ${isMe ? styles.rowMe : ""} ${rank <= 3 ? styles.rowTop : ""}`}
+                    className={`${styles.row} ${mode === "season" ? styles.rowSeason : ""} ${isMe ? styles.rowMe : ""} ${rank <= 3 ? styles.rowTop : ""}`}
                     style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                   >
                     <span className={`${styles.colRank} ${rank === 1 ? styles.gold : rank === 2 ? styles.silver : rank === 3 ? styles.bronze : ""}`}>
@@ -166,12 +166,16 @@ export default function LeaderboardPage() {
                       <WalletName address={entry.wallet} className={styles.walletText} />
                       {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
                     </span>
-                    <span className={styles.colStat}>
-                      {entry.wins}
-                    </span>
-                    <span className={styles.colStat}>
-                      {entry.checkin_streak}d
-                    </span>
+                    {mode !== "season" && (
+                      <span className={styles.colStat}>
+                        {entry.wins}
+                      </span>
+                    )}
+                    {mode !== "season" && (
+                      <span className={styles.colStat}>
+                        {entry.checkin_streak}d
+                      </span>
+                    )}
                     <span className={styles.colPoints}>{entry.points}</span>
                   </div>
                 );
