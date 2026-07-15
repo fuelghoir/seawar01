@@ -114,8 +114,15 @@
 .seasonCard,
 .sbtCard,
 .inventoryCard,
-.bombCard {
+.bombCard,
+.utilitiesGrid {
   grid-column: 1 / -1;
+}
+
+.utilitiesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
 }
 
 .commandStrip {

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase, requireAdminSession } from "../../../lib/adminAuth";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 export const runtime = "nodejs";
 
@@ -7,6 +10,30 @@ const ADDR_RE = /^0x[a-f0-9]{40}$/;
 const DROP_ID_RE = /^[a-zA-Z0-9_.:-]{1,80}$/;
 
 
+
+const erc20Abi = [
+  {
+    type: "function",
+    name: "symbol",
+    inputs: [],
+    outputs: [{ type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "decimals",
+    inputs: [],
+    outputs: [{ type: "uint8" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ type: "address", name: "account" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+] as const;
 
 function formatRaw(raw: string, decimals: number) {
   const value = BigInt(raw || "0");
@@ -20,25 +47,194 @@ function formatRaw(raw: string, decimals: number) {
 
 export async function GET(req: NextRequest) {
   try {
+    await requireAdminSession();
+    const admin = adminSupabase();
+
+    const action = req.nextUrl.searchParams.get("action");
+    if (action === "tokens") {
+      const client = createPublicClient({
+        chain: base,
+        transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL),
+      });
+
+      const dropContract = (process.env.NEXT_PUBLIC_DROP_CLAIM_CONTRACT_ADDRESS ||
+        DROP_CLAIM_CONTRACT_ADDRESS ||
+        "0x39016cE335546b6ab9776a1cC78cf210f84f5a5b") as `0x${string}`;
+
+      const singleAddress = req.nextUrl.searchParams.get("address");
+      if (singleAddress && ADDR_RE.test(singleAddress)) {
+        try {
+          const [symbol, decimals, balance] = await Promise.all([
+            client.readContract({
+              address: singleAddress as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "symbol",
+            }),
+            client.readContract({
+              address: singleAddress as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "decimals",
+            }),
+            client.readContract({
+              address: singleAddress as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [dropContract],
+            }),
+          ]);
+
+          return NextResponse.json({
+            address: singleAddress,
+            symbol: String(symbol),
+            decimals: Number(decimals),
+            balance: balance.toString(),
+            formattedBalance: formatRaw(balance.toString(), Number(decimals)),
+          });
+        } catch {
+          return NextResponse.json({ error: "Invalid token or not ERC20" }, { status: 400 });
+        }
+      }
+
+      // Query standard and historical tokens
+      const { data: campaignTokens } = await admin
+        .from("drop_campaigns")
+        .select("token_address, token_symbol, decimals")
+        .limit(200);
+
+      const tokensToQuery = new Set<string>();
+      tokensToQuery.add("0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"); // USDC
+
+      if (campaignTokens) {
+        for (const t of campaignTokens) {
+          if (t.token_address && ADDR_RE.test(t.token_address)) {
+            tokensToQuery.add(t.token_address.toLowerCase());
+          }
+        }
+      }
+
+      const tokenBalances = [];
+      for (const address of tokensToQuery) {
+        try {
+          const [symbol, decimals, balance] = await Promise.all([
+            client.readContract({
+              address: address as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "symbol",
+            }).catch(() => null),
+            client.readContract({
+              address: address as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "decimals",
+            }).catch(() => null),
+            client.readContract({
+              address: address as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [dropContract],
+            }).catch(() => BigInt(0)),
+          ]);
+
+          if (symbol !== null && decimals !== null) {
+            tokenBalances.push({
+              address,
+              symbol: String(symbol),
+              decimals: Number(decimals),
+              balance: balance.toString(),
+              formattedBalance: formatRaw(balance.toString(), Number(decimals)),
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to query token ${address}:`, err);
+        }
+      }
+
+      return NextResponse.json({ tokens: tokenBalances });
+    }
+
+    const [campaigns, allocations] = await Promise.all([
+      admin
+        .from("drop_campaigns")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      admin
+        .from("drop_allocations")
+        .select("drop_id,claimed_at,amount_raw")
+        .limit(100000),
+    ]);
+
+    if (campaigns.error) {
+      return NextResponse.json({ error: campaigns.error.message }, { status: 500 });
+    }
+    if (allocations.error) {
+      return NextResponse.json({ error: allocations.error.message }, { status: 500 });
+    }
+
+    const counts = new Map<string, { allocations: number; claimed: number; allocatedRaw: bigint }>();
+    for (const row of allocations.data ?? []) {
+      const dropId = String(row.drop_id);
+      const current = counts.get(dropId) ?? { allocations: 0, claimed: 0, allocatedRaw: BigInt(0) };
+      current.allocations += 1;
+      if (row.claimed_at) current.claimed += 1;
+      current.allocatedRaw += BigInt(row.amount_raw || "0");
+      counts.set(dropId, current);
+    }
+
+    return NextResponse.json({
+      campaigns: (campaigns.data ?? []).map((campaign) => ({
+        ...campaign,
+        ...(counts.get(campaign.id) ?? { allocations: 0, claimed: 0, allocatedRaw: BigInt(0) }),
+        allocatedRaw: String(counts.get(campaign.id)?.allocatedRaw ?? BigInt(0)),
+      })),
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Admin request failed" },
+      { status: 401 },
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
     const session = await requireAdminSession();
     const admin = adminSupabase();
     
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id") || "";
-    const title = searchParams.get("title") || "";
-    const tokenAddress = searchParams.get("tokenAddress") || "";
-    const tokenSymbol = searchParams.get("tokenSymbol") || "";
-    const decimals = parseInt(searchParams.get("decimals") || "18");
-    const total = BigInt(searchParams.get("total") || "0");
-    const minPoints = parseInt(searchParams.get("minPoints") || "0");
-    const minTransactions = parseInt(searchParams.get("minTransactions") || "0");
-    const minCheckins = parseInt(searchParams.get("minCheckins") || "0");
-    const pointsSource = searchParams.get("pointsSource") || "standard";
-    const preview = searchParams.get("preview") === "true";
-    const contractAddress = searchParams.get("contractAddress");
-    const signerAddress = searchParams.get("signerAddress");
+    const body = await req.json().catch(() => null);
+    const id = String(body?.id ?? "").trim();
+    const title = String(body?.title ?? id).trim().slice(0, 120);
+    const tokenAddress = String(body?.tokenAddress ?? body?.token_address ?? "").trim().toLowerCase();
+    const tokenSymbol = String(body?.tokenSymbol ?? body?.token_symbol ?? "TOKEN").trim().slice(0, 24);
+    const decimals = Math.max(0, Math.min(36, Math.floor(Number(body?.decimals ?? 18))));
+    const totalAmountRaw = String(body?.totalAmountRaw ?? body?.total_amount_raw ?? "").trim();
+    const contractAddress = String(body?.contractAddress ?? body?.contract_address ?? "").trim().toLowerCase();
+    const signerAddress = String(body?.signerAddress ?? body?.signer_address ?? "").trim().toLowerCase();
 
-    if (!DROP_ID_RE.test(id)) return NextResponse.json({ error: "Invalid drop ID" }, { status: 400 });
+    const minPoints = Math.max(0, Math.floor(Number(body?.minPoints ?? body?.min_points ?? 3000)));
+    const minTransactions = Math.max(0, Math.floor(Number(body?.minTransactions ?? body?.min_transactions ?? 10)));
+    const minCheckins = Math.max(0, Math.floor(Number(body?.minCheckins ?? body?.min_checkins ?? 0)));
+    const pointsSource = body?.pointsSource || "standard";
+    const preview = !!body?.preview;
+
+    if (!DROP_ID_RE.test(id)) {
+      return NextResponse.json({ error: "Invalid drop id" }, { status: 400 });
+    }
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+    if (!ADDR_RE.test(tokenAddress)) {
+      return NextResponse.json({ error: "Invalid token address" }, { status: 400 });
+    }
+    const total = BigInt(totalAmountRaw || "0");
+    if (total <= BigInt(0)) {
+      return NextResponse.json({ error: "Total amount must be greater than zero" }, { status: 400 });
+    }
+    if (contractAddress && !ADDR_RE.test(contractAddress)) {
+      return NextResponse.json({ error: "Invalid contract address" }, { status: 400 });
+    }
+    if (signerAddress && !ADDR_RE.test(signerAddress)) {
+      return NextResponse.json({ error: "Invalid signer address" }, { status: 400 });
+    }
 
     const allWallets: { wallet: string; points: bigint; gamesPlayed: number; totalCheckins: number; transactions: number; }[] = [];
 
@@ -80,7 +276,9 @@ export async function GET(req: NextRequest) {
         .gte("points", minPoints)
         .limit(100000);
 
-      if (stats.error) return NextResponse.json({ error: stats.error.message }, { status: 500 });
+      if (stats.error) {
+        return NextResponse.json({ error: stats.error.message }, { status: 500 });
+      }
 
       for (const row of stats.data || []) {
         const gamesPlayed = Math.max(0, Math.floor(Number(row.games_played ?? 0)));

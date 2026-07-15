@@ -1864,8 +1864,9 @@ export default function ShopPage() {
               </div>
             </section>
 
-            {/* ───── Daily check-in card ───── */}
-            <section className={`${styles.card} ${styles.utilityCard}`}>
+              <div className={styles.utilitiesGrid}>
+                {/* ───── Daily check-in card ───── */}
+                <section className={`${styles.card} ${styles.utilityCard}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <CheckIcon size={24} />
@@ -1906,8 +1907,8 @@ export default function ShopPage() {
               {checkinMsg && <p className={styles.msg}>{checkinMsg}</p>}
             </section>
 
-            {/* ───── Bomb 3×3 inventory card ───── */}
-            <section className={`${styles.card} ${styles.bombCard}`}>
+                {/* ───── Bomb 3×3 inventory card ───── */}
+                <section className={`${styles.card} ${styles.bombCard}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <ItemArt kind="bomb_3x3" size="small" />
@@ -1961,7 +1962,7 @@ export default function ShopPage() {
               {buyMsg && <p className={styles.msg}>{buyMsg}</p>}
             </section>
 
-            <section className={`${styles.card} ${styles.promoCard}`}>
+                <section className={`${styles.card} ${styles.promoCard}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <CoinIcon size={24} />
@@ -1990,8 +1991,9 @@ export default function ShopPage() {
                   {promoBusy ? (lang === "ru" ? "Проверка..." : "Checking...") : lang === "ru" ? "Забрать" : "Redeem"}
                 </button>
               </form>
-              {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
-            </section>
+                  {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
+                </section>
+              </div>
       </main>
       <button
         className={`${styles.mobileBackToMenu} ${
