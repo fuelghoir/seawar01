@@ -185,14 +185,11 @@ export async function buyPointItemServer(
   // Query spendable active season points balance
   const { data: seasonData, error: seasonError } = await admin
     .from("season_progress")
-    .select("points")
+    .select("xp, claimed_levels, points")
     .eq("wallet", wallet)
     .eq("season_key", SEASON_KEY)
     .maybeSingle();
   if (seasonError) throw new Error(seasonError.message);
-
-  const seasonPoints = Number(seasonData?.points ?? 0);
-  if (seasonPoints < totalPricePoints) throw new Error("Not enough points");
 
   // Query permanent leaderboard stats points
   const { data: playerStatsData, error: statsError } = await admin
@@ -203,6 +200,14 @@ export async function buyPointItemServer(
   if (statsError) throw new Error(statsError.message);
 
   const playerStatsPoints = Number(playerStatsData?.points ?? 0);
+  let seasonPoints = Number(seasonData?.points ?? 0);
+
+  // Auto-heal missing migration data
+  if (playerStatsPoints > seasonPoints) {
+    seasonPoints = playerStatsPoints;
+  }
+
+  if (seasonPoints < totalPricePoints) throw new Error("Not enough points");
 
   let weeklyPurchaseRecorded = false;
   if (slug === "quest_reroll") {
@@ -235,12 +240,14 @@ export async function buyPointItemServer(
   // Decrement season points balance
   const { error: updateSeasonError } = await admin
     .from("season_progress")
-    .update({
+    .upsert({
+      wallet,
+      season_key: SEASON_KEY,
+      xp: seasonData?.xp ?? 0,
+      claimed_levels: seasonData?.claimed_levels ?? [],
       points: seasonPoints - totalPricePoints,
       updated_at: new Date().toISOString(),
-    })
-    .eq("wallet", wallet)
-    .eq("season_key", SEASON_KEY);
+    }, { onConflict: "wallet, season_key" });
   if (updateSeasonError) {
     await rollbackWeeklyPurchase();
     throw new Error(updateSeasonError.message);

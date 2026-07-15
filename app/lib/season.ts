@@ -459,7 +459,21 @@ export async function validatePointItemPurchase(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  const points = Number(data?.points ?? 0);
+
+  const { data: statsData } = await supabase
+    .from("player_stats")
+    .select("points")
+    .eq("wallet", addr)
+    .maybeSingle();
+
+  const playerStatsPoints = Number(statsData?.points ?? 0);
+  let points = Number(data?.points ?? 0);
+
+  // Auto-heal missing migration data
+  if (playerStatsPoints > points) {
+    points = playerStatsPoints;
+  }
+
   if (points < item.pricePoints * qty) throw new Error("Not enough points");
 }
 
@@ -552,8 +566,19 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
 
   if (progressError) throw new Error(progressError.message);
 
+  const { data: statsData } = await supabase
+    .from("player_stats")
+    .select("points")
+    .eq("wallet", addr)
+    .maybeSingle();
+
   const xp = Number(progressData?.xp ?? 0);
-  const points = Number(progressData?.points ?? 0);
+  let points = Number(progressData?.points ?? 0);
+  const playerStatsPoints = Number(statsData?.points ?? 0);
+  if (playerStatsPoints > points) {
+    points = playerStatsPoints;
+  }
+
   const claimedLevels = Array.isArray(progressData?.claimed_levels)
     ? (progressData.claimed_levels as number[])
     : [];
