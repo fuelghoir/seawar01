@@ -1864,9 +1864,8 @@ export default function ShopPage() {
               </div>
             </section>
 
-              <div className={styles.utilitiesGrid}>
-                {/* ───── Daily check-in card ───── */}
-                <section className={`${styles.card} ${styles.utilityCard}`}>
+              {/* ───── Daily check-in card ───── */}
+              <section className={`${styles.card} ${styles.utilityCard}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <CheckIcon size={24} />
@@ -1993,7 +1992,6 @@ export default function ShopPage() {
               </form>
                   {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
                 </section>
-              </div>
       </main>
       <button
         className={`${styles.mobileBackToMenu} ${
