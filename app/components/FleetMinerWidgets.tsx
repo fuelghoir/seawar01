@@ -159,76 +159,86 @@ export function SeasonPoolCard({
   const isEnded = seasonState?.isEnded ?? false;
   const activeSeasonKey = seasonState?.seasonKey ?? "S1";
 
-  const content = (
+  const content = isEnded ? (
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        {isEnded ? (
-          <b style={{ background: '#00dcb4', color: '#03111e' }}>{ru ? "КЛЕЙМ" : "CLAIM"}</b>
-        ) : (
-          <b>{activeSeasonKey}</b>
-        )}
+        <b style={{ background: '#00dcb4', color: '#03111e' }}>{ru ? "ЗАВЕРШЕН" : "ENDED"}</b>
+      </div>
+      <div style={{ margin: '24px 0', display: 'flex', justifyContent: 'center' }}>
+        <div style={{
+          background: '#00dcb4',
+          color: '#03111e',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          fontWeight: '900',
+          fontSize: '16px',
+          textTransform: 'uppercase',
+          boxShadow: '0 4px 14px rgba(0, 220, 180, 0.4)'
+        }}>
+          {ru ? "Заклеймить награду" : "Claim your reward"}
+        </div>
+      </div>
+      <div className={styles.poolMeta}>
+        <span style={{ color: '#00dcb4', fontWeight: 'bold' }}>
+          {ru ? "Снапшот сделан! Награды готовы" : "Snapshot taken! Rewards ready"}
+        </span>
+      </div>
+    </>
+  ) : (
+    <>
+      <div className={styles.poolTop}>
+        <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
+        <b>{activeSeasonKey}</b>
       </div>
       <div className={styles.poolAmount}>
-        <small>{isEnded ? (ru ? "ТВОЙ ДРОП" : "YOUR DROP") : (ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL")}</small>
+        <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
         <strong>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</strong>
       </div>
       {showEstimate && (
         <div className={styles.poolEstimate}>
-          <span>{isEnded ? (ru ? "ЗАКЛЕЙМЛЕНО" : "CLAIMED STATUS") : (ru ? "ТВОЯ ПРИМЕРНАЯ НАГРАДА" : "YOUR EST. REWARD")}</span>
+          <span>{ru ? "ТВОЯ ПРЕДПОЛАГАЕМАЯ НАГРАДА" : "YOUR EST. REWARD"}</span>
           <b>
             {!estimate
               ? "-- USDC"
               : !estimate.eligible
-                ? ru ? "НЕ УЧАСТВОВАЛ" : "NOT ELIGIBLE"
+                ? ru ? "НЕ ПРОХОДИТЕ" : "NOT ELIGIBLE"
                 : estimatedReward === null
                   ? "-- USDC"
-                  : isEnded
-                    ? ru ? "ГОТОВО К КЛЕЙМУ" : "READY TO CLAIM"
-                    : `≈ ${formatUsdc(estimatedReward)}`}
+                  : `~ ${formatUsdc(estimatedReward)}`}
           </b>
           <small>
             {estimate
               ? estimate.eligible
-                ? `${estimate.walletPoints.toLocaleString()} pts · ${estimate.walletTransactions}/${
+                ? `${estimate.walletPoints.toLocaleString()} pts • ${estimate.walletTransactions}/${
                     estimate.minTransactions
-                  } tx · ${sharePct > 0 ? `~${sharePct.toFixed(2)}%` : "0%"}${
-                    estimate.rank ? ` · #${estimate.rank}` : ""
+                  } tx • ${sharePct > 0 ? `~${sharePct.toFixed(2)}%` : "0%"}${
+                    estimate.rank ? ` • #${estimate.rank}` : ""
                   }`
                 : ru
                   ? `Нужно ${estimate.minPoints.toLocaleString()} pts и ${
                       estimate.minTransactions
-                    } tx · у тебя ${estimate.walletPoints.toLocaleString()} pts / ${
+                    } tx • У вас ${estimate.walletPoints.toLocaleString()} pts / ${
                       estimate.walletTransactions
                     } tx`
                   : `Need ${estimate.minPoints.toLocaleString()} pts and ${
                       estimate.minTransactions
-                    } tx · you have ${estimate.walletPoints.toLocaleString()} pts / ${
+                    } tx • you have ${estimate.walletPoints.toLocaleString()} pts / ${
                       estimate.walletTransactions
                     } tx`
               : ru
-                ? "Считаем долю..."
+                ? "Расчет доли..."
                 : "Calculating share..."}
           </small>
         </div>
       )}
       <div className={styles.poolMeta}>
-        {isEnded ? (
-          <span style={{ color: '#00dcb4', fontWeight: 'bold' }}>
-            {ru ? "Сезон завершен! Награды доступны" : "Season completed! Rewards ready"}
-          </span>
-        ) : (
-          <>
-            <span>{ru ? "80% чистой выручки в пул" : "80% net revenue to pool"}</span>
-            <span>{dateLabel}</span>
-          </>
-        )}
+        <span>{ru ? "80% чистой прибыли в пул" : "80% net revenue to pool"}</span>
+        <span>{dateLabel}</span>
       </div>
       {clickable && (
         <em className={styles.poolCta}>
-          {isEnded
-            ? (ru ? "Забрать USDC →" : "Claim USDC →")
-            : (ru ? "Открыть сезон →" : "Open season →")}
+          {ru ? "Открыть сезон →" : "Open season →"}
         </em>
       )}
     </>
