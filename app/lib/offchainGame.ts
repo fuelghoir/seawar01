@@ -1002,6 +1002,7 @@ export interface PlayerProfile {
   seasonPoints: number;
   totalCheckins: number;
   checkinStreak: number;
+  totalGames: number;
   totalWins: number;
   totalShots: number;
   onchainGames: number;
@@ -1081,6 +1082,7 @@ export async function getPlayerProfile(
     seasonPoints: seasonProgress?.points ?? 0,
     totalCheckins: stats?.total_checkins ?? 0,
     checkinStreak: stats?.checkin_streak ?? 0,
+    totalGames,
     totalWins,
     totalShots,
     onchainGames,

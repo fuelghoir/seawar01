@@ -605,7 +605,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     </div>
                     <div className={styles.mobileStatBox}>
                       <span>
-                        {Math.max(0, profileView.onchainGames - profileView.onchainWins)}
+                        {Math.max(0, profileView.totalGames - profileView.totalWins)}
                       </span>
                       <b>{tr.loss.toUpperCase()}</b>
                     </div>
@@ -652,7 +652,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     profile={{
                       points: profileView.points,
                       wins: profileView.totalWins,
-                      losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                      losses: Math.max(0, profileView.totalGames - profileView.totalWins),
                       streak: profileView.checkinStreak,
                       shots: profileView.totalShots,
                       earningsUsdc: profileView.earningsUsdc,
@@ -847,7 +847,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           <HomeCard
             Icon={UserIcon}
             title={tr.home_profile_title}
-            subtitle={`${displayName} - ${profileView.totalWins}W ${Math.max(0, profileView.onchainGames - profileView.onchainWins)}L`}
+            subtitle={`${displayName} - ${profileView.totalWins}W ${Math.max(0, profileView.totalGames - profileView.totalWins)}L`}
             badge={`${profileView.points}`}
             accent="#a855f7"
             active={openSection === "profile"}
@@ -857,7 +857,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               {[
                 { val: profileView.totalWins, key: tr.mobile_wins.toUpperCase(), color: "#00dcb4" },
                 {
-                  val: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                  val: Math.max(0, profileView.totalGames - profileView.totalWins),
                   key: tr.loss.toUpperCase(),
                   color: "#ef4444",
                 },
@@ -919,7 +919,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   profile={{
                     points: profileView.points,
                     wins: profileView.totalWins,
-                    losses: Math.max(0, profileView.onchainGames - profileView.onchainWins),
+                    losses: Math.max(0, profileView.totalGames - profileView.totalWins),
                     streak: profileView.checkinStreak,
                     shots: profileView.totalShots,
                     earningsUsdc: profileView.earningsUsdc,
@@ -1241,6 +1241,7 @@ function createEmptyProfile(wallet: string): PlayerProfile {
     points: 0,
     totalCheckins: 0,
     checkinStreak: 0,
+    totalGames: 0,
     totalWins: 0,
     totalShots: 0,
     onchainGames: 0,
