@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase } from "../../../lib/adminSupabase";
+import { isBaseAppUserAgent } from "../../../lib/baseApp";
 import { addSeasonXpServer, normalizeSeasonWallet } from "../../../lib/seasonServer";
 
 export const runtime = "nodejs";
@@ -10,9 +11,11 @@ export async function POST(req: NextRequest) {
   if (!wallet) return badRequest("Invalid wallet");
 
   try {
+    const isBaseApp = isBaseAppUserAgent(req.headers.get("user-agent"));
     const admin = adminSupabase();
     const { data, error } = await admin.rpc("claim_daily_checkin", {
       p_wallet: wallet,
+      p_is_base_app: isBaseApp,
     });
     if (error) throw new Error(error.message);
 

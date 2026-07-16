@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase } from "../../../lib/adminSupabase";
+import { isBaseAppUserAgent } from "../../../lib/baseApp";
 import {
   GLOBAL_EXTERNAL_QUESTS,
   isExternalQuestActive,
@@ -355,10 +356,11 @@ async function verifyQuest(admin: AdminClient, wallet: string, questKey: string)
   }
 }
 
-async function claimQuest(admin: AdminClient, wallet: string, questKey: string) {
+async function claimQuest(admin: AdminClient, wallet: string, questKey: string, isBaseApp: boolean) {
   const { data, error } = await admin.rpc("claim_external_quest", {
     p_wallet: wallet,
     p_quest_key: questKey,
+    p_is_base_app: isBaseApp,
   });
   if (error) throw new Error(error.message);
   return Boolean(data);
@@ -385,11 +387,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const isBaseApp = isBaseAppUserAgent(req.headers.get("user-agent"));
     await verifyQuest(admin, wallet, quest.key);
 
-    const awarded = await claimQuest(admin, wallet, quest.key);
+    const awarded = await claimQuest(admin, wallet, quest.key, isBaseApp);
+    const finalReward = isBaseApp ? quest.reward * 2 : quest.reward;
     return NextResponse.json({
-      reward: awarded ? quest.reward : 0,
+      reward: awarded ? finalReward : 0,
       alreadyClaimed: !awarded,
       verified: true,
     });

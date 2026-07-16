@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { getItemQuantity, SEASON_KEY } from "./season";
+import { isBaseAppUserAgent } from "./baseApp";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
@@ -841,7 +842,10 @@ export interface CheckinStatus {
   nextReward: number;
 }
 
-function getCheckinReward(streak: number): number {
+function getCheckinReward(streak: number, isBaseApp: boolean): number {
+  if (isBaseApp) {
+    return 500 + Math.floor((streak - 1) / 5) * 50;
+  }
   return Math.ceil(streak / 5) * 5;
 }
 
@@ -867,8 +871,10 @@ export async function getCheckinStatus(
 
   if (error) throw new Error(error.message);
 
+  const isBaseApp = isBaseAppUserAgent(typeof window !== "undefined" ? window.navigator.userAgent : "");
+
   if (!data) {
-    return { canCheckin: true, streak: 0, nextReward: 5 };
+    return { canCheckin: true, streak: 0, nextReward: getCheckinReward(1, isBaseApp) };
   }
 
   const today = todayUTC();
@@ -878,7 +884,7 @@ export async function getCheckinStatus(
     return {
       canCheckin: false,
       streak: data.checkin_streak,
-      nextReward: getCheckinReward(data.checkin_streak + 1),
+      nextReward: getCheckinReward(data.checkin_streak + 1, isBaseApp),
     };
   }
 
@@ -891,7 +897,7 @@ export async function getCheckinStatus(
       return {
         canCheckin: true,
         streak: data.checkin_streak,
-        nextReward: getCheckinReward(data.checkin_streak + 1),
+        nextReward: getCheckinReward(data.checkin_streak + 1, isBaseApp),
       };
     }
   }
@@ -899,7 +905,7 @@ export async function getCheckinStatus(
   return {
     canCheckin: true,
     streak,
-    nextReward: getCheckinReward(streak + 1),
+    nextReward: getCheckinReward(streak + 1, isBaseApp),
   };
 }
 

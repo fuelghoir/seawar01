@@ -8,6 +8,7 @@ import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { FleetMinerSummary } from "../components/FleetMinerWidgets";
 import { useSettings, TR } from "../lib/settings";
+import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
 
 type PageItem = number | "gap";
@@ -42,6 +43,7 @@ export default function LeaderboardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const isBaseApp = typeof window !== "undefined" && isBaseAppUserAgent(window.navigator.userAgent);
 
   useEffect(() => {
     let active = true;
@@ -116,8 +118,8 @@ export default function LeaderboardPage() {
             <ul className={styles.helpList}>
               <li><strong>+50 pts</strong> — {tr.lb_help_win}</li>
               <li><strong>+1 pt</strong> — {tr.lb_help_hit}</li>
-              <li><strong>+5 pts</strong> — {tr.lb_help_checkin}</li>
-              <li><strong>{tr.lb_help_streak_label}</strong> — {tr.lb_help_streak}</li>
+              <li><strong>{isBaseApp ? "+500 pts" : "+5 pts"}</strong> — {tr.lb_help_checkin}</li>
+              <li><strong>{tr.lb_help_streak_label}</strong> — {isBaseApp ? "+50 pts" : "+5 pts"} {tr.lb_help_streak}</li>
             </ul>
             <p className={styles.helpNote}>{tr.lb_help_note}</p>
           </div>

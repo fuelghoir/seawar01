@@ -46,6 +46,7 @@ export async function resolveFinishedGameStats(
   admin: SupabaseClient,
   gameIdValue: unknown,
   requestedWalletValue: unknown,
+  isBaseApp: boolean = false,
 ): Promise<ResolveFinishedGameStatsResult> {
   const gameId = Number(gameIdValue);
   if (!Number.isInteger(gameId) || gameId <= 0) throw new Error("Invalid game id");
@@ -118,7 +119,10 @@ export async function resolveFinishedGameStats(
     for (const player of players) {
       const rawPoints = player.hits + (player.won ? 50 : 0);
       const multiplier = await getGamePointMultiplier(admin, player.wallet);
-      const points = Math.floor(rawPoints * multiplier);
+      let points = Math.floor(rawPoints * multiplier);
+      if (isBaseApp && player.wallet === requestedWallet) {
+        points += 1000;
+      }
       await bumpPlayerStats(admin, player.wallet, {
         points,
         wins: player.won ? 1 : 0,

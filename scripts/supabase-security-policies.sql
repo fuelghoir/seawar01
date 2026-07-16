@@ -80,7 +80,8 @@ CREATE TABLE IF NOT EXISTS resolved_games (
 -- =========================================================================
 
 CREATE OR REPLACE FUNCTION claim_daily_checkin(
-  p_wallet text
+  p_wallet text,
+  p_is_base_app boolean DEFAULT false
 ) RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -106,7 +107,11 @@ BEGIN
   -- 1. If player stats do not exist, create profile and award initial reward
   IF v_stats IS NULL THEN
     v_streak := 1;
-    v_reward := 5; -- getCheckinReward(1) = ceil(1/5)*5 = 5
+    IF p_is_base_app THEN
+      v_reward := 500;
+    ELSE
+      v_reward := 5; -- getCheckinReward(1) = ceil(1/5)*5 = 5
+    END IF;
     
     INSERT INTO player_stats (wallet, points, checkin_streak, last_checkin, total_checkins, updated_at)
     VALUES (v_wallet, v_reward, v_streak, v_today, 1, now());
@@ -141,7 +146,13 @@ BEGIN
     v_streak := 1;
   END IF;
 
-  v_reward := ceil(v_streak::numeric / 5.0) * 5;
+  IF p_is_base_app THEN
+    -- Starts at 500 points, every 5 days +50 points
+    -- Example: day 1-4 = 500, day 5-9 = 550, day 10-14 = 600
+    v_reward := 500 + floor((v_streak - 1) / 5) * 50;
+  ELSE
+    v_reward := ceil(v_streak::numeric / 5.0) * 5;
+  END IF;
 
   -- 4. Update stats atomically
   UPDATE player_stats

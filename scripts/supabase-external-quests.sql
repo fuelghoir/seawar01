@@ -16,7 +16,8 @@ create index if not exists idx_external_quest_claims_wallet
 
 create or replace function claim_external_quest(
   p_wallet text,
-  p_quest_key text
+  p_quest_key text,
+  p_is_base_app boolean default false
 ) returns boolean
 language plpgsql
 security definer
@@ -86,6 +87,10 @@ begin
 
   if v_ends_at is not null and now() >= v_ends_at then
     raise exception 'Quest expired';
+  end if;
+
+  if p_is_base_app then
+    v_points := v_points * 2;
   end if;
 
   insert into external_quest_claims (
