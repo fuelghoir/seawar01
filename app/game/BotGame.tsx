@@ -184,8 +184,6 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     save?.botStateData ? deserializeBotState(save.botStateData) : createBotState()
   );
 
-  // Avoid spamming the resolver; the server keeps the real idempotency guard.
-  const pointsRecorded = useRef(false);
   const statsFinishedRecorded = useRef(!!(save?.winner && save?.statsGameId));
 
   // Refs for stale-closure safety in doBotTurn
@@ -317,43 +315,26 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
     const didWin = winner === "me";
 
-    const needsFinishStats = !statsFinishedRecorded.current;
-
-    if (needsFinishStats) {
+    if (!statsFinishedRecorded.current) {
       statsFinishedRecorded.current = true;
       ensureStatsGame()
-        .then((id) => {
+        .then(async (id) => {
           if (!id) {
             statsFinishedRecorded.current = false;
-            return undefined;
+            return;
           }
-          return finishBotStatsGame(
+          await finishBotStatsGame(
             id,
             address,
             didWin,
             didWin ? Math.max(myHits, 20) : myHits,
             didWin ? botHits : Math.max(botHits, 20)
           );
+          await resolveOffchainGame(id, address);
         })
         .then(() => notifyPlayerDataRefresh())
         .catch(() => {
           statsFinishedRecorded.current = false;
-        });
-    }
-
-    if (!needsFinishStats && !pointsRecorded.current) {
-      pointsRecorded.current = true;
-      ensureStatsGame()
-        .then((id) => {
-          if (!id) {
-            pointsRecorded.current = false;
-            return undefined;
-          }
-          return resolveOffchainGame(id, address);
-        })
-        .then(() => notifyPlayerDataRefresh())
-        .catch(() => {
-          pointsRecorded.current = false;
         });
     }
   }, [winner, address, myHits, botHits, ensureStatsGame]);
