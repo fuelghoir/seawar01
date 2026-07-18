@@ -16,8 +16,21 @@ CREATE OR REPLACE FUNCTION sync_player_stats_points_to_season()
 RETURNS TRIGGER AS $$
 DECLARE
   v_diff integer;
-  v_active_season text := 'S1'; -- Current active season key
+  v_active_season text;
+  v_is_ended boolean;
 BEGIN
+  -- Get current season config
+  SELECT season_key, is_ended INTO v_active_season, v_is_ended FROM season_config WHERE id = 'default';
+  
+  -- If season is ended, do not accumulate season points
+  IF coalesce(v_is_ended, false) = true THEN
+    RETURN NEW;
+  END IF;
+
+  IF v_active_season IS NULL THEN
+    v_active_season := 'S1';
+  END IF;
+
   IF TG_OP = 'UPDATE' THEN
     v_diff := NEW.points - OLD.points;
     -- Only sync point gains/earnings. Spending (deductions) are managed separately.
