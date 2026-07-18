@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { getLeaderboard, LEADERBOARD_PAGE_SIZE, LeaderboardEntry } from "../lib/offchainGame";
+import { getSeasonState, type SeasonState } from "../lib/season";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { FleetMinerSummary } from "../components/FleetMinerWidgets";
@@ -43,7 +44,12 @@ export default function LeaderboardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [season, setSeason] = useState<SeasonState | null>(null);
   const isBaseApp = typeof window !== "undefined" && isBaseAppUserAgent(window.navigator.userAgent);
+
+  useEffect(() => {
+    getSeasonState(address || "").then(setSeason).catch(() => {});
+  }, [address]);
 
   useEffect(() => {
     let active = true;
@@ -137,6 +143,15 @@ export default function LeaderboardPage() {
         {loading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
+          </div>
+        ) : mode === "season" && season?.isEnded ? (
+          <div className={styles.emptyState}>
+            <h2 className={styles.emptyTitle}>{lang === "ru" ? "СЕЗОН ЗАВЕРШЕН" : "SEASON ENDED"}</h2>
+            <p className={styles.emptyText}>
+              {lang === "ru" 
+                ? "Таблица лидеров текущего сезона пуста. Ожидайте старта Сезона 2!"
+                : "The current season leaderboard is empty. Season 2 starts soon!"}
+            </p>
           </div>
         ) : entries.length === 0 ? (
           <p className={styles.empty}>{tr.lb_empty}</p>

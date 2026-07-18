@@ -232,6 +232,40 @@
   padding: 48px 0;
 }
 
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 20px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(var(--bg-abyss-rgb), 0.85) 100%);
+  border: 1px dashed rgba(var(--accent-rgb), 0.3);
+  border-radius: 16px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.emptyTitle {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.4);
+}
+
+.emptyText {
+  font-family: var(--font-rajdhani), "Rajdhani", system-ui, sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 320px;
+}
+
 /* ───── Table ───── */
 
 .table {
