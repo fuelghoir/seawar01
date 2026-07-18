@@ -504,7 +504,10 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
 
       <SeasonEndedClaimIntro
         open={showSeasonEndedIntro}
-        onClose={() => setShowSeasonEndedIntro(false)}
+        onClose={() => {
+          if (address) sessionStorage.setItem(`sea-battle-usdc-season-ended-${address.toLowerCase()}`, "1");
+          setShowSeasonEndedIntro(false);
+        }}
         onOpenClaim={openSeasonEndedClaim}
       />
 
