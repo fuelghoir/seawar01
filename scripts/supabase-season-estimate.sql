@@ -18,17 +18,30 @@ declare
   v_rank integer := null;
   v_min_points integer := 3000;
   v_min_transactions integer := 10;
+  v_active_season text;
 begin
+  -- 0. Get active season key and min tx count
+  select season_key, coalesce(min_tx_count, 10) 
+  into v_active_season, v_min_transactions 
+  from season_config where id = 'default';
+  
+  if v_active_season is null then
+    v_active_season := 'S1';
+  end if;
+
   -- 1. Get requested wallet stats
   select
-    points,
-    coalesce(games_played, 0) + coalesce(total_checkins, 0)
+    coalesce(sp.points, 0),
+    coalesce(ps.games_played, 0) + coalesce(ps.total_checkins, 0)
   into v_wallet_points, v_wallet_transactions
-  from player_stats
-  where lower(wallet) = lower(p_wallet);
+  from player_stats ps
+  left join season_progress sp on lower(sp.wallet) = lower(ps.wallet) and sp.season_key = v_active_season
+  where lower(ps.wallet) = lower(p_wallet);
 
   if v_wallet_points is null then
     v_wallet_points := 0;
+  end if;
+  if v_wallet_transactions is null then
     v_wallet_transactions := 0;
   end if;
 
@@ -38,26 +51,28 @@ begin
 
   -- 2. Calculate global aggregates for eligible players
   select
-    coalesce(sum(points::bigint), 0),
-    count(*)
+    coalesce(sum(sp.points::bigint), 0),
+    count(ps.wallet)
   into v_total_points, v_eligible_players
-  from player_stats
+  from player_stats ps
+  join season_progress sp on lower(sp.wallet) = lower(ps.wallet) and sp.season_key = v_active_season
   where
-    points >= v_min_points
+    sp.points >= v_min_points
     and
-    (coalesce(games_played, 0) + coalesce(total_checkins, 0)) >= v_min_transactions;
+    (coalesce(ps.games_played, 0) + coalesce(ps.total_checkins, 0)) >= v_min_transactions;
 
   -- 3. Calculate rank if eligible
   if v_eligible then
-    select count(*)
+    select count(ps.wallet)
     into v_higher_eligible_players
-    from player_stats
+    from player_stats ps
+    join season_progress sp on lower(sp.wallet) = lower(ps.wallet) and sp.season_key = v_active_season
     where
-      points > v_wallet_points
+      sp.points > v_wallet_points
       and
-      points >= v_min_points
+      sp.points >= v_min_points
       and
-      (coalesce(games_played, 0) + coalesce(total_checkins, 0)) >= v_min_transactions;
+      (coalesce(ps.games_played, 0) + coalesce(ps.total_checkins, 0)) >= v_min_transactions;
 
     v_rank := v_higher_eligible_players + 1;
   end if;

@@ -208,6 +208,7 @@ export default function AdminPage() {
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
   const [seasonKey, setSeasonKey] = useState("S1");
   const [virtualPoolUsdc, setVirtualPoolUsdc] = useState("0");
+  const [minTxCount, setMinTxCount] = useState("10");
   const [seasonConfigBusy, setSeasonConfigBusy] = useState(false);
   const [customTokenMode, setCustomTokenMode] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState("");
@@ -292,6 +293,7 @@ export default function AdminPage() {
         setSeasonIsEnded(!!seasonConfigData.isEnded);
         setSeasonKey(seasonConfigData.seasonKey || "S1");
         setVirtualPoolUsdc(String(seasonConfigData.virtualPoolUsdc || 0));
+        setMinTxCount(String(seasonConfigData.minTxCount ?? 10));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : (isRu ? "Не удалось загрузить админку" : "Failed to load admin panel"));
@@ -737,6 +739,7 @@ export default function AdminPage() {
           isEnded: seasonIsEnded,
           seasonKey: seasonKey,
           virtualPoolUsdc: Number(virtualPoolUsdc),
+          minTxCount: Number(minTxCount),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1517,6 +1520,25 @@ export default function AdminPage() {
                     value={virtualPoolUsdc}
                     onChange={(e) => setVirtualPoolUsdc(e.target.value)}
                     placeholder="150"
+                    style={{
+                      background: 'rgba(5, 10, 22, 0.82)',
+                      border: '1px solid rgba(0, 212, 255, 0.24)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span>{isRu ? "Мин. транзакций для дропа" : "Min Transactions for Drop"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={minTxCount}
+                    onChange={(e) => setMinTxCount(e.target.value)}
+                    placeholder="10"
                     style={{
                       background: 'rgba(5, 10, 22, 0.82)',
                       border: '1px solid rgba(0, 212, 255, 0.24)',

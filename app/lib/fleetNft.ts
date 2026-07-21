@@ -57,3 +57,21 @@ export function fleetNextPrice(tier: number, level: number) {
   if (tier === 2 && level === 3) return 10_000_000;
   return 0;
 }
+
+export function fleetMaxUpgradeCost(tier: number, level: number) {
+  let cost = 0;
+  let currentTier = tier;
+  let currentLevel = level;
+  while (currentTier < 3 || currentLevel < 3) {
+    if (currentTier === 3 && currentLevel === 3) break;
+    const price = fleetNextPrice(currentTier, currentLevel);
+    cost += price;
+    if (currentLevel < 3) {
+      currentLevel++;
+    } else {
+      currentTier++;
+      currentLevel = 1;
+    }
+  }
+  return cost;
+}

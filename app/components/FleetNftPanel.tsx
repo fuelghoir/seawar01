@@ -27,6 +27,7 @@ import {
   EMPTY_FLEET_STATE,
   fleetNextPrice,
   fleetPointRate,
+  fleetMaxUpgradeCost,
   formatUsdc,
   parseFleetState,
   type FleetState,
@@ -36,6 +37,7 @@ import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { useTransactionWarmup } from "../lib/useTransactionWarmup";
+import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./FleetNftPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -145,8 +147,10 @@ export default function FleetNftPanel() {
   const txWarmReady = useTransactionWarmup(isConnected, address);
   const deployed = FLEET_NFT_CONTRACT_ADDRESS !== ZERO_ADDRESS;
   const [fleet, setFleet] = useState<FleetState>(() => readCached(address));
+  const [isBaseApp, setIsBaseApp] = useState(false);
   const [message, setMessage] = useState("");
-  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | null>(null);
+  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | null>(null);
+  const [discountSignature, setDiscountSignature] = useState<string | null>(null);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [purchaseFallbackMined, setPurchaseFallbackMined] = useState(false);
   const [claimFallbackMined, setClaimFallbackMined] = useState(false);
@@ -202,6 +206,7 @@ export default function FleetNftPanel() {
 
   useEffect(() => {
     setFleet(readCached(address));
+    if (typeof window !== "undefined") setIsBaseApp(isBaseAppUserAgent(navigator.userAgent));
   }, [address]);
 
   useEffect(() => {
@@ -212,7 +217,8 @@ export default function FleetNftPanel() {
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
-  const actionPrice = owned ? fleet.nextPrice : 500_000;
+  const maxUpgradeCost = useMemo(() => fleetMaxUpgradeCost(fleet.tier, fleet.level), [fleet.tier, fleet.level]);
+  const actionPrice = owned ? fleet.nextPrice : (isBaseApp ? 250_000 : 500_000);
   const actionLabel = !deployed
     ? ru ? "СКОРО" : "SOON"
     : owned
@@ -274,13 +280,24 @@ export default function FleetNftPanel() {
     claimCallsPending ||
     (!!claimCallsData?.id && !claimCallsSuccess && !claimHandledRef.current);
 
-  const sendPurchase = useCallback((action: "buy" | "upgrade") => {
+  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount", sig?: string | null) => {
     purchaseSubmittedRef.current = true;
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
+    
+    let fnName = "buyFleetNft";
+    let args: any[] = [];
+    if (action === "upgrade") fnName = "upgradeFleetNft";
+    if (action === "max") fnName = "upgradeToMaxLevel";
+    if (action === "buyWithDiscount" && sig) {
+      fnName = "buyFleetNftWithDiscount";
+      args = [sig];
+    }
+
     writePurchase({
       address: FLEET_NFT_CONTRACT_ADDRESS,
       abi: fleetPassAbi,
-      functionName: action === "buy" ? "buyFleetNft" : "upgradeFleetNft",
+      functionName: fnName,
+      args,
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
@@ -330,8 +347,8 @@ export default function FleetNftPanel() {
 
   useEffect(() => {
     if (!approveMined || !purchaseAction || purchaseSubmittedRef.current) return;
-    sendPurchase(purchaseAction);
-  }, [approveMined, purchaseAction, sendPurchase]);
+    sendPurchase(purchaseAction, discountSignature);
+  }, [approveMined, purchaseAction, sendPurchase, discountSignature]);
 
   useEffect(() => {
     if (!purchaseMined || purchaseHandledRef.current) return;
@@ -402,16 +419,43 @@ export default function FleetNftPanel() {
       });
   }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru]);
 
-  const startPurchase = async () => {
+  const startPurchase = async (actionOverride?: "max") => {
     if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
-    const action = owned ? "upgrade" : "buy";
+    
+    let action: "buy" | "upgrade" | "max" | "buyWithDiscount" = actionOverride ?? (owned ? "upgrade" : "buy");
+    if (action === "buy" && isBaseApp) {
+      action = "buyWithDiscount";
+    }
+
+    let requiredPrice = actionPrice;
+    if (action === "max") {
+      requiredPrice = maxUpgradeCost;
+    }
+
     setMessage("");
     setPurchaseAction(action);
     previousTokenRef.current = fleet.tokenId;
     purchaseSubmittedRef.current = false;
     purchaseHandledRef.current = false;
+    setDiscountSignature(null);
     resetApprove();
     resetPurchase();
+
+    let sig: string | null = null;
+    if (action === "buyWithDiscount") {
+      setMessage(ru ? "Получаем скидку..." : "Getting discount...");
+      try {
+        const res = await fetch(`/api/fleet-nft/discount-sig?wallet=${address}`);
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.signature) throw new Error("Signature failed");
+        sig = data.signature;
+        setDiscountSignature(sig);
+      } catch (err) {
+        setPurchaseAction(null);
+        setMessage(ru ? "Не удалось получить скидку" : "Could not get discount signature");
+        return;
+      }
+    }
 
     const allowance = await readContract(wagmiConfig, {
       address: USDC_ADDRESS,
@@ -421,8 +465,8 @@ export default function FleetNftPanel() {
       chainId: base.id,
     }).catch(() => BigInt(0));
 
-    if (allowance >= BigInt(actionPrice)) {
-      sendPurchase(action);
+    if (allowance >= BigInt(requiredPrice)) {
+      sendPurchase(action, sig);
       return;
     }
 
@@ -431,7 +475,7 @@ export default function FleetNftPanel() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(actionPrice)],
+      args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(requiredPrice)],
       chainId: base.id,
     });
   };
@@ -496,7 +540,7 @@ export default function FleetNftPanel() {
         <div className={styles.heading}>
           <div>
             <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
-            <h2>{owned ? `FLEET PASS ${fleet.tokenId}` : ru ? "СОБЕРИ СВОЙ ФЛОТ" : "BUILD YOUR FLEET"}</h2>
+            <h2>{owned ? "FLEET PASS" : ru ? "СОБЕРИ СВОЙ ФЛОТ" : "BUILD YOUR FLEET"}</h2>
           </div>
           <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
         </div>
@@ -514,13 +558,28 @@ export default function FleetNftPanel() {
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.primary} onClick={startPurchase} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
+          <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
             {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
           </button>
+          {owned && !fleet.maxed && (
+            <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
+              {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
+            </button>
+          )}
           <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !txWarmReady || !deployed || fleet.claimablePoints <= 0 || claimPending}>
             {!txWarmReady ? "SYNCING..." : claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
           </button>
         </div>
+        {!owned && !isBaseApp && deployed && (
+          <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(0, 82, 255, 0.1)', border: '1px solid #0052ff', borderRadius: '8px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: '#fff' }}>
+              {ru ? "Перейди в Base App, чтобы купить со скидкой 50%!" : "Switch to Base App to buy with 50% discount!"}
+            </p>
+            <a href="https://base.app/app/seabattle.top" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '8px', color: '#66e9ff', fontSize: '13px', textDecoration: 'none', fontWeight: 'bold' }}>
+              {ru ? "Открыть в Base App →" : "Open in Base App →"}
+            </a>
+          </div>
+        )}
         {message && <p className={styles.message}>{message}</p>}
       </div>
 
