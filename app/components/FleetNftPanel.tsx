@@ -285,19 +285,19 @@ export default function FleetNftPanel() {
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
     
     let fnName: "buyFleetNft" | "upgradeFleetNft" | "buyFleetNftWithDiscount" | "upgradeToMaxLevel" = "buyFleetNft";
-    let args: readonly unknown[] = [];
+    let args: readonly [] | readonly [`0x${string}`] = [];
     if (action === "upgrade") fnName = "upgradeFleetNft";
     if (action === "max") fnName = "upgradeToMaxLevel";
     if (action === "buyWithDiscount" && sig) {
       fnName = "buyFleetNftWithDiscount";
-      args = [sig];
+      args = [sig as `0x${string}`];
     }
 
     writePurchase({
       address: FLEET_NFT_CONTRACT_ADDRESS,
       abi: fleetPassAbi,
       functionName: fnName,
-      args,
+      args: args as never,
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
