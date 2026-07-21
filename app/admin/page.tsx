@@ -207,6 +207,7 @@ export default function AdminPage() {
   const [seasonEndDate, setSeasonEndDate] = useState("2026-07-18T00:00");
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
   const [seasonKey, setSeasonKey] = useState("S1");
+  const [bpSeasonKey, setBpSeasonKey] = useState("S1");
   const [virtualPoolUsdc, setVirtualPoolUsdc] = useState("0");
   const [minTxCount, setMinTxCount] = useState("10");
   const [seasonConfigBusy, setSeasonConfigBusy] = useState(false);
@@ -292,6 +293,7 @@ export default function AdminPage() {
         }
         setSeasonIsEnded(!!seasonConfigData.isEnded);
         setSeasonKey(seasonConfigData.seasonKey || "S1");
+        setBpSeasonKey(seasonConfigData.bpSeasonKey || "S1");
         setVirtualPoolUsdc(String(seasonConfigData.virtualPoolUsdc || 0));
         setMinTxCount(String(seasonConfigData.minTxCount ?? 10));
       }
@@ -738,6 +740,7 @@ export default function AdminPage() {
           endDate: isoDate,
           isEnded: seasonIsEnded,
           seasonKey: seasonKey,
+          bpSeasonKey: bpSeasonKey,
           virtualPoolUsdc: Number(virtualPoolUsdc),
           minTxCount: Number(minTxCount),
         }),
@@ -1500,6 +1503,24 @@ export default function AdminPage() {
                     type="text"
                     value={seasonKey}
                     onChange={(e) => setSeasonKey(e.target.value)}
+                    placeholder="S1"
+                    style={{
+                      background: 'rgba(5, 10, 22, 0.82)',
+                      border: '1px solid rgba(0, 212, 255, 0.24)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span>{isRu ? "Код сезона Battle Pass" : "Battle Pass Season Key"}</span>
+                  <input
+                    type="text"
+                    value={bpSeasonKey}
+                    onChange={(e) => setBpSeasonKey(e.target.value)}
                     placeholder="S1"
                     style={{
                       background: 'rgba(5, 10, 22, 0.82)',

@@ -561,7 +561,7 @@ export default function FleetNftPanel() {
           <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
             {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
           </button>
-          {owned && !fleet.maxed && (
+          {owned && !fleet.maxed && isBaseApp && (
             <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
               {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
             </button>

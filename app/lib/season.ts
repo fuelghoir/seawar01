@@ -468,12 +468,7 @@ export async function validatePointItemPurchase(
     .maybeSingle();
 
   const playerStatsPoints = Number(statsData?.points ?? 0);
-  let points = Number(data?.points ?? 0);
-
-  // Auto-heal missing migration data
-  if (playerStatsPoints > points) {
-    points = playerStatsPoints;
-  }
+  const points = Number(data?.points ?? 0);
 
   if (points < item.pricePoints * qty) throw new Error("Not enough points");
 }
@@ -548,41 +543,41 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
   
   const { data: configData, error: configError } = await supabase
     .from("season_config")
-    .select("end_date, is_ended, season_key, virtual_pool_usdc")
+    .select("end_date, is_ended, season_key, bp_season_key, virtual_pool_usdc")
     .eq("id", "default")
     .maybeSingle();
 
   if (configError) throw new Error(configError.message);
 
   const seasonKey = configData?.season_key || SEASON_KEY;
+  const bpSeasonKey = configData?.bp_season_key || "S1";
   const endDate = configData?.end_date ?? "2026-07-18T00:00:00.000Z";
   const isEnded = configData?.is_ended ?? false;
   const virtualPoolUsdc = configData?.virtual_pool_usdc ?? 0;
 
-  const { data: progressData, error: progressError } = await supabase
-    .from("season_progress")
-    .select("xp, claimed_levels, points")
-    .eq("wallet", addr)
-    .eq("season_key", seasonKey)
-    .maybeSingle();
+  const [{ data: bpData, error: bpError }, { data: poolData, error: poolError }] = await Promise.all([
+    supabase
+      .from("season_progress")
+      .select("xp, claimed_levels")
+      .eq("wallet", addr)
+      .eq("season_key", bpSeasonKey)
+      .maybeSingle(),
+    supabase
+      .from("season_progress")
+      .select("points")
+      .eq("wallet", addr)
+      .eq("season_key", seasonKey)
+      .maybeSingle()
+  ]);
 
-  if (progressError) throw new Error(progressError.message);
+  if (bpError) throw new Error(bpError.message);
+  if (poolError) throw new Error(poolError.message);
 
-  const { data: statsData } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .maybeSingle();
+  const xp = Number(bpData?.xp ?? 0);
+  const points = Number(poolData?.points ?? 0);
 
-  const xp = Number(progressData?.xp ?? 0);
-  let points = Number(progressData?.points ?? 0);
-  const playerStatsPoints = Number(statsData?.points ?? 0);
-  if (playerStatsPoints > points) {
-    points = playerStatsPoints;
-  }
-
-  const claimedLevels = Array.isArray(progressData?.claimed_levels)
-    ? (progressData.claimed_levels as number[])
+  const claimedLevels = Array.isArray(bpData?.claimed_levels)
+    ? (bpData.claimed_levels as number[])
     : [];
   const level = SEASON_LEVELS.filter((entry) => xp >= entry.xpRequired).length;
   const nextLevel = SEASON_LEVELS.find((entry) => xp < entry.xpRequired);

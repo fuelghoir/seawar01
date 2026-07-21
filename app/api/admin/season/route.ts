@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest) {
 
     const { data: config, error } = await admin
       .from("season_config")
-      .select("end_date, is_ended, season_key, virtual_pool_usdc, min_tx_count")
+      .select("end_date, is_ended, season_key, bp_season_key, virtual_pool_usdc, min_tx_count")
       .eq("id", "default")
       .maybeSingle();
 
@@ -21,6 +21,7 @@ export async function GET(_req: NextRequest) {
       endDate: config?.end_date ?? "2026-07-18T00:00:00.000Z",
       isEnded: config?.is_ended ?? false,
       seasonKey: config?.season_key || "S1",
+      bpSeasonKey: config?.bp_season_key || "S1",
       virtualPoolUsdc: config?.virtual_pool_usdc || 0,
       minTxCount: config?.min_tx_count ?? 10,
     });
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       const endDate = String(body?.endDate ?? "2026-07-18T00:00:00.000Z").trim();
       const isEnded = Boolean(body?.isEnded);
       const seasonKey = String(body?.seasonKey || "S1").trim();
+      const bpSeasonKey = String(body?.bpSeasonKey || "S1").trim();
       const virtualPoolUsdc = Math.max(0, Number(body?.virtualPoolUsdc || 0));
       const minTxCount = Math.max(0, Number(body?.minTxCount ?? 10));
 
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
           end_date: endDate,
           is_ended: isEnded,
           season_key: seasonKey,
+          bp_season_key: bpSeasonKey,
           virtual_pool_usdc: virtualPoolUsdc,
           min_tx_count: minTxCount,
         }, { onConflict: "id" });
