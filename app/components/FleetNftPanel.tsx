@@ -149,7 +149,7 @@ export default function FleetNftPanel() {
   const [fleet, setFleet] = useState<FleetState>(() => readCached(address));
   const [isBaseApp, setIsBaseApp] = useState(false);
   const [message, setMessage] = useState("");
-  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | null>(null);
+  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | null>(null);
   const [discountSignature, setDiscountSignature] = useState<string | null>(null);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [purchaseFallbackMined, setPurchaseFallbackMined] = useState(false);
@@ -283,7 +283,7 @@ export default function FleetNftPanel() {
     claimCallsPending ||
     (!!claimCallsData?.id && !claimCallsSuccess && !claimHandledRef.current);
 
-  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount", sig?: string | null) => {
+  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount", sig?: string | null) => {
     purchaseSubmittedRef.current = true;
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
     
@@ -458,7 +458,7 @@ export default function FleetNftPanel() {
     if (action === "buyWithDiscount" || action === "upgradeWithDiscount" || action === "maxWithDiscount") {
       setMessage(ru ? "Получаем скидку..." : "Getting discount...");
       try {
-        const res = await fetch(`/api/fleet-nft/discount-sig?wallet=${address}`);
+        const res = await fetch(`/api/fleet-nft/discount-sig?wallet=${address}&action=${action}`);
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.signature) throw new Error("Signature failed");
         sig = data.signature;

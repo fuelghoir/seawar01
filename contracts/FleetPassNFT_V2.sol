@@ -46,6 +46,7 @@ contract FleetPassNFT_V2 {
     mapping(address => mapping(address => bool)) private operatorApprovals;
     mapping(address => uint256) public activeTokenOf;
     mapping(uint256 => FleetData) public fleetData;
+    mapping(address => bool) public hasMigrated;
 
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);

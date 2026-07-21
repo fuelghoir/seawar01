@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not eligible for discount. Please use Base App." }, { status: 403 });
   }
 
+  const action = req.nextUrl.searchParams.get("action");
+  let signAction = "discount_buy";
+  if (action === "upgradeWithDiscount") signAction = "discount_upgrade";
+  if (action === "maxWithDiscount") signAction = "discount_max_upgrade";
+
   const pk = process.env.DISCOUNT_SIGNER_PRIVATE_KEY;
   if (!pk) {
     return NextResponse.json({ error: "Signer not configured" }, { status: 500 });
@@ -22,7 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const account = privateKeyToAccount(pk as `0x${string}`);
     const messageHash = keccak256(
-      encodePacked(["address", "string"], [wallet as `0x${string}`, "DISCOUNT"])
+      encodePacked(["address", "string"], [wallet as `0x${string}`, signAction])
     );
     const signature = await account.signMessage({ message: { raw: messageHash } });
 

@@ -17,7 +17,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, "..", ".env");
-const CONTRACT_NAME = "FleetPassNFT";
+const CONTRACT_NAME = "FleetPassNFT_V2";
 const CONTRACT_FILE = `${CONTRACT_NAME}.sol`;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
