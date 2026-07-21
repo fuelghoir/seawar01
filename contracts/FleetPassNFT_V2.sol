@@ -206,6 +206,81 @@ contract FleetPassNFT_V2 {
         emit FleetEvolved(msg.sender, previousTokenId, tokenId, 3, 3);
     }
 
+    function upgradeFleetNftWithDiscount(bytes calldata signature) external nonReentrant returns (uint256 tokenId) {
+        uint256 previousTokenId = activeTokenOf[msg.sender];
+        if (previousTokenId == 0) revert FleetRequired();
+        if (owners[previousTokenId] != msg.sender) revert NotAuthorized();
+        if (signerAddress == address(0)) revert InvalidSignature();
+
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, "discount_upgrade"));
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        
+        address recoveredSigner = _recoverSigner(ethSignedMessageHash, signature);
+        if (recoveredSigner != signerAddress) revert InvalidSignature();
+        if (usedSignatures[signature]) revert SignatureAlreadyUsed();
+        
+        usedSignatures[signature] = true;
+
+        _settle(previousTokenId);
+        FleetData memory previous = fleetData[previousTokenId];
+        (uint8 nextTier, uint8 nextLevel, uint256 price, bool maxed) =
+            _nextEvolution(previous.tier, previous.level);
+        if (maxed) revert MaxEvolution();
+
+        _collectRevenue(msg.sender, price / 2);
+        _burnFleet(previousTokenId);
+        tokenId = _mintFleet(
+            msg.sender,
+            nextTier,
+            nextLevel,
+            previous.bankedPoints,
+            previous.pointSecondRemainder
+        );
+        emit FleetEvolved(msg.sender, previousTokenId, tokenId, nextTier, nextLevel);
+    }
+
+    function upgradeToMaxLevelWithDiscount(bytes calldata signature) external nonReentrant returns (uint256 tokenId) {
+        uint256 previousTokenId = activeTokenOf[msg.sender];
+        if (previousTokenId == 0) revert FleetRequired();
+        if (owners[previousTokenId] != msg.sender) revert NotAuthorized();
+        if (signerAddress == address(0)) revert InvalidSignature();
+
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, "discount_max_upgrade"));
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        
+        address recoveredSigner = _recoverSigner(ethSignedMessageHash, signature);
+        if (recoveredSigner != signerAddress) revert InvalidSignature();
+        if (usedSignatures[signature]) revert SignatureAlreadyUsed();
+        
+        usedSignatures[signature] = true;
+
+        _settle(previousTokenId);
+        FleetData memory previous = fleetData[previousTokenId];
+        if (previous.tier == 3 && previous.level == 3) revert MaxEvolution();
+
+        uint256 totalCost = 0;
+        uint8 currentTier = previous.tier;
+        uint8 currentLevel = previous.level;
+
+        while (currentTier < 3 || currentLevel < 3) {
+            (uint8 nextTier, uint8 nextLevel, uint256 price, ) = _nextEvolution(currentTier, currentLevel);
+            totalCost += price;
+            currentTier = nextTier;
+            currentLevel = nextLevel;
+        }
+
+        _collectRevenue(msg.sender, totalCost / 2);
+        _burnFleet(previousTokenId);
+        tokenId = _mintFleet(
+            msg.sender,
+            3,
+            3,
+            previous.bankedPoints,
+            previous.pointSecondRemainder
+        );
+        emit FleetEvolved(msg.sender, previousTokenId, tokenId, 3, 3);
+    }
+
     function claimPassivePoints() external nonReentrant returns (uint256 points) {
         uint256 tokenId = activeTokenOf[msg.sender];
         if (tokenId == 0) revert FleetRequired();

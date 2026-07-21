@@ -35,6 +35,20 @@ export const fleetPassAbi = [
   },
   {
     type: "function",
+    name: "upgradeFleetNftWithDiscount",
+    inputs: [{ type: "bytes", name: "signature" }],
+    outputs: [{ type: "uint256", name: "tokenId" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "upgradeToMaxLevelWithDiscount",
+    inputs: [{ type: "bytes", name: "signature" }],
+    outputs: [{ type: "uint256", name: "tokenId" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "claimPassivePoints",
     inputs: [],
     outputs: [{ type: "uint256", name: "points" }],
