@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isBaseAppUserAgent } from "../../lib/baseApp";
+import { isBaseAppUserAgent } from "../../../lib/baseApp";
 import { createWalletClient, http, keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   try {
     const account = privateKeyToAccount(pk as `0x${string}`);
     const messageHash = keccak256(
-      encodePacked(["address", "string"], [wallet as `0x${string}`, "discount_buy"])
+      encodePacked(["address", "string"], [wallet as `0x${string}`, "DISCOUNT"])
     );
     const signature = await account.signMessage({ message: { raw: messageHash } });
 

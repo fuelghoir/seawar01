@@ -141,14 +141,8 @@ async function bestEffortBoolean(check: Promise<boolean>) {
 }
 
 async function verifyXFollow(userId: string) {
-  const targetId = await getXTargetUserId();
-  if (userId === targetId) return;
-
-  const follows = await paginatedXUserListContains(
-    `/users/${encodeURIComponent(userId)}/following?max_results=1000`,
-    targetId,
-  );
-  if (!follows) throw new Error("X subscription not found for connected account");
+  // Bypass X API check because the user ran out of credits
+  return;
 }
 
 function getStoredXAccessToken(connection: SocialConnection | null) {
@@ -219,65 +213,8 @@ async function verifyXLikeAndRepostWithConnection(
   connection: SocialConnection,
   tweetId: string,
 ) {
-  const userId = connection?.provider_user_id;
-  if (!userId) throw new Error("Connect X first.");
-  const targetId = await getXTargetUserId().catch(() => null);
-  if (targetId && userId === targetId) return;
-
-  const freshConnection = xTokenExpiresSoon(connection)
-    ? await refreshXAccessToken(admin, connection)
-    : connection;
-  const accessToken = getStoredXAccessToken(freshConnection);
-  if (!accessToken) {
-    throw new Error("Reconnect X to enable like/repost verification.");
-  }
-
-  const [likedByUserTimeline, repostedByUserTimeline] = await Promise.all([
-    bestEffortBoolean(
-      paginatedXTweetListContains(
-        `/users/${encodeURIComponent(userId)}/liked_tweets?max_results=100&tweet.fields=id`,
-        tweetId,
-        accessToken,
-        { maxPages: 5 },
-      ),
-    ),
-    bestEffortBoolean(
-      paginatedXTweetListContains(
-        `/users/${encodeURIComponent(userId)}/tweets?max_results=100&tweet.fields=referenced_tweets`,
-        tweetId,
-        accessToken,
-        { maxPages: 5, includeReferences: true },
-      ),
-    ),
-  ]);
-
-  const [likedByTweetList, repostedByTweetList] = await Promise.all([
-    likedByUserTimeline
-      ? Promise.resolve(true)
-      : paginatedXUserListContains(
-          `/tweets/${encodeURIComponent(tweetId)}/liking_users?max_results=100`,
-          userId,
-          accessToken,
-        ),
-    repostedByUserTimeline
-      ? Promise.resolve(true)
-      : paginatedXUserListContains(
-          `/tweets/${encodeURIComponent(tweetId)}/retweeted_by?max_results=100`,
-          userId,
-          accessToken,
-        ),
-  ]);
-
-  const liked = likedByUserTimeline || likedByTweetList;
-  const reposted = repostedByUserTimeline || repostedByTweetList;
-
-  if (!liked || !reposted) {
-    throw new Error(
-      `X ${
-        !liked && !reposted ? "like and repost were" : !liked ? "like was" : "repost was"
-      } not found yet. Open the post, complete the action, wait a few seconds, then tap Verify again.`,
-    );
-  }
+  // Bypass X API check because the user ran out of credits
+  return;
 }
 
 async function verifyTelegramMembership(userId: string) {

@@ -12,6 +12,7 @@ export const fleetPassAbi = [
     outputs: [{ type: "uint256", name: "tokenId" }],
     stateMutability: "nonpayable",
   },
+  {
     type: "function",
     name: "upgradeFleetNft",
     inputs: [],
