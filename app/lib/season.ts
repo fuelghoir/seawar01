@@ -38,6 +38,7 @@ export interface SeasonLevelState extends SeasonLevel {
 
 export interface SeasonState {
   seasonKey: string;
+  virtualPoolUsdc: number;
   xp: number;
   level: number;
   nextLevelXp: number | null;
@@ -547,15 +548,16 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
   
   const { data: configData, error: configError } = await supabase
     .from("season_config")
-    .select("end_date, is_ended")
+    .select("end_date, is_ended, season_key, virtual_pool_usdc")
     .eq("id", "default")
     .maybeSingle();
 
   if (configError) throw new Error(configError.message);
 
-  const seasonKey = SEASON_KEY;
+  const seasonKey = configData?.season_key || SEASON_KEY;
   const endDate = configData?.end_date ?? "2026-07-18T00:00:00.000Z";
   const isEnded = configData?.is_ended ?? false;
+  const virtualPoolUsdc = configData?.virtual_pool_usdc ?? 0;
 
   const { data: progressData, error: progressError } = await supabase
     .from("season_progress")
@@ -587,6 +589,7 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
 
   return {
     seasonKey,
+    virtualPoolUsdc,
     xp,
     level,
     nextLevelXp: nextLevel?.xpRequired ?? null,

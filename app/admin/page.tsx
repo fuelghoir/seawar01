@@ -207,6 +207,7 @@ export default function AdminPage() {
   const [seasonEndDate, setSeasonEndDate] = useState("2026-07-18T00:00");
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
   const [seasonKey, setSeasonKey] = useState("S1");
+  const [virtualPoolUsdc, setVirtualPoolUsdc] = useState("0");
   const [seasonConfigBusy, setSeasonConfigBusy] = useState(false);
   const [customTokenMode, setCustomTokenMode] = useState(false);
   const [customTokenAddress, setCustomTokenAddress] = useState("");
@@ -290,6 +291,7 @@ export default function AdminPage() {
         }
         setSeasonIsEnded(!!seasonConfigData.isEnded);
         setSeasonKey(seasonConfigData.seasonKey || "S1");
+        setVirtualPoolUsdc(String(seasonConfigData.virtualPoolUsdc || 0));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : (isRu ? "Не удалось загрузить админку" : "Failed to load admin panel"));
@@ -734,6 +736,7 @@ export default function AdminPage() {
           endDate: isoDate,
           isEnded: seasonIsEnded,
           seasonKey: seasonKey,
+          virtualPoolUsdc: Number(virtualPoolUsdc),
         }),
       });
       const data = await res.json().catch(() => null);

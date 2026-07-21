@@ -85,7 +85,7 @@ export function SeasonPoolCard({
     totalPoints: number;
     rank: number | null;
   } | null>(null);
-  const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string } | null>(null);
+  const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string; virtualPoolUsdc: number } | null>(null);
 
   useEffect(() => {
     getSeasonState(address || ZERO_ADDRESS)
@@ -93,6 +93,7 @@ export function SeasonPoolCard({
         setSeasonState({
           isEnded: state.isEnded,
           seasonKey: state.seasonKey,
+          virtualPoolUsdc: state.virtualPoolUsdc || 0,
         });
       })
       .catch(() => {});
@@ -139,9 +140,12 @@ export function SeasonPoolCard({
     };
   }, [address, showEstimate]);
 
+  const virtualPoolRaw = BigInt(Math.floor((seasonState?.virtualPoolUsdc || 0) * 1_000_000));
+  const totalVaultBalance = vaultBalance !== undefined ? vaultBalance + virtualPoolRaw : undefined;
+
   const estimatedReward =
-    vaultBalance !== undefined && estimate?.eligible && estimate.totalPoints
-      ? (vaultBalance * BigInt(Math.max(0, estimate.walletPoints))) /
+    totalVaultBalance !== undefined && estimate?.eligible && estimate.totalPoints
+      ? (totalVaultBalance * BigInt(Math.max(0, estimate.walletPoints))) /
         BigInt(Math.max(1, estimate.totalPoints))
       : null;
   const sharePct =
@@ -193,7 +197,7 @@ export function SeasonPoolCard({
       </div>
       <div className={styles.poolAmount}>
         <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
-        <strong>{vaultBalance === undefined ? "-- USDC" : formatUsdc(vaultBalance)}</strong>
+        <strong>{totalVaultBalance === undefined ? "-- USDC" : formatUsdc(totalVaultBalance)}</strong>
       </div>
       {showEstimate && (
         <div className={styles.poolEstimate}>
