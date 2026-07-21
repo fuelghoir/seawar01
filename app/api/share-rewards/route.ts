@@ -18,7 +18,6 @@ const GAME_SHARE_POINTS = 100;
 const PROFILE_SHARE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const SHARE_ATTEMPT_TTL_MS = 30 * 60 * 1000;
 const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
-const X_API_BASE_URL = process.env.X_API_BASE_URL || "https://api.twitter.com/2";
 
 type ShareKind = "profile" | "game";
 type ShareAction = "prepare" | "verify";
@@ -42,18 +41,6 @@ type ShareAttempt = {
   nonce: string;
 };
 
-type XTweet = {
-  id?: string;
-  text?: string;
-  created_at?: string;
-  entities?: {
-    urls?: Array<{
-      url?: string;
-      expanded_url?: string;
-      unwound_url?: string;
-    }>;
-  };
-};
 
 function normalizeWallet(value: unknown) {
   const wallet = String(value ?? "").trim().toLowerCase();

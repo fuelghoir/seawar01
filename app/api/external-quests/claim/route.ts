@@ -7,12 +7,10 @@ import {
 } from "../../../lib/externalQuests";
 import {
   getSocialConnection,
-  upsertSocialConnection,
   type SocialConnection,
 } from "../../../lib/socialConnectionsServer";
 
 const X_API_BASE_URL = process.env.X_API_BASE_URL || "https://api.twitter.com/2";
-const X_TARGET_USERNAME = process.env.X_TARGET_USERNAME || "0xHerm";
 const DEFAULT_X_POST_ID = "2058535046332510539";
 const TELEGRAM_MEMBER_STATUSES = new Set(["creator", "administrator", "member"]);
 
@@ -25,10 +23,6 @@ function normalizeWallet(value: unknown) {
   return /^0x[a-f0-9]{40}$/.test(wallet) ? wallet : null;
 }
 
-function normalizeXUserId(value: unknown) {
-  const id = String(value ?? "").trim();
-  return /^[1-9][0-9]{1,24}$/.test(id) ? id : null;
-}
 
 function xHeaders(accessToken?: string | null) {
   if (accessToken) {
@@ -57,13 +51,6 @@ async function xApi<T>(path: string, accessToken?: string | null): Promise<T> {
   return data as T;
 }
 
-async function getXUserId(username: string) {
-  const data = await xApi<{ data?: { id?: string } }>(
-    `/users/by/username/${encodeURIComponent(username)}`,
-  );
-  if (!data.data?.id) throw new Error(`X user @${username} was not found`);
-  return data.data.id;
-}
 
 async function verifyXLikeAndRepostWithConnection(
   _admin: AdminClient,
@@ -100,16 +87,6 @@ async function verifyTelegramMembership(userId: string) {
   }
 }
 
-async function verifiedXUserId(admin: AdminClient, wallet: string) {
-  const connection = await getSocialConnection(admin, wallet, "x");
-  if (!connection) {
-    throw new Error("Connect X first.");
-  }
-  if (!connection.provider_user_id) {
-    throw new Error("X is Base Verified, but X user ID is missing. Connect X App to finish setup.");
-  }
-  return connection.provider_user_id;
-}
 
 async function verifiedXConnection(admin: AdminClient, wallet: string) {
   const connection = await getSocialConnection(admin, wallet, "x");
