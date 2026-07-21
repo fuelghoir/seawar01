@@ -338,9 +338,9 @@ export default function SeasonPage() {
           <span>{ru ? "Сезон S2" : "Season S2"}</span>
           <h1>{ru ? "Награды сезона" : "Season Rewards"}</h1>
           <p>
-            {ru
-              ? "Пул USDC, таймер до дропа и Battle Pass награды в одном месте."
-              : "USDC pool, drop countdown, and Battle Pass claims in one place."}
+            {season?.isEnded 
+              ? (ru ? "Награды за прошлый сезон отправлены. Ожидайте Сезон 2!" : "Previous season rewards sent. Waiting for Season 2!")
+              : (ru ? "Пул USDC, таймер до дропа и Battle Pass награды в одном месте." : "USDC pool, drop countdown, and Battle Pass claims in one place.")}
           </p>
         </div>
       </header>
@@ -357,7 +357,22 @@ export default function SeasonPage() {
         </div>
 
         {USDC_SEASON_REWARDS_ENABLED && (
-          address ? (
+          season?.isEnded ? (
+            <section className={styles.dropGate}>
+              <div className={styles.dropHead}>
+                <span>{ru ? "USDC дроп" : "USDC drop"}</span>
+                <b style={{ color: '#ffcc00' }}>{ru ? "ОЖИДАНИЕ" : "WAITING"}</b>
+              </div>
+              <button className={styles.dropButton} type="button" disabled={true} style={{ opacity: 1, border: '1px solid #ffcc00', color: '#ffcc00', background: 'transparent' }}>
+                <span>{ru ? "Скоро Сезон 2" : "Season 2 soon"}</span>
+              </button>
+              <p>
+                {ru
+                  ? "Награды разосланы. Готовьтесь к С2!"
+                  : "Rewards sent. Get ready for S2!"}
+              </p>
+            </section>
+          ) : address ? (
             <DropClaimPanel address={address} />
           ) : (
             <section className={styles.dropGate}>

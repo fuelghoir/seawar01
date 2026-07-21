@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
             className={`${styles.tabBtn} ${mode === "season" ? styles.tabActive : ""}`}
             onClick={() => { setMode("season"); setPage(1); }}
           >
-            {tr.leaderboard_season || "Current Season"}
+            {season?.isEnded ? (lang === "ru" ? "Скоро Сезон 2" : "Season 2 soon") : (tr.leaderboard_season || "Current Season")}
           </button>
         </div>
 
@@ -146,11 +146,11 @@ export default function LeaderboardPage() {
           </div>
         ) : mode === "season" && season?.isEnded ? (
           <div className={styles.emptyState}>
-            <h2 className={styles.emptyTitle}>{lang === "ru" ? "СЕЗОН ЗАВЕРШЕН" : "SEASON ENDED"}</h2>
+            <h2 className={styles.emptyTitle} style={{ color: '#ffcc00' }}>{lang === "ru" ? "ОЖИДАНИЕ СЕЗОНА 2" : "WAITING FOR SEASON 2"}</h2>
             <p className={styles.emptyText}>
               {lang === "ru" 
-                ? "Таблица лидеров текущего сезона пуста. Ожидайте старта Сезона 2!"
-                : "The current season leaderboard is empty. Season 2 starts soon!"}
+                ? "Таблица лидеров пуста. Готовьтесь, Сезон 2 начнется совсем скоро!"
+                : "The leaderboard is empty. Get ready, Season 2 starts very soon!"}
             </p>
           </div>
         ) : entries.length === 0 ? (

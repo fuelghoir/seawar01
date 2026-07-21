@@ -167,25 +167,26 @@ export function SeasonPoolCard({
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        <b style={{ background: '#00dcb4', color: '#03111e' }}>{ru ? "ЗАВЕРШЕН" : "ENDED"}</b>
+        <b style={{ background: '#ffcc00', color: '#03111e' }}>{ru ? "ОЖИДАНИЕ" : "WAITING"}</b>
       </div>
       <div style={{ margin: '24px 0', display: 'flex', justifyContent: 'center' }}>
         <div style={{
-          background: '#00dcb4',
-          color: '#03111e',
+          background: 'transparent',
+          color: '#ffcc00',
+          border: '1px solid #ffcc00',
           padding: '12px 24px',
           borderRadius: '8px',
           fontWeight: '900',
           fontSize: '16px',
           textTransform: 'uppercase',
-          boxShadow: '0 4px 14px rgba(0, 220, 180, 0.4)'
+          boxShadow: '0 4px 14px rgba(255, 204, 0, 0.1)'
         }}>
-          {ru ? "Заклеймить награду" : "Claim your reward"}
+          {ru ? "Скоро Сезон 2" : "Season 2 soon"}
         </div>
       </div>
       <div className={styles.poolMeta}>
-        <span style={{ color: '#00dcb4', fontWeight: 'bold' }}>
-          {ru ? "Снапшот сделан! Награды готовы" : "Snapshot taken! Rewards ready"}
+        <span style={{ color: '#ffcc00', fontWeight: 'bold' }}>
+          {ru ? "Награды разосланы! Ждем С2" : "Rewards sent! Get ready for S2"}
         </span>
       </div>
     </>
