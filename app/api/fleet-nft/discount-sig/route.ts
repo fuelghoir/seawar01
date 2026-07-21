@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (action === "upgradeWithDiscount") signAction = "discount_upgrade";
   if (action === "maxWithDiscount") signAction = "discount_max_upgrade";
 
-  const pk = process.env.DISCOUNT_SIGNER_PRIVATE_KEY;
+  const pk = process.env.DISCOUNT_SIGNER_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY;
   if (!pk) {
     return NextResponse.json({ error: "Signer not configured" }, { status: 500 });
   }
