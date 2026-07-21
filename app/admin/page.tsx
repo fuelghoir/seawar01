@@ -1509,6 +1509,25 @@ export default function AdminPage() {
                   />
                 </label>
 
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span>{isRu ? "Начальный виртуальный пул (USDC)" : "Initial Virtual Pool (USDC)"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={virtualPoolUsdc}
+                    onChange={(e) => setVirtualPoolUsdc(e.target.value)}
+                    placeholder="150"
+                    style={{
+                      background: 'rgba(5, 10, 22, 0.82)',
+                      border: '1px solid rgba(0, 212, 255, 0.24)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </label>
+
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
                   <input
                     type="checkbox"
