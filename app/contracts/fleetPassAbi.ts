@@ -49,6 +49,17 @@ export const fleetPassAbi = [
   },
   {
     type: "function",
+    name: "migrateFleetNft",
+    inputs: [
+      { type: "uint8", name: "tier" },
+      { type: "uint8", name: "level" },
+      { type: "bytes", name: "signature" }
+    ],
+    outputs: [{ type: "uint256", name: "tokenId" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "claimPassivePoints",
     inputs: [],
     outputs: [{ type: "uint256", name: "points" }],

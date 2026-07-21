@@ -69,7 +69,9 @@ export async function POST(req: NextRequest) {
 
   let claim: { tokenId: bigint; points: bigint } | null = null;
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== FLEET_NFT_CONTRACT_ADDRESS.toLowerCase()) continue;
+    const isV2 = log.address.toLowerCase() === FLEET_NFT_CONTRACT_ADDRESS.toLowerCase();
+    const isV1 = log.address.toLowerCase() === "0xe8ea934c519917832bff6fb82e96c95463497053";
+    if (!isV1 && !isV2) continue;
     try {
       const decoded = decodeEventLog({
         abi: fleetPassAbi,

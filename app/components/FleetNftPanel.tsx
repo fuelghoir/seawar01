@@ -149,7 +149,7 @@ export default function FleetNftPanel() {
   const [fleet, setFleet] = useState<FleetState>(() => readCached(address));
   const [isBaseApp, setIsBaseApp] = useState(false);
   const [message, setMessage] = useState("");
-  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | null>(null);
+  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" | null>(null);
   const [discountSignature, setDiscountSignature] = useState<string | null>(null);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [purchaseFallbackMined, setPurchaseFallbackMined] = useState(false);
@@ -160,6 +160,8 @@ export default function FleetNftPanel() {
   const claimHandledRef = useRef(false);
   const lastCreditedClaimHashRef = useRef<string | null>(null);
   const staleProtectionUntilRef = useRef(0);
+
+  const [isLegacyMiner, setIsLegacyMiner] = useState(false);
 
   const commitFleet = useCallback((next: FleetState) => {
     setFleet((current) => {
@@ -187,18 +189,51 @@ export default function FleetNftPanel() {
     },
   });
 
+  const { data: legacyFleetRead } = useReadContract({
+    address: "0xe8ea934c519917832bff6fb82e96c95463497053",
+    abi: fleetPassAbi,
+    functionName: "fleetStateOf",
+    args: [address || ZERO_ADDRESS],
+    chainId: base.id,
+    query: {
+      enabled: deployed && !!address,
+      refetchInterval: 10_000,
+    },
+  });
+
   const refreshFleet = useCallback(async () => {
     if (!address || !deployed) return null;
     try {
-      const next = parseFleetState(await readContract(wagmiConfig, {
+      const nextV2 = parseFleetState(await readContract(wagmiConfig, {
         address: FLEET_NFT_CONTRACT_ADDRESS,
         abi: fleetPassAbi,
         functionName: "fleetStateOf",
         args: [address],
         chainId: base.id,
       }));
-      if (next) commitFleet(next);
-      return next;
+      if (nextV2 && nextV2.tokenId > 0) {
+        commitFleet(nextV2);
+        setIsLegacyMiner(false);
+        return nextV2;
+      }
+      const nextV1 = parseFleetState(await readContract(wagmiConfig, {
+        address: "0xe8ea934c519917832bff6fb82e96c95463497053",
+        abi: fleetPassAbi,
+        functionName: "fleetStateOf",
+        args: [address],
+        chainId: base.id,
+      }));
+      if (nextV1 && nextV1.tokenId > 0) {
+        commitFleet(nextV1);
+        setIsLegacyMiner(true);
+        return nextV1;
+      }
+      if (nextV2) {
+        commitFleet(nextV2);
+        setIsLegacyMiner(false);
+        return nextV2;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -210,9 +245,20 @@ export default function FleetNftPanel() {
   }, [address]);
 
   useEffect(() => {
-    const next = parseFleetState(fleetRead);
-    if (next) commitFleet(next);
-  }, [commitFleet, fleetRead]);
+    const nextV2 = parseFleetState(fleetRead);
+    const nextV1 = parseFleetState(legacyFleetRead);
+
+    if (nextV2 && nextV2.tokenId > 0) {
+      commitFleet(nextV2);
+      setIsLegacyMiner(false);
+    } else if (nextV1 && nextV1.tokenId > 0) {
+      commitFleet(nextV1);
+      setIsLegacyMiner(true);
+    } else if (nextV2) {
+      commitFleet(nextV2);
+      setIsLegacyMiner(false);
+    }
+  }, [commitFleet, fleetRead, legacyFleetRead]);
 
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
@@ -225,9 +271,11 @@ export default function FleetNftPanel() {
   const actionLabel = !deployed
     ? ru ? "СКОРО" : "SOON"
     : owned
-      ? fleet.maxed
-        ? ru ? "МАКСИМУМ" : "MAXED"
-        : `${ru ? "УЛУЧШИТЬ" : "UPGRADE"} · ${formatUsdc(actionPrice)}`
+      ? isLegacyMiner
+        ? ru ? "БЕСПЛАТНЫЙ ПЕРЕНОС В V2" : "FREE MIGRATE TO V2"
+        : fleet.maxed
+          ? ru ? "МАКСИМУМ" : "MAXED"
+          : `${ru ? "УЛУЧШИТЬ" : "UPGRADE"} · ${formatUsdc(actionPrice)}`
       : `${ru ? "КУПИТЬ NFT" : "BUY NFT"} · ${formatUsdc(actionPrice)}`;
 
   const {
@@ -283,12 +331,12 @@ export default function FleetNftPanel() {
     claimCallsPending ||
     (!!claimCallsData?.id && !claimCallsSuccess && !claimHandledRef.current);
 
-  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount", sig?: string | null) => {
+  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate", sig?: string | null) => {
     purchaseSubmittedRef.current = true;
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
     
-    let fnName: "buyFleetNft" | "upgradeFleetNft" | "buyFleetNftWithDiscount" | "upgradeToMaxLevel" | "upgradeFleetNftWithDiscount" | "upgradeToMaxLevelWithDiscount" = "buyFleetNft";
-    let args: readonly [] | readonly [`0x${string}`] = [];
+    let fnName: "buyFleetNft" | "upgradeFleetNft" | "buyFleetNftWithDiscount" | "upgradeToMaxLevel" | "upgradeFleetNftWithDiscount" | "upgradeToMaxLevelWithDiscount" | "migrateFleetNft" = "buyFleetNft";
+    let args: readonly [] | readonly [`0x${string}`] | readonly [number, number, `0x${string}`] = [];
     if (action === "upgrade") fnName = "upgradeFleetNft";
     if (action === "max") fnName = "upgradeToMaxLevel";
     if (action === "buyWithDiscount" && sig) {
@@ -303,6 +351,10 @@ export default function FleetNftPanel() {
       fnName = "upgradeToMaxLevelWithDiscount";
       args = [sig as `0x${string}`];
     }
+    if (action === "migrate" && sig) {
+      fnName = "migrateFleetNft";
+      args = [fleet.tier, fleet.level, sig as `0x${string}`];
+    }
 
     writePurchase({
       address: FLEET_NFT_CONTRACT_ADDRESS,
@@ -312,7 +364,7 @@ export default function FleetNftPanel() {
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [ru, writePurchase]);
+  }, [ru, writePurchase, fleet.tier, fleet.level]);
 
   useEffect(() => {
     setApproveFallbackMined(false);
@@ -433,8 +485,8 @@ export default function FleetNftPanel() {
   const startPurchase = async (actionOverride?: "max") => {
     if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
     
-    let action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" = actionOverride ?? (owned ? "upgrade" : "buy");
-    if (isBaseApp) {
+    let action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" = actionOverride ?? (owned ? (isLegacyMiner ? "migrate" : "upgrade") : "buy");
+    if (isBaseApp && action !== "migrate") {
       if (action === "buy") action = "buyWithDiscount";
       if (action === "upgrade") action = "upgradeWithDiscount";
       if (action === "max") action = "maxWithDiscount";
@@ -468,6 +520,24 @@ export default function FleetNftPanel() {
         setMessage(ru ? "Не удалось получить скидку" : "Could not get discount signature");
         return;
       }
+    } else if (action === "migrate") {
+      setMessage(ru ? "Подготовка миграции..." : "Preparing migration...");
+      try {
+        const res = await fetch(`/api/fleet-nft/migrate-sig?wallet=${address}`);
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.signature) throw new Error("Signature failed");
+        sig = data.signature;
+        setDiscountSignature(sig);
+      } catch {
+        setPurchaseAction(null);
+        setMessage(ru ? "Ошибка подготовки" : "Could not prepare migration");
+        return;
+      }
+    }
+
+    if (action === "migrate") {
+      sendPurchase(action, sig);
+      return;
     }
 
     const allowance = await readContract(wagmiConfig, {
@@ -498,10 +568,13 @@ export default function FleetNftPanel() {
     setMessage("");
     claimHandledRef.current = false;
     resetClaim();
+
+    const targetContract = isLegacyMiner ? "0xe8ea934c519917832bff6fb82e96c95463497053" : FLEET_NFT_CONTRACT_ADDRESS;
+
     if (paymasterSupported && PAYMASTER_URL) {
       sendClaimCalls({
         calls: [{
-          to: FLEET_NFT_CONTRACT_ADDRESS,
+          to: targetContract,
           data: encodeFunctionData({
             abi: fleetPassAbi,
             functionName: "claimPassivePoints",
@@ -514,7 +587,7 @@ export default function FleetNftPanel() {
     }
 
     writeClaim({
-      address: FLEET_NFT_CONTRACT_ADDRESS,
+      address: targetContract,
       abi: fleetPassAbi,
       functionName: "claimPassivePoints",
       chainId: base.id,
@@ -574,7 +647,7 @@ export default function FleetNftPanel() {
           <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
             {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
           </button>
-          {owned && !fleet.maxed && (
+          {owned && !fleet.maxed && !isLegacyMiner && (
             <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
               {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
             </button>
