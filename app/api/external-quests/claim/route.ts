@@ -65,153 +65,10 @@ async function getXUserId(username: string) {
   return data.data.id;
 }
 
-async function getXTargetUserId() {
-  const configured = normalizeXUserId(process.env.X_TARGET_USER_ID);
-  return configured ?? getXUserId(X_TARGET_USERNAME);
-}
-
-async function paginatedXUserListContains(
-  firstPath: string,
-  userId: string,
-  accessToken?: string | null,
-  maxPages = Number(process.env.X_VERIFY_MAX_PAGES || 8),
-) {
-  let path = firstPath;
-  for (let page = 0; page < maxPages; page += 1) {
-    const data = await xApi<{
-      data?: Array<{ id?: string }>;
-      meta?: { next_token?: string };
-    }>(path, accessToken);
-
-    if (data.data?.some((user) => user.id === userId)) return true;
-    const next = data.meta?.next_token;
-    if (!next) return false;
-    path = `${firstPath}${firstPath.includes("?") ? "&" : "?"}pagination_token=${encodeURIComponent(next)}`;
-  }
-  return false;
-}
-
-async function paginatedXTweetListContains(
-  firstPath: string,
-  tweetId: string,
-  accessToken?: string | null,
-  options: {
-    maxPages?: number;
-    includeReferences?: boolean;
-  } = {},
-) {
-  const maxPages = options.maxPages ?? Number(process.env.X_VERIFY_MAX_PAGES || 8);
-  let path = firstPath;
-  for (let page = 0; page < maxPages; page += 1) {
-    const data = await xApi<{
-      data?: Array<{
-        id?: string;
-        referenced_tweets?: Array<{ type?: string; id?: string }>;
-      }>;
-      meta?: { next_token?: string };
-    }>(path, accessToken);
-
-    if (
-      data.data?.some((tweet) =>
-        tweet.id === tweetId ||
-        (options.includeReferences &&
-          tweet.referenced_tweets?.some(
-            (reference) =>
-              reference.id === tweetId &&
-              (reference.type === "retweeted" || reference.type === "quoted"),
-          ))
-      )
-    ) {
-      return true;
-    }
-
-    const next = data.meta?.next_token;
-    if (!next) return false;
-    path = `${firstPath}${firstPath.includes("?") ? "&" : "?"}pagination_token=${encodeURIComponent(next)}`;
-  }
-  return false;
-}
-
-async function bestEffortBoolean(check: Promise<boolean>) {
-  try {
-    return await check;
-  } catch {
-    return false;
-  }
-}
-
-async function verifyXFollow(userId: string) {
-  // Bypass X API check because the user ran out of credits
-  return;
-}
-
-function getStoredXAccessToken(connection: SocialConnection | null) {
-  const token = connection?.metadata?.xAccessToken;
-  return typeof token === "string" && token.length > 20 ? token : null;
-}
-
-function getStoredXRefreshToken(connection: SocialConnection | null) {
-  const token = connection?.metadata?.xRefreshToken;
-  return typeof token === "string" && token.length > 20 ? token : null;
-}
-
-function xTokenExpiresSoon(connection: SocialConnection | null) {
-  const expiresAt = connection?.metadata?.xTokenExpiresAt;
-  if (typeof expiresAt !== "string") return false;
-  const ms = new Date(expiresAt).getTime();
-  return Number.isFinite(ms) && ms < Date.now() + 60_000;
-}
-
-async function refreshXAccessToken(admin: AdminClient, connection: SocialConnection) {
-  const refreshToken = getStoredXRefreshToken(connection);
-  const clientId = process.env.X_CLIENT_ID;
-  if (!refreshToken || !clientId) return connection;
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: clientId,
-  });
-  const headers: Record<string, string> = {
-    "Content-Type": "application/x-www-form-urlencoded",
-  };
-  if (process.env.X_CLIENT_SECRET) {
-    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${process.env.X_CLIENT_SECRET}`).toString("base64")}`;
-  }
-
-  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
-    method: "POST",
-    headers,
-    body,
-    cache: "no-store",
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok || typeof data?.access_token !== "string") {
-    throw new Error("Reconnect X to refresh verification access.");
-  }
-
-  return upsertSocialConnection(admin, {
-    wallet: connection.wallet,
-    provider: "x",
-    provider_user_id: connection.provider_user_id,
-    provider_username: connection.provider_username,
-    base_verify_token: connection.base_verify_token,
-    metadata: {
-      xAccessToken: data.access_token,
-      xRefreshToken: typeof data.refresh_token === "string" ? data.refresh_token : refreshToken,
-      xScope: typeof data.scope === "string" ? data.scope : connection.metadata?.xScope,
-      xTokenExpiresAt: typeof data.expires_in === "number"
-        ? new Date(Date.now() + data.expires_in * 1000).toISOString()
-        : connection.metadata?.xTokenExpiresAt,
-      oauthRefreshedAt: new Date().toISOString(),
-    },
-  });
-}
-
 async function verifyXLikeAndRepostWithConnection(
-  admin: AdminClient,
-  connection: SocialConnection,
-  tweetId: string,
+  _admin: AdminClient,
+  _connection: SocialConnection,
+  _tweetId: string,
 ) {
   // Bypass X API check because the user ran out of credits
   return;
@@ -275,7 +132,7 @@ async function verifiedTelegramUserId(admin: AdminClient, wallet: string) {
 
 async function verifyQuest(admin: AdminClient, wallet: string, questKey: string) {
   if (questKey === "x-follow-0xherm-2026-05") {
-    await verifyXFollow(await verifiedXUserId(admin, wallet));
+    // Bypass X API check
     return;
   }
 

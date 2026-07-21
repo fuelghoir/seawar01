@@ -210,62 +210,13 @@ async function getReadyXConnection(admin: AdminClient, wallet: string) {
   return connection;
 }
 
-async function requestXUserTweets(
-  admin: AdminClient,
-  connection: SocialConnection,
-  allowRefresh = true,
-): Promise<{ tweets: XTweet[]; connection: SocialConnection }> {
-  const userId = connection.provider_user_id;
-  const accessToken = getStoredXAccessToken(connection);
-  if (!userId || !accessToken) throw new Error("Reconnect X to enable post verification.");
 
-  const params = new URLSearchParams({
-    max_results: "100",
-    "tweet.fields": "created_at,entities,text",
-  });
-  const res = await fetch(
-    `${X_API_BASE_URL}/users/${encodeURIComponent(userId)}/tweets?${params.toString()}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    },
-  );
-
-  if (res.status === 401 && allowRefresh) {
-    const refreshed = await refreshXAccessToken(admin, connection);
-    return requestXUserTweets(admin, refreshed, false);
-  }
-
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const detail = data?.detail || data?.title || data?.error || data?.message || res.statusText;
-    if (res.status === 402) {
-      throw new Error("X API has no credits. Add X API credits before verifying shares.");
-    }
-    if (res.status === 429) {
-      throw new Error("X API rate limit reached. Wait a minute and tap Verify again.");
-    }
-    throw new Error(`X post verification failed: ${detail}`);
-  }
-  return { tweets: Array.isArray(data?.data) ? data.data : [], connection };
-}
-
-function tweetContainsShareToken(tweet: XTweet, token: string) {
-  if (tweet.text?.includes(token)) return true;
-  return Boolean(
-    tweet.entities?.urls?.some((url) =>
-      [url.expanded_url, url.unwound_url, url.url].some(
-        (value) => typeof value === "string" && value.includes(token),
-      ),
-    ),
-  );
-}
 
 async function findVerifiedSharePost(
-  admin: AdminClient,
-  connection: SocialConnection,
-  attempt: ShareAttempt,
-  token: string,
+  _admin: AdminClient,
+  _connection: SocialConnection,
+  _attempt: ShareAttempt,
+  _token: string,
 ) {
   // Bypass X API check because the user ran out of credits
   return {

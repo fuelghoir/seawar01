@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isBaseAppUserAgent } from "../../../lib/baseApp";
-import { createWalletClient, http, keccak256, encodePacked } from "viem";
+import { keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 export async function GET(req: NextRequest) {

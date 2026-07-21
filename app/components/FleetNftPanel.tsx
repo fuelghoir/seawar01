@@ -285,7 +285,7 @@ export default function FleetNftPanel() {
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
     
     let fnName = "buyFleetNft";
-    let args: any[] = [];
+    let args: readonly unknown[] = [];
     if (action === "upgrade") fnName = "upgradeFleetNft";
     if (action === "max") fnName = "upgradeToMaxLevel";
     if (action === "buyWithDiscount" && sig) {
@@ -450,7 +450,7 @@ export default function FleetNftPanel() {
         if (!res.ok || !data?.signature) throw new Error("Signature failed");
         sig = data.signature;
         setDiscountSignature(sig);
-      } catch (err) {
+      } catch {
         setPurchaseAction(null);
         setMessage(ru ? "Не удалось получить скидку" : "Could not get discount signature");
         return;
