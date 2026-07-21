@@ -461,13 +461,6 @@ export async function validatePointItemPurchase(
 
   if (error) throw new Error(error.message);
 
-  const { data: statsData } = await supabase
-    .from("player_stats")
-    .select("points")
-    .eq("wallet", addr)
-    .maybeSingle();
-
-  const playerStatsPoints = Number(statsData?.points ?? 0);
   const points = Number(data?.points ?? 0);
 
   if (points < item.pricePoints * qty) throw new Error("Not enough points");
