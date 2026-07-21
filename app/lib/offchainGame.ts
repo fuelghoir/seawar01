@@ -955,11 +955,14 @@ export async function getLeaderboard(
   const to = from + safePageSize - 1;
 
   if (mode === "season") {
+    const { data: config } = await supabase.from("season_config").select("season_key").eq("id", "default").maybeSingle();
+    const activeSeasonKey = config?.season_key || SEASON_KEY;
+
     const { data, count } = await supabase
-      .from("season_points")
+      .from("season_progress")
       .select("wallet, points", { count: "exact" })
       .gt("points", 0)
-      .eq("season_key", SEASON_KEY)
+      .eq("season_key", activeSeasonKey)
       .order("points", { ascending: false })
       .range(from, to);
       

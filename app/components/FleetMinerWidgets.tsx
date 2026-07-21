@@ -85,7 +85,7 @@ export function SeasonPoolCard({
     totalPoints: number;
     rank: number | null;
   } | null>(null);
-  const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string; virtualPoolUsdc: number } | null>(null);
+  const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string; virtualPoolUsdc: number; endDate: string } | null>(null);
 
   useEffect(() => {
     getSeasonState(address || ZERO_ADDRESS)
@@ -94,6 +94,7 @@ export function SeasonPoolCard({
           isEnded: state.isEnded,
           seasonKey: state.seasonKey,
           virtualPoolUsdc: state.virtualPoolUsdc || 0,
+          endDate: state.endDate,
         });
       })
       .catch(() => {});
@@ -157,8 +158,8 @@ export function SeasonPoolCard({
   } ${variant === "sidebar" ? styles.poolCardSidebar : ""}`;
 
   const dateLabel = useMemo(() => {
-    return formatSeasonEndDate(endDate || "2026-07-18T00:00:00.000Z", ru);
-  }, [endDate, ru]);
+    return formatSeasonEndDate(seasonState?.endDate || endDate || "2026-07-18T00:00:00.000Z", ru);
+  }, [seasonState?.endDate, endDate, ru]);
 
   const isEnded = seasonState?.isEnded ?? false;
   const activeSeasonKey = seasonState?.seasonKey ?? "S1";
