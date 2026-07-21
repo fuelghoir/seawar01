@@ -10,7 +10,6 @@ import {
   type SocialConnection,
 } from "../../../lib/socialConnectionsServer";
 
-const X_API_BASE_URL = process.env.X_API_BASE_URL || "https://api.twitter.com/2";
 const DEFAULT_X_POST_ID = "2058535046332510539";
 const TELEGRAM_MEMBER_STATUSES = new Set(["creator", "administrator", "member"]);
 
