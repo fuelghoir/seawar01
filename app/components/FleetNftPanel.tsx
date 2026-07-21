@@ -284,7 +284,7 @@ export default function FleetNftPanel() {
     purchaseSubmittedRef.current = true;
     setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
     
-    let fnName = "buyFleetNft";
+    let fnName: "buyFleetNft" | "upgradeFleetNft" | "buyFleetNftWithDiscount" | "upgradeToMaxLevel" = "buyFleetNft";
     let args: readonly unknown[] = [];
     if (action === "upgrade") fnName = "upgradeFleetNft";
     if (action === "max") fnName = "upgradeToMaxLevel";
