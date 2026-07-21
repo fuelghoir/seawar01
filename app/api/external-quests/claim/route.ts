@@ -24,32 +24,6 @@ function normalizeWallet(value: unknown) {
 }
 
 
-function xHeaders(accessToken?: string | null) {
-  if (accessToken) {
-    return { Authorization: `Bearer ${accessToken}` };
-  }
-  const token = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN;
-  if (!token) {
-    throw new Error("X verification is not configured. Add X_BEARER_TOKEN.");
-  }
-  return { Authorization: `Bearer ${token}` };
-}
-
-async function xApi<T>(path: string, accessToken?: string | null): Promise<T> {
-  const res = await fetch(`${X_API_BASE_URL}${path}`, {
-    headers: xHeaders(accessToken),
-    cache: "no-store",
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const detail = data?.detail || data?.title || data?.error || data?.message || res.statusText;
-    if (res.status === 402) {
-      throw new Error("X API has no credits for this developer account. Add API credits or upgrade the X API plan.");
-    }
-    throw new Error(`X API check failed: ${detail}`);
-  }
-  return data as T;
-}
 
 
 async function verifyXLikeAndRepostWithConnection(
