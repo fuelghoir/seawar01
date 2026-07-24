@@ -260,9 +260,66 @@ export default function FleetNftPanel() {
     }
   }, [commitFleet, fleetRead, legacyFleetRead]);
 
+  const [discountStatus, setDiscountStatus] = useState<{
+    buyAvailable: boolean;
+    upgradeAvailable: boolean;
+    maxAvailable: boolean;
+  }>({
+    buyAvailable: true,
+    upgradeAvailable: true,
+    maxAvailable: true,
+  });
+
+  useEffect(() => {
+    if (!address || !isBaseApp || !deployed) return;
+    let cancelled = false;
+
+    async function checkDiscounts() {
+      const actions = [
+        { key: "buyAvailable", action: "buyWithDiscount" },
+        { key: "upgradeAvailable", action: "upgradeWithDiscount" },
+        { key: "maxAvailable", action: "maxWithDiscount" },
+      ] as const;
+
+      const result = { buyAvailable: true, upgradeAvailable: true, maxAvailable: true };
+
+      for (const { key, action } of actions) {
+        try {
+          const res = await fetch(`/api/fleet-nft/discount-sig?wallet=${address}&action=${action}`);
+          const data = await res.json().catch(() => null);
+          if (res.ok && data?.signature) {
+            const isUsed = await readContract(wagmiConfig, {
+              address: FLEET_NFT_CONTRACT_ADDRESS,
+              abi: fleetPassAbi,
+              functionName: "usedSignatures",
+              args: [data.signature as `0x${string}`],
+              chainId: base.id,
+            }).catch(() => false);
+
+            if (isUsed) {
+              result[key] = false;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!cancelled) {
+        setDiscountStatus(result);
+      }
+    }
+
+    checkDiscounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isBaseApp, deployed, wagmiConfig]);
+
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
+
   const nextUpgradePrice = useMemo(() => {
     const fallback = fleetNextPrice(fleet.tier || 1, fleet.level || 1);
     return fleet.nextPrice > 0 ? fleet.nextPrice : fallback;
@@ -270,10 +327,13 @@ export default function FleetNftPanel() {
 
   const maxUpgradeCost = useMemo(() => {
     const cost = fleetMaxUpgradeCost(fleet.tier, fleet.level);
-    return isBaseApp ? cost / 2 : cost;
-  }, [fleet.tier, fleet.level, isBaseApp]);
+    return (isBaseApp && discountStatus.maxAvailable) ? cost / 2 : cost;
+  }, [fleet.tier, fleet.level, isBaseApp, discountStatus.maxAvailable]);
 
-  const actionPrice = owned ? (isBaseApp ? nextUpgradePrice / 2 : nextUpgradePrice) : (isBaseApp ? 250_000 : 500_000);
+  const actionPrice = owned
+    ? (isBaseApp && discountStatus.upgradeAvailable ? nextUpgradePrice / 2 : nextUpgradePrice)
+    : (isBaseApp && discountStatus.buyAvailable ? 250_000 : 500_000);
+
   const actionLabel = !deployed
     ? ru ? "СКОРО" : "SOON"
     : owned
@@ -493,9 +553,9 @@ export default function FleetNftPanel() {
     
     let action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" = actionOverride ?? (owned ? (isLegacyMiner ? "migrate" : "upgrade") : "buy");
     if (isBaseApp && action !== "migrate") {
-      if (action === "buy") action = "buyWithDiscount";
-      if (action === "upgrade") action = "upgradeWithDiscount";
-      if (action === "max") action = "maxWithDiscount";
+      if (action === "buy" && discountStatus.buyAvailable) action = "buyWithDiscount";
+      if (action === "upgrade" && discountStatus.upgradeAvailable) action = "upgradeWithDiscount";
+      if (action === "max" && discountStatus.maxAvailable) action = "maxWithDiscount";
     }
 
     let requiredPrice = actionPrice;
