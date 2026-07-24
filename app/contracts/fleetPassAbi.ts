@@ -42,6 +42,13 @@ export const fleetPassAbi = [
   },
   {
     type: "function",
+    name: "usedSignatures",
+    inputs: [{ type: "bytes", name: "signature" }],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "upgradeToMaxLevelWithDiscount",
     inputs: [{ type: "bytes", name: "signature" }],
     outputs: [{ type: "uint256", name: "tokenId" }],

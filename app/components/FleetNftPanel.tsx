@@ -263,11 +263,17 @@ export default function FleetNftPanel() {
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
+  const nextUpgradePrice = useMemo(() => {
+    const fallback = fleetNextPrice(fleet.tier || 1, fleet.level || 1);
+    return fleet.nextPrice > 0 ? fleet.nextPrice : fallback;
+  }, [fleet.tier, fleet.level, fleet.nextPrice]);
+
   const maxUpgradeCost = useMemo(() => {
     const cost = fleetMaxUpgradeCost(fleet.tier, fleet.level);
     return isBaseApp ? cost / 2 : cost;
   }, [fleet.tier, fleet.level, isBaseApp]);
-  const actionPrice = owned ? (isBaseApp ? fleet.nextPrice / 2 : fleet.nextPrice) : (isBaseApp ? 250_000 : 500_000);
+
+  const actionPrice = owned ? (isBaseApp ? nextUpgradePrice / 2 : nextUpgradePrice) : (isBaseApp ? 250_000 : 500_000);
   const actionLabel = !deployed
     ? ru ? "СКОРО" : "SOON"
     : owned
@@ -514,11 +520,46 @@ export default function FleetNftPanel() {
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.signature) throw new Error("Signature failed");
         sig = data.signature;
-        setDiscountSignature(sig);
+
+        const isSigUsed = await readContract(wagmiConfig, {
+          address: FLEET_NFT_CONTRACT_ADDRESS,
+          abi: fleetPassAbi,
+          functionName: "usedSignatures",
+          args: [sig as `0x${string}`],
+          chainId: base.id,
+        }).catch(() => false);
+
+        if (isSigUsed) {
+          if (action === "upgradeWithDiscount") {
+            action = "upgrade";
+            requiredPrice = nextUpgradePrice;
+            sig = null;
+          } else if (action === "buyWithDiscount") {
+            action = "buy";
+            requiredPrice = 500_000;
+            sig = null;
+          } else if (action === "maxWithDiscount") {
+            action = "max";
+            requiredPrice = fleetMaxUpgradeCost(fleet.tier, fleet.level);
+            sig = null;
+          }
+        } else {
+          setDiscountSignature(sig);
+        }
       } catch {
-        setPurchaseAction(null);
-        setMessage(ru ? "Не удалось получить скидку" : "Could not get discount signature");
-        return;
+        if (action === "upgradeWithDiscount") {
+          action = "upgrade";
+          requiredPrice = nextUpgradePrice;
+          sig = null;
+        } else if (action === "buyWithDiscount") {
+          action = "buy";
+          requiredPrice = 500_000;
+          sig = null;
+        } else if (action === "maxWithDiscount") {
+          action = "max";
+          requiredPrice = fleetMaxUpgradeCost(fleet.tier, fleet.level);
+          sig = null;
+        }
       }
     } else if (action === "migrate") {
       setMessage(ru ? "Подготовка миграции..." : "Preparing migration...");
