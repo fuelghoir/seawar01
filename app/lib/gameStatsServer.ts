@@ -226,10 +226,10 @@ async function getGamePointMultiplier(admin: SupabaseClient, wallet: string) {
 async function getActiveSeasonKey(admin: SupabaseClient): Promise<string> {
   const { data } = await admin
     .from("season_config")
-    .select("season_key")
+    .select("bp_season_key")
     .eq("id", "default")
     .maybeSingle();
-  return data?.season_key ?? "S1";
+  return data?.bp_season_key ?? "S1";
 }
 
 async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {

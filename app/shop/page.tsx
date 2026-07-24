@@ -1587,7 +1587,7 @@ export default function ShopPage() {
                   <TrophyIcon size={24} />
                 </span>
                 <div className={styles.cardInfo}>
-                  <h2 className={styles.cardTitle}>{tr.shop_season} {season?.seasonKey ?? "S1"}</h2>
+                  <h2 className={styles.cardTitle}>{tr.shop_season} S1</h2>
                   <p className={styles.cardDesc}>{tr.shop_season_desc}</p>
                 </div>
                 <span className={styles.price}>{tr.shop_level} {currentSeasonLevel}/{SEASON_MAX_LEVEL}</span>

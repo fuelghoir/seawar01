@@ -38,6 +38,7 @@ export interface SeasonLevelState extends SeasonLevel {
 
 export interface SeasonState {
   seasonKey: string;
+  bpSeasonKey: string;
   virtualPoolUsdc: number;
   xp: number;
   level: number;
@@ -577,6 +578,7 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
 
   return {
     seasonKey,
+    bpSeasonKey,
     virtualPoolUsdc,
     xp,
     level,

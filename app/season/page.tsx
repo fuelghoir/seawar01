@@ -335,7 +335,7 @@ export default function SeasonPage() {
           <span>{tr.back}</span>
         </Link>
         <div className={styles.titleBlock}>
-          <span>{ru ? "Сезон S2" : "Season S2"}</span>
+          <span>{ru ? "Battle Pass S1" : "Battle Pass S1"}</span>
           <h1>{ru ? "Награды сезона" : "Season Rewards"}</h1>
           <p>
             {season?.isEnded 
