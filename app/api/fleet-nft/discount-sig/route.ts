@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isBaseAppUserAgent } from "../../../lib/baseApp";
-import { keccak256, encodePacked } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { keccak256, encodePacked, hashMessage } from "viem";
+import { secp256k1 } from "@noble/curves/secp256k1";
+import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const wallet = req.nextUrl.searchParams.get("wallet");
@@ -25,11 +26,21 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const account = privateKeyToAccount(pk as `0x${string}`);
+    const rawPk = (pk.startsWith("0x") ? pk.slice(2) : pk).trim();
+    const privKeyBytes = Buffer.from(rawPk, "hex");
+
     const messageHash = keccak256(
       encodePacked(["address", "string"], [wallet as `0x${string}`, signAction])
     );
-    const signature = await account.signMessage({ message: { raw: messageHash } });
+    const ethHash = hashMessage({ raw: messageHash });
+
+    const extraEntropy = crypto.randomBytes(32);
+    const sigObj = secp256k1.sign(ethHash.slice(2), privKeyBytes, { extraEntropy });
+    
+    const r = sigObj.r.toString(16).padStart(64, "0");
+    const s = sigObj.s.toString(16).padStart(64, "0");
+    const v = sigObj.recovery === 0 ? "1b" : "1c";
+    const signature = `0x${r}${s}${v}` as `0x${string}`;
 
     return NextResponse.json({ signature });
   } catch (err) {
