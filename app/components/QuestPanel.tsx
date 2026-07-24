@@ -25,6 +25,7 @@ import { getItemQuantity } from "../lib/season";
 import { QUESTS_RU } from "../lib/questsRu";
 import { useSettings, TR } from "../lib/settings";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
+import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./QuestPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -52,6 +53,13 @@ export default function QuestPanel({
     if (onToggleExpand) onToggleExpand();
     else setInternalExpanded(v => !v);
   };
+  const [isBaseApp, setIsBaseApp] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsBaseApp(isBaseAppUserAgent(navigator.userAgent));
+    }
+  }, []);
+
   const [quests, setQuests] = useState<UserQuestState[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -287,9 +295,30 @@ export default function QuestPanel({
                         {lang === "ru" ? (QUESTS_RU[def.id]?.desc ?? def.desc) : def.desc}
                       </span>
                     </div>
-                    <span className={styles.questCardReward}>
-                      +{def.reward.toLocaleString()} {tr.shop_pts}
-                    </span>
+                    <div className={styles.questRewardCol}>
+                      {isBaseApp ? (
+                        <div className={styles.questRewardBaseAppActive}>
+                          <span className={styles.questCardRewardBaseApp}>
+                            +{(def.reward * 2).toLocaleString()} {tr.shop_pts}
+                          </span>
+                          <span className={styles.baseAppBadge}>
+                            ⚡ 2X BASE APP
+                          </span>
+                        </div>
+                      ) : (
+                        <div className={styles.questRewardPromoContainer}>
+                          <span className={styles.questCardReward}>
+                            +{def.reward.toLocaleString()} {tr.shop_pts}
+                          </span>
+                          <span
+                            className={styles.baseAppPromoBadge}
+                            title={lang === "ru" ? "Играйте через Base App для 2x поинтов!" : "Play via Base App for 2x points multiplier!"}
+                          >
+                            <span className={styles.baseAppPromo2x}>2x</span> ({(def.reward * 2).toLocaleString()} {tr.shop_pts} {lang === "ru" ? "в Base App" : "in Base App"})
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={styles.questProgressRow}>

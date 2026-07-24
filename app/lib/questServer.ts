@@ -39,6 +39,7 @@ export async function claimUserQuestServer(
   admin: SupabaseClient,
   wallet: string,
   questIdValue: unknown,
+  isBaseApp = false
 ): Promise<{ reward: number }> {
   const questId = normalizeQuestId(questIdValue);
   const { addr, weekKey, def } = await getClaimableQuestStateServer(admin, wallet, questId);
@@ -56,8 +57,11 @@ export async function claimUserQuestServer(
   if (markClaimed.error) throw new Error(markClaimed.error.message);
   if (!markClaimed.data) throw new Error("Already claimed");
 
+  const multiplier = isBaseApp ? 2 : 1;
+  const reward = def.reward * multiplier;
+
   try {
-    await grantRawPointsServer(admin, addr, def.reward);
+    await grantRawPointsServer(admin, addr, reward);
   } catch (err) {
     await admin
       .from("user_quests")
@@ -68,7 +72,7 @@ export async function claimUserQuestServer(
     throw err;
   }
 
-  return { reward: def.reward };
+  return { reward };
 }
 
 export async function rerollUserQuestServer(

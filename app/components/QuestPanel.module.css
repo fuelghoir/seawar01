@@ -177,7 +177,74 @@
   color: #fde68a;
   white-space: nowrap;
   text-shadow: 0 0 8px rgba(253, 230, 138, 0.4);
+}
+
+.questRewardCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
   flex-shrink: 0;
+}
+
+.questRewardBaseAppActive {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.questCardRewardBaseApp {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 900;
+  color: #38bdf8;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+
+.baseAppBadge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  padding: 2px 6px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+  white-space: nowrap;
+}
+
+.questRewardPromoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.baseAppPromoBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.baseAppPromoBadge:hover {
+  background: rgba(56, 189, 248, 0.24);
+  border-style: solid;
+}
+
+.baseAppPromo2x {
+  font-weight: 900;
+  color: #7dd3fc;
 }
 
 .questProgressRow {
