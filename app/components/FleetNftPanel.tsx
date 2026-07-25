@@ -750,6 +750,31 @@ export default function FleetNftPanel() {
       <section className={`${styles.panel} ${styles[`tier${visualTier}`]}`} id="fleet-nft">
         <div className={styles.backdrop} aria-hidden="true" />
         
+        {/* ─── Navigation Header Controls ─── */}
+        <div className={styles.slotNavHeader}>
+          <button
+            type="button"
+            className={styles.slotNavBtn}
+            onClick={() => setActiveSlotIndex((prev) => Math.max(0, prev - 1))}
+            disabled={activeSlotIndex === 0}
+            aria-label="Previous Miner"
+          >
+            ‹ {ru ? "ПРЕДЫДУЩИЙ" : "PREV"}
+          </button>
+          <span className={styles.slotNavTitle}>
+            {ru ? `МАЙНЕР #${activeSlotIndex + 1} ИЗ 10` : `MINER #${activeSlotIndex + 1} OF 10`}
+          </span>
+          <button
+            type="button"
+            className={styles.slotNavBtn}
+            onClick={() => setActiveSlotIndex((prev) => Math.min(MAX_MINER_SLOTS - 1, prev + 1))}
+            disabled={!canUnlockNextSlot(minerSlots, activeSlotIndex + 1)}
+            aria-label="Next Miner"
+          >
+            {ru ? "СЛЕДУЮЩИЙ" : "NEXT"} ›
+          </button>
+        </div>
+
         {/* ─── Multi-Miner Slot Selector Tabs ─── */}
         <div className={styles.slotTabsContainer}>
           {Array.from({ length: MAX_MINER_SLOTS }).map((_, slotIdx) => {
@@ -788,6 +813,15 @@ export default function FleetNftPanel() {
         </div>
 
         <div className={styles.artStage}>
+          <button
+            type="button"
+            className={`${styles.artStageArrow} ${styles.artStageArrowLeft}`}
+            onClick={() => setActiveSlotIndex((prev) => Math.max(0, prev - 1))}
+            disabled={activeSlotIndex === 0}
+            aria-label="Previous Miner"
+          >
+            ‹
+          </button>
           <span className={styles.orbit} aria-hidden="true" />
           <Image
             className={styles.ship}
@@ -797,6 +831,15 @@ export default function FleetNftPanel() {
             height={420}
             priority={false}
           />
+          <button
+            type="button"
+            className={`${styles.artStageArrow} ${styles.artStageArrowRight}`}
+            onClick={() => setActiveSlotIndex((prev) => Math.min(MAX_MINER_SLOTS - 1, prev + 1))}
+            disabled={!canUnlockNextSlot(minerSlots, activeSlotIndex + 1)}
+            aria-label="Next Miner"
+          >
+            ›
+          </button>
           <div className={styles.stars} aria-label={`${visualLevel}/3`}>
             {stars.map((active, index) => <span className={active ? styles.starActive : ""} key={index}>★</span>)}
           </div>
