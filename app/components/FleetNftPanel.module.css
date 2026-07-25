@@ -615,6 +615,11 @@
     filter: none !important;
     box-shadow: none !important;
   }
+.infoTriggerFooter {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
 }
 
 /* ─── Compact Glowing Info Banner ─── */

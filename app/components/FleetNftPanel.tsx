@@ -759,117 +759,208 @@ export default function FleetNftPanel() {
         )}
         {message && <p className={styles.message}>{message}</p>}
       </div>
+    </section>
+  );
 
-      <section className={styles.evolution}>
-        <div className={styles.evolutionHead}>
-          <div>
-            <span>{ru ? "КАРТА ЭВОЛЮЦИИ" : "EVOLUTION MAP"}</span>
-            <h3>{ru ? "3 КОРАБЛЯ · 9 УРОВНЕЙ ДОБЫЧИ" : "3 SHIPS · 9 MINING LEVELS"}</h3>
-          </div>
-          <p>
-            {ru
-              ? "Каждый апгрейд сжигает старый NFT и сразу отправляет новый корабль в кошелек."
-              : "Each upgrade burns the old NFT and sends the evolved ship straight to your wallet."}
-          </p>
+  const renderEvolutionMap = () => (
+    <section className={styles.evolution}>
+      <div className={styles.evolutionHead}>
+        <div>
+          <span>{ru ? "КАРТА ЭВОЛЮЦИИ" : "EVOLUTION MAP"}</span>
+          <h3>{ru ? "3 КОРАБЛЯ · 9 УРОВНЕЙ ДОБЫЧИ" : "3 SHIPS · 9 MINING LEVELS"}</h3>
         </div>
+        <p>
+          {ru
+            ? "Каждый апгрейд сжигает старый NFT и сразу отправляет новый корабль в кошелек."
+            : "Each upgrade burns the old NFT and sends the evolved ship straight to your wallet."}
+        </p>
+      </div>
 
-        <div className={styles.evolutionGrid}>
-          {FLEET_EVOLUTION.map((ship, shipIndex) => {
-            const activeShip = owned && fleet.tier === ship.tier;
-            return (
-              <article
-                className={`${styles.evolutionShip} ${activeShip ? styles.evolutionShipActive : ""}`}
-                key={ship.tier}
-              >
-                <div className={styles.evolutionShipTop}>
-                  <div>
-                    <span>{ru ? `КОРАБЛЬ 0${ship.tier}` : `SHIP 0${ship.tier}`}</span>
-                    <b>{ru ? ship.name.ru : ship.name.en}</b>
-                  </div>
-                  <strong>T{ship.tier}</strong>
+      <div className={styles.evolutionGrid}>
+        {FLEET_EVOLUTION.map((ship, shipIndex) => {
+          const activeShip = owned && fleet.tier === ship.tier;
+          return (
+            <article
+              className={`${styles.evolutionShip} ${activeShip ? styles.evolutionShipActive : ""}`}
+              key={ship.tier}
+            >
+              <div className={styles.evolutionShipTop}>
+                <div>
+                  <span>{ru ? `КОРАБЛЬ 0${ship.tier}` : `SHIP 0${ship.tier}`}</span>
+                  <b>{ru ? ship.name.ru : ship.name.en}</b>
                 </div>
-                <div className={styles.evolutionArt}>
-                  <span aria-hidden="true" />
-                  <Image
-                    src={`/nft/fleet-tier-${ship.tier}.png`}
-                    alt=""
-                    width={260}
-                    height={182}
-                  />
-                </div>
-                <div className={styles.evolutionLevels}>
-                  {ship.levels.map((level, levelIndex) => {
-                    const evolutionIndex = shipIndex * 3 + levelIndex;
-                    const current = evolutionIndex === currentEvolutionIndex;
-                    const completed = evolutionIndex < currentEvolutionIndex;
-                    const next = evolutionIndex === currentEvolutionIndex + 1;
-                    return (
-                      <div
-                        className={`${styles.evolutionLevel} ${
-                          current
-                            ? styles.evolutionLevelCurrent
-                            : completed
-                              ? styles.evolutionLevelDone
-                              : next
-                                ? styles.evolutionLevelNext
-                                : ""
-                        }`}
-                        key={level.level}
-                      >
-                        <span>LVL {level.level}</span>
-                        <b>{level.rate} <small>PTS/H</small></b>
-                        <em>{formatUsdc(level.price)}</em>
-                      </div>
-                    );
-                  })}
-                </div>
-                {shipIndex < FLEET_EVOLUTION.length - 1 && (
-                  <span className={styles.evolutionArrow} aria-hidden="true">›</span>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                <strong>T{ship.tier}</strong>
+              </div>
+              <div className={styles.evolutionArt}>
+                <span aria-hidden="true" />
+                <Image
+                  src={`/nft/fleet-tier-${ship.tier}.png`}
+                  alt=""
+                  width={260}
+                  height={182}
+                />
+              </div>
+              <div className={styles.evolutionLevels}>
+                {ship.levels.map((level, levelIndex) => {
+                  const evolutionIndex = shipIndex * 3 + levelIndex;
+                  const current = evolutionIndex === currentEvolutionIndex;
+                  const completed = evolutionIndex < currentEvolutionIndex;
+                  const next = evolutionIndex === currentEvolutionIndex + 1;
+                  return (
+                    <div
+                      className={`${styles.evolutionLevel} ${
+                        current
+                          ? styles.evolutionLevelCurrent
+                          : completed
+                            ? styles.evolutionLevelDone
+                            : next
+                              ? styles.evolutionLevelNext
+                              : ""
+                      }`}
+                      key={level.level}
+                    >
+                      <span>LVL {level.level}</span>
+                      <b>{level.rate} <small>PTS/H</small></b>
+                      <em>{formatUsdc(level.price)}</em>
+                    </div>
+                  );
+                })}
+              </div>
+              {shipIndex < FLEET_EVOLUTION.length - 1 && (
+                <span className={styles.evolutionArrow} aria-hidden="true">›</span>
+              )}
+            </article>
+          );
+        })}
+      </div>
 
-        <div className={styles.evolutionLegend}>
-          <span><i className={styles.legendCurrent} />{ru ? "ТЕКУЩИЙ" : "CURRENT"}</span>
-          <span><i className={styles.legendNext} />{ru ? "СЛЕДУЮЩИЙ" : "NEXT"}</span>
-          <span><i className={styles.legendLocked} />{ru ? "БУДУЩИЕ" : "FUTURE"}</span>
-        </div>
-      </section>
+      <div className={styles.evolutionLegend}>
+        <span><i className={styles.legendCurrent} />{ru ? "ТЕКУЩИЙ" : "CURRENT"}</span>
+        <span><i className={styles.legendNext} />{ru ? "СЛЕДУЮЩИЙ" : "NEXT"}</span>
+        <span><i className={styles.legendLocked} />{ru ? "БУДУЩИЕ" : "FUTURE"}</span>
+      </div>
     </section>
   );
 
   return (
     <>
-      {/* ─── Compact Glowing Info Banner (Header Entry Point) ─── */}
-      <section className={styles.infoBanner}>
-        <div className={styles.infoBannerGlow} />
-        <div className={styles.infoBannerContent}>
-          <div className={styles.infoBannerIcon}>🛸</div>
-          <div className={styles.infoBannerText}>
-            <span>{ru ? "NFT МАЙНЕРЫ ФЛОТА" : "NFT FLEET MINERS"}</span>
-            <h3>{ru ? `Суммарный доход: ${totalRate} PTS/H` : `Total Rate: ${totalRate} PTS/H`}</h3>
-            <p>
-              {ru
-                ? `Слот #${activeSlotIndex + 1} • Накоплено: ${totalClaimable.toLocaleString()} PTS`
-                : `Slot #${activeSlotIndex + 1} • Ready: ${totalClaimable.toLocaleString()} PTS`}
-            </p>
+      {/* ─── Main Fleet NFT Card (Always Visible on Page) ─── */}
+      <section className={`${styles.panel} ${styles[`tier${visualTier}`]}`} id="fleet-nft">
+        <div className={styles.backdrop} aria-hidden="true" />
+        
+        {/* ─── Multi-Miner Slot Selector Tabs ─── */}
+        <div className={styles.slotTabsContainer}>
+          {Array.from({ length: MAX_MINER_SLOTS }).map((_, slotIdx) => {
+            const slotState = minerSlots[slotIdx] || EMPTY_FLEET_STATE;
+            const unlocked = canUnlockNextSlot(minerSlots, slotIdx);
+            const isCurrent = slotIdx === activeSlotIndex;
+            const isSlotOwned = slotState.tokenId > 0;
+            const isMaxed = slotState.maxed;
+
+            return (
+              <button
+                key={slotIdx}
+                type="button"
+                className={`${styles.slotTab} ${isCurrent ? styles.slotTabActive : ""} ${
+                  isMaxed ? styles.slotTabMaxed : ""
+                } ${!unlocked ? styles.slotTabLocked : ""}`}
+                onClick={() => {
+                  if (unlocked) setActiveSlotIndex(slotIdx);
+                }}
+                disabled={!unlocked}
+                title={
+                  !unlocked
+                    ? ru
+                      ? `Вкачай Майнер #${slotIdx} до MAX уровня!`
+                      : `Max out Miner #${slotIdx} first!`
+                    : undefined
+                }
+              >
+                <span>{ru ? `МАЙНЕР #${slotIdx + 1}` : `MINER #${slotIdx + 1}`}</span>
+                {isMaxed && <span className={styles.slotBadge}>★ MAX</span>}
+                {!isMaxed && isSlotOwned && <small>T{slotState.tier}L{slotState.level}</small>}
+                {!unlocked && <small>🔒</small>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.artStage}>
+          <span className={styles.orbit} aria-hidden="true" />
+          <Image
+            className={styles.ship}
+            src={`/nft/fleet-tier-${visualTier}.png`}
+            alt=""
+            width={600}
+            height={420}
+            priority={false}
+          />
+          <div className={styles.stars} aria-label={`${visualLevel}/3`}>
+            {stars.map((active, index) => <span className={active ? styles.starActive : ""} key={index}>★</span>)}
           </div>
         </div>
-        <div className={styles.infoBannerActions}>
-          <button
-            type="button"
-            className={styles.glowingInfoBtn}
-            onClick={() => setIsInfoModalOpen(true)}
-          >
-            <span>✨</span>
-            <span>{ru ? "ИНФО И КОРАБЛИ" : "INFO & SHIPS"}</span>
-          </button>
+
+        <div className={styles.content}>
+          <div className={styles.heading}>
+            <div>
+              <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
+              <h2>{owned ? `FLEET PASS (СЛОТ #${activeSlotIndex + 1})` : ru ? `СОБЕРИ СВОЙ ФЛОТ (СЛОТ #${activeSlotIndex + 1})` : `BUILD YOUR FLEET (SLOT #${activeSlotIndex + 1})`}</h2>
+            </div>
+            <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
+          </div>
+
+          <p className={styles.description}>
+            {ru
+              ? "NFT приходит в кошелек и добывает пойнты каждый час. После максимальной прокачки одного майнера откроется слот для следующего!"
+              : "The NFT arrives in your wallet and mines points every hour. Maxing out a miner unlocks the next miner slot!"}
+          </p>
+
+          <div className={styles.stats}>
+            <div><span>{ru ? "СКОРОСТЬ" : "RATE"}</span><b>{owned ? fleet.pointsPerHour : 50} PTS/H</b></div>
+            <div><span>{ru ? "НАКОПЛЕНО" : "READY"}</span><b>{fleet.claimablePoints.toLocaleString()} PTS</b></div>
+            <div><span>{ru ? "СЛЕДУЮЩИЙ LVL" : "NEXT LEVEL"}</span><b>{fleet.maxed ? "MAX" : formatUsdc(actionPrice)}</b></div>
+          </div>
+
+          <div className={styles.actions}>
+            <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
+              {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
+            </button>
+            {owned && !fleet.maxed && !isLegacyMiner && (
+              <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
+                {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
+              </button>
+            )}
+            <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !txWarmReady || !deployed || fleet.claimablePoints <= 0 || claimPending}>
+              {!txWarmReady ? "SYNCING..." : claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
+            </button>
+          </div>
+          {!isBaseApp && deployed && (
+            <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(0, 82, 255, 0.1)', border: '1px solid #0052ff', borderRadius: '8px', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '12px', color: '#fff' }}>
+                {ru ? "Перейди в Base App, чтобы покупать и улучшать со скидкой 50%!" : "Switch to Base App to buy and upgrade with 50% discount!"}
+              </p>
+              <a href="https://base.app/app/seabattle.top" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '8px', color: '#66e9ff', fontSize: '13px', textDecoration: 'none', fontWeight: 'bold' }}>
+                {ru ? "Открыть в Base App →" : "Open in Base App →"}
+              </a>
+            </div>
+          )}
+          {message && <p className={styles.message}>{message}</p>}
         </div>
       </section>
 
-      {/* ─── Info Modal Drawer ─── */}
+      {/* ─── Glowing Info Button Below Ship ─── */}
+      <div className={styles.infoTriggerFooter}>
+        <button
+          type="button"
+          className={styles.glowingInfoBtn}
+          onClick={() => setIsInfoModalOpen(true)}
+        >
+          <span>✨</span>
+          <span>{ru ? "ИНФО И КАРТА ЭВОЛЮЦИИ КОРАБЛЕЙ" : "INFO & SHIPS EVOLUTION MAP"}</span>
+        </button>
+      </div>
+
+      {/* ─── Info & Evolution Map Modal ─── */}
       {isInfoModalOpen && (
         <div
           className={styles.infoModalBackdrop}
@@ -881,7 +972,7 @@ export default function FleetNftPanel() {
           >
             <div className={styles.infoModalHeader}>
               <h2 className={styles.infoModalTitle}>
-                {ru ? "🛸 NFT ФЛОТ И МАЙНЕРЫ" : "🛸 NFT FLEET & MINERS"}
+                {ru ? "🛸 КАРТА ЭВОЛЮЦИИ И ЦЕНЫ КОРАБЛЕЙ" : "🛸 SHIPS EVOLUTION MAP & PRICES"}
               </h2>
               <button
                 type="button"
@@ -892,7 +983,7 @@ export default function FleetNftPanel() {
                 ×
               </button>
             </div>
-            {renderFleetContent()}
+            {renderEvolutionMap()}
           </div>
         </div>
       )}
