@@ -214,17 +214,10 @@ BEGIN
     END IF;
   END IF;
 
-  IF v_streak = 1 THEN v_reward := 20;
-  ELSIF v_streak = 2 THEN v_reward := 25;
-  ELSIF v_streak = 3 THEN v_reward := 30;
-  ELSIF v_streak = 4 THEN v_reward := 40;
-  ELSIF v_streak = 5 THEN v_reward := 50;
-  ELSIF v_streak = 6 THEN v_reward := 60;
-  ELSE v_reward := 80;
-  END IF;
-
   IF p_is_base_app THEN
-    v_reward := v_reward * 2;
+    v_reward := 500 + (floor((greatest(1, v_streak) - 1)::numeric / 5) * 50)::integer;
+  ELSE
+    v_reward := (ceil(greatest(1, v_streak)::numeric / 5) * 5)::integer;
   END IF;
 
   INSERT INTO player_stats (wallet, points, updated_at)

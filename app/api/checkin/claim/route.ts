@@ -82,17 +82,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let reward = 20;
-    if (streak === 2) reward = 25;
-    else if (streak === 3) reward = 30;
-    else if (streak === 4) reward = 40;
-    else if (streak === 5) reward = 50;
-    else if (streak === 6) reward = 60;
-    else if (streak >= 7) reward = 80;
-
-    if (isBaseApp) {
-      reward = reward * 2;
-    }
+    const reward = isBaseApp
+      ? 500 + Math.floor(Math.max(0, streak - 1) / 5) * 50
+      : Math.ceil(Math.max(1, streak) / 5) * 5;
 
     const currentPoints = stats?.points ?? 0;
     const newPoints = currentPoints + reward;
