@@ -744,8 +744,8 @@ export default function FleetNftPanel() {
             const slotState = minerSlots[slotIdx] || EMPTY_FLEET_STATE;
             const unlocked = canUnlockNextSlot(minerSlots, slotIdx);
             const isCurrent = slotIdx === activeSlotIndex;
-            const isSlotOwned = slotState.tokenId > 0;
-            const isMaxed = slotState.maxed;
+            const isSlotOwned = slotState.tokenId > 0 || slotState.tier > 0;
+            const isMaxed = Boolean(slotState.maxed || (slotState.tier === 3 && slotState.level === 3));
 
             return (
               <button
@@ -878,7 +878,9 @@ export default function FleetNftPanel() {
                 onClick={() => setIsInfoModalOpen(false)}
                 aria-label="Close"
               >
-                ×
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
               </button>
             </div>
             {renderEvolutionMap()}

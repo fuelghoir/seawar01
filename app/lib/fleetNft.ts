@@ -93,7 +93,9 @@ export function canUnlockNextSlot(slots: FleetState[], slotIndex: number): boole
   if (slotIndex >= MAX_MINER_SLOTS) return false;
   // Slot N requires Slot N-1 to be maxed (tier 3, level 3)
   const prev = slots[slotIndex - 1];
-  return Boolean(prev && prev.tokenId > 0 && prev.maxed);
+  if (!prev) return false;
+  const isMaxed = Boolean(prev.maxed || (prev.tier === 3 && prev.level === 3));
+  return Boolean(isMaxed && (prev.tokenId > 0 || prev.tier > 0));
 }
 
 export function getTotalPointsPerHour(slots: FleetState[]): number {
