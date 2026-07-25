@@ -615,6 +615,8 @@
     filter: none !important;
     box-shadow: none !important;
   }
+}
+
 .infoTriggerFooter {
   grid-column: 1 / -1;
   display: flex;

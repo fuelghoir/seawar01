@@ -34,8 +34,6 @@ import {
   ZERO_ADDRESS,
   MAX_MINER_SLOTS,
   canUnlockNextSlot,
-  getTotalPointsPerHour,
-  getTotalClaimablePoints,
 } from "../lib/fleetNft";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
@@ -303,9 +301,6 @@ export default function FleetNftPanel() {
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
-
-  const totalRate = useMemo(() => getTotalPointsPerHour(minerSlots), [minerSlots]);
-  const totalClaimable = useMemo(() => getTotalClaimablePoints(minerSlots), [minerSlots]);
 
   const nextUpgradePrice = useMemo(() => {
     const fallback = fleetNextPrice(fleet.tier || 1, fleet.level || 1);
@@ -656,111 +651,6 @@ export default function FleetNftPanel() {
     ? (fleet.tier - 1) * 3 + (fleet.level - 1)
     : -1;
   const busy = purchaseAction !== null || approvePending || purchasePending;
-
-  const renderFleetContent = () => (
-    <section className={`${styles.panel} ${styles[`tier${visualTier}`]}`} id="fleet-nft">
-      <div className={styles.backdrop} aria-hidden="true" />
-      
-      {/* ─── Multi-Miner Slot Selector Tabs ─── */}
-      <div className={styles.slotTabsContainer}>
-        {Array.from({ length: MAX_MINER_SLOTS }).map((_, slotIdx) => {
-          const slotState = minerSlots[slotIdx] || EMPTY_FLEET_STATE;
-          const unlocked = canUnlockNextSlot(minerSlots, slotIdx);
-          const isCurrent = slotIdx === activeSlotIndex;
-          const isSlotOwned = slotState.tokenId > 0;
-          const isMaxed = slotState.maxed;
-
-          return (
-            <button
-              key={slotIdx}
-              type="button"
-              className={`${styles.slotTab} ${isCurrent ? styles.slotTabActive : ""} ${
-                isMaxed ? styles.slotTabMaxed : ""
-              } ${!unlocked ? styles.slotTabLocked : ""}`}
-              onClick={() => {
-                if (unlocked) setActiveSlotIndex(slotIdx);
-              }}
-              disabled={!unlocked}
-              title={
-                !unlocked
-                  ? ru
-                    ? `Вкачай Майнер #${slotIdx} до MAX уровня!`
-                    : `Max out Miner #${slotIdx} first!`
-                  : undefined
-              }
-            >
-              <span>{ru ? `МАЙНЕР #${slotIdx + 1}` : `MINER #${slotIdx + 1}`}</span>
-              {isMaxed && <span className={styles.slotBadge}>★ MAX</span>}
-              {!isMaxed && isSlotOwned && <small>T{slotState.tier}L{slotState.level}</small>}
-              {!unlocked && <small>🔒</small>}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className={styles.artStage}>
-        <span className={styles.orbit} aria-hidden="true" />
-        <Image
-          className={styles.ship}
-          src={`/nft/fleet-tier-${visualTier}.png`}
-          alt=""
-          width={600}
-          height={420}
-          priority={false}
-        />
-        <div className={styles.stars} aria-label={`${visualLevel}/3`}>
-          {stars.map((active, index) => <span className={active ? styles.starActive : ""} key={index}>★</span>)}
-        </div>
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.heading}>
-          <div>
-            <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
-            <h2>{owned ? `FLEET PASS (СЛОТ #${activeSlotIndex + 1})` : ru ? `СОБЕРИ СВОЙ ФЛОТ (СЛОТ #${activeSlotIndex + 1})` : `BUILD YOUR FLEET (SLOT #${activeSlotIndex + 1})`}</h2>
-          </div>
-          <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
-        </div>
-
-        <p className={styles.description}>
-          {ru
-            ? "NFT приходит в кошелек и добывает пойнты каждый час. После максимальной прокачки одного майнера откроется слот для следующего!"
-            : "The NFT arrives in your wallet and mines points every hour. Maxing out a miner unlocks the next miner slot!"}
-        </p>
-
-        <div className={styles.stats}>
-          <div><span>{ru ? "СКОРОСТЬ" : "RATE"}</span><b>{owned ? fleet.pointsPerHour : 50} PTS/H</b></div>
-          <div><span>{ru ? "НАКОПЛЕНО" : "READY"}</span><b>{fleet.claimablePoints.toLocaleString()} PTS</b></div>
-          <div><span>{ru ? "СЛЕДУЮЩИЙ LVL" : "NEXT LEVEL"}</span><b>{fleet.maxed ? "MAX" : formatUsdc(actionPrice)}</b></div>
-        </div>
-
-        <div className={styles.actions}>
-          <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
-            {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
-          </button>
-          {owned && !fleet.maxed && !isLegacyMiner && (
-            <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
-              {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
-            </button>
-          )}
-          <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !txWarmReady || !deployed || fleet.claimablePoints <= 0 || claimPending}>
-            {!txWarmReady ? "SYNCING..." : claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
-          </button>
-        </div>
-        {!isBaseApp && deployed && (
-          <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(0, 82, 255, 0.1)', border: '1px solid #0052ff', borderRadius: '8px', textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: '12px', color: '#fff' }}>
-              {ru ? "Перейди в Base App, чтобы покупать и улучшать со скидкой 50%!" : "Switch to Base App to buy and upgrade with 50% discount!"}
-            </p>
-            <a href="https://base.app/app/seabattle.top" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '8px', color: '#66e9ff', fontSize: '13px', textDecoration: 'none', fontWeight: 'bold' }}>
-              {ru ? "Открыть в Base App →" : "Open in Base App →"}
-            </a>
-          </div>
-        )}
-        {message && <p className={styles.message}>{message}</p>}
-      </div>
-    </section>
-  );
 
   const renderEvolutionMap = () => (
     <section className={styles.evolution}>
