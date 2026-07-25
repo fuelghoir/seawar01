@@ -750,6 +750,16 @@
   }
 }
 
+.panelCardFooter {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(67, 215, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+}
+
 /* ─── Multi-miner Slot Tabs ─── */
 .slotTabsContainer {
   grid-column: 1 / -1;
@@ -757,7 +767,9 @@
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 2px 10px 2px;
+  padding: 14px 14px 6px 14px;
+  width: 100%;
+  box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: rgba(67, 215, 255, 0.3) transparent;
 }

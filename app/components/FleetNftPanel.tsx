@@ -794,7 +794,15 @@ export default function FleetNftPanel() {
           <div className={styles.heading}>
             <div>
               <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
-              <h2>{owned ? `FLEET PASS (СЛОТ #${activeSlotIndex + 1})` : ru ? `СОБЕРИ СВОЙ ФЛОТ (СЛОТ #${activeSlotIndex + 1})` : `BUILD YOUR FLEET (SLOT #${activeSlotIndex + 1})`}</h2>
+              <h2>
+                {owned
+                  ? ru
+                    ? `FLEET PASS (СЛОТ #${activeSlotIndex + 1})`
+                    : `FLEET PASS (SLOT #${activeSlotIndex + 1})`
+                  : ru
+                    ? `СОБЕРИ СВОЙ ФЛОТ (СЛОТ #${activeSlotIndex + 1})`
+                    : `BUILD YOUR FLEET (SLOT #${activeSlotIndex + 1})`}
+              </h2>
             </div>
             <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
           </div>
@@ -836,19 +844,19 @@ export default function FleetNftPanel() {
           )}
           {message && <p className={styles.message}>{message}</p>}
         </div>
-      </section>
 
-      {/* ─── Glowing Info Button Below Ship ─── */}
-      <div className={styles.infoTriggerFooter}>
-        <button
-          type="button"
-          className={styles.glowingInfoBtn}
-          onClick={() => setIsInfoModalOpen(true)}
-        >
-          <span>✨</span>
-          <span>{ru ? "ИНФО И КАРТА ЭВОЛЮЦИИ КОРАБЛЕЙ" : "INFO & SHIPS EVOLUTION MAP"}</span>
-        </button>
-      </div>
+        {/* ─── Glowing Info Button Integrated Inside Card Footer ─── */}
+        <div className={styles.panelCardFooter}>
+          <button
+            type="button"
+            className={styles.glowingInfoBtn}
+            onClick={() => setIsInfoModalOpen(true)}
+          >
+            <span>✨</span>
+            <span>{ru ? "ИНФО И КАРТА ЭВОЛЮЦИИ КОРАБЛЕЙ" : "INFO & SHIPS EVOLUTION MAP"}</span>
+          </button>
+        </div>
+      </section>
 
       {/* ─── Info & Evolution Map Modal ─── */}
       {isInfoModalOpen && (

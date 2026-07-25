@@ -71,7 +71,7 @@ export function SettingsPanel() {
             ))}
           </div>
 
-          <p className={styles.sectionLabel}>{ru ? "Р—РІСѓРє" : "Sound"}</p>
+          <p className={styles.sectionLabel}>{ru ? "Звук" : "Sound"}</p>
           <button
             className={`${styles.soundToggle} ${soundOn ? styles.soundToggleOn : ""}`}
             onClick={() => {

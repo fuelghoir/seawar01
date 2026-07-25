@@ -63,7 +63,12 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
+  margin-top: 10px;
   margin-bottom: 8px;
+}
+
+.sectionLabel:first-child {
+  margin-top: 0;
 }
 
 /* Theme swatches */
@@ -107,6 +112,7 @@
 .langRow {
   display: flex;
   gap: 6px;
+  margin-bottom: 12px;
 }
 
 .langBtn {
