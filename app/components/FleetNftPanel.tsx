@@ -32,6 +32,10 @@ import {
   parseFleetState,
   type FleetState,
   ZERO_ADDRESS,
+  MAX_MINER_SLOTS,
+  canUnlockNextSlot,
+  getTotalPointsPerHour,
+  getTotalClaimablePoints,
 } from "../lib/fleetNft";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
@@ -75,6 +79,10 @@ function cacheKey(wallet: string) {
   return `seabattle_fleet_nft_${wallet.toLowerCase()}`;
 }
 
+function slotsCacheKey(wallet: string) {
+  return `seabattle_fleet_slots_${wallet.toLowerCase()}`;
+}
+
 function readCached(wallet?: string): FleetState {
   if (!wallet || typeof window === "undefined") return EMPTY_FLEET_STATE;
   try {
@@ -84,6 +92,21 @@ function readCached(wallet?: string): FleetState {
     };
   } catch {
     return EMPTY_FLEET_STATE;
+  }
+}
+
+function readSlotsCached(wallet?: string): FleetState[] {
+  if (!wallet || typeof window === "undefined") return [EMPTY_FLEET_STATE];
+  try {
+    const raw = localStorage.getItem(slotsCacheKey(wallet));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const single = readCached(wallet);
+    return [single];
+  } catch {
+    return [EMPTY_FLEET_STATE];
   }
 }
 
@@ -146,7 +169,13 @@ export default function FleetNftPanel() {
   const ru = lang === "ru";
   const txWarmReady = useTransactionWarmup(isConnected, address);
   const deployed = FLEET_NFT_CONTRACT_ADDRESS !== ZERO_ADDRESS;
-  const [fleet, setFleet] = useState<FleetState>(() => readCached(address));
+
+  const [activeSlotIndex, setActiveSlotIndex] = useState<number>(0);
+  const [minerSlots, setMinerSlots] = useState<FleetState[]>(() => readSlotsCached(address));
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState<boolean>(false);
+
+  const fleet = minerSlots[activeSlotIndex] || EMPTY_FLEET_STATE;
+
   const [isBaseApp, setIsBaseApp] = useState(false);
   const [message, setMessage] = useState("");
   const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" | null>(null);
@@ -163,19 +192,29 @@ export default function FleetNftPanel() {
 
   const [isLegacyMiner, setIsLegacyMiner] = useState(false);
 
-  const commitFleet = useCallback((next: FleetState) => {
-    setFleet((current) => {
+  const commitFleet = useCallback((next: FleetState, targetSlotIndex = activeSlotIndex) => {
+    setMinerSlots((current) => {
+      const updated = [...current];
+      while (updated.length <= targetSlotIndex) {
+        updated.push(EMPTY_FLEET_STATE);
+      }
       if (
         Date.now() < staleProtectionUntilRef.current &&
-        current.tokenId > 0 &&
-        next.tokenId !== current.tokenId
+        updated[targetSlotIndex]?.tokenId > 0 &&
+        next.tokenId !== updated[targetSlotIndex]?.tokenId
       ) {
         return current;
       }
-      return next;
+      updated[targetSlotIndex] = next;
+      if (address) {
+        localStorage.setItem(slotsCacheKey(address), JSON.stringify(updated));
+      }
+      return updated;
     });
-    if (address) localStorage.setItem(cacheKey(address), JSON.stringify(next));
-  }, [address]);
+    if (address && targetSlotIndex === 0) {
+      localStorage.setItem(cacheKey(address), JSON.stringify(next));
+    }
+  }, [address, activeSlotIndex]);
 
   const { data: fleetRead, refetch } = useReadContract({
     address: FLEET_NFT_CONTRACT_ADDRESS,
@@ -212,7 +251,7 @@ export default function FleetNftPanel() {
         chainId: base.id,
       }));
       if (nextV2 && nextV2.tokenId > 0) {
-        commitFleet(nextV2);
+        commitFleet(nextV2, activeSlotIndex);
         setIsLegacyMiner(false);
         return nextV2;
       }
@@ -224,12 +263,12 @@ export default function FleetNftPanel() {
         chainId: base.id,
       }));
       if (nextV1 && nextV1.tokenId > 0) {
-        commitFleet(nextV1);
+        commitFleet(nextV1, activeSlotIndex);
         setIsLegacyMiner(true);
         return nextV1;
       }
       if (nextV2) {
-        commitFleet(nextV2);
+        commitFleet(nextV2, activeSlotIndex);
         setIsLegacyMiner(false);
         return nextV2;
       }
@@ -237,10 +276,11 @@ export default function FleetNftPanel() {
     } catch {
       return null;
     }
-  }, [address, commitFleet, deployed, wagmiConfig]);
+  }, [address, commitFleet, deployed, wagmiConfig, activeSlotIndex]);
 
   useEffect(() => {
-    setFleet(readCached(address));
+    const cachedSlots = readSlotsCached(address);
+    setMinerSlots(cachedSlots);
     if (typeof window !== "undefined") setIsBaseApp(isBaseAppUserAgent(navigator.userAgent));
   }, [address]);
 
@@ -249,20 +289,23 @@ export default function FleetNftPanel() {
     const nextV1 = parseFleetState(legacyFleetRead);
 
     if (nextV2 && nextV2.tokenId > 0) {
-      commitFleet(nextV2);
+      commitFleet(nextV2, activeSlotIndex);
       setIsLegacyMiner(false);
     } else if (nextV1 && nextV1.tokenId > 0) {
-      commitFleet(nextV1);
+      commitFleet(nextV1, activeSlotIndex);
       setIsLegacyMiner(true);
     } else if (nextV2) {
-      commitFleet(nextV2);
+      commitFleet(nextV2, activeSlotIndex);
       setIsLegacyMiner(false);
     }
-  }, [commitFleet, fleetRead, legacyFleetRead]);
+  }, [commitFleet, fleetRead, legacyFleetRead, activeSlotIndex]);
 
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
+
+  const totalRate = useMemo(() => getTotalPointsPerHour(minerSlots), [minerSlots]);
+  const totalClaimable = useMemo(() => getTotalClaimablePoints(minerSlots), [minerSlots]);
 
   const nextUpgradePrice = useMemo(() => {
     const fallback = fleetNextPrice(fleet.tier || 1, fleet.level || 1);
@@ -430,7 +473,7 @@ export default function FleetNftPanel() {
 
     if (purchaseReceipt?.logs) {
       const optimistic = optimisticFleetFromReceipt(purchaseReceipt.logs, fleet);
-      if (optimistic) commitFleet(optimistic);
+      if (optimistic) commitFleet(optimistic, activeSlotIndex);
     }
 
     setPurchaseAction(null);
@@ -444,7 +487,7 @@ export default function FleetNftPanel() {
       }
       await refetch();
     })();
-  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru]);
+  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex]);
 
   useEffect(() => {
     if (approveReceipt?.status !== "reverted" && purchaseReceipt?.status !== "reverted") return;
@@ -472,7 +515,7 @@ export default function FleetNftPanel() {
     ) return;
     claimHandledRef.current = true;
     lastCreditedClaimHashRef.current = claimProofHash;
-    commitFleet({ ...fleet, claimablePoints: 0 });
+    commitFleet({ ...fleet, claimablePoints: 0 }, activeSlotIndex);
     setMessage(ru ? "Зачисляем пойнты..." : "Crediting points...");
     fetchWithRetry("/api/fleet-nft/claim-points", {
       method: "POST",
@@ -490,7 +533,7 @@ export default function FleetNftPanel() {
         void refreshFleet();
         void refetch();
       });
-  }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru]);
+  }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru, activeSlotIndex]);
 
   const startPurchase = async (actionOverride?: "max") => {
     if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
@@ -614,9 +657,47 @@ export default function FleetNftPanel() {
     : -1;
   const busy = purchaseAction !== null || approvePending || purchasePending;
 
-  return (
+  const renderFleetContent = () => (
     <section className={`${styles.panel} ${styles[`tier${visualTier}`]}`} id="fleet-nft">
       <div className={styles.backdrop} aria-hidden="true" />
+      
+      {/* ─── Multi-Miner Slot Selector Tabs ─── */}
+      <div className={styles.slotTabsContainer}>
+        {Array.from({ length: MAX_MINER_SLOTS }).map((_, slotIdx) => {
+          const slotState = minerSlots[slotIdx] || EMPTY_FLEET_STATE;
+          const unlocked = canUnlockNextSlot(minerSlots, slotIdx);
+          const isCurrent = slotIdx === activeSlotIndex;
+          const isSlotOwned = slotState.tokenId > 0;
+          const isMaxed = slotState.maxed;
+
+          return (
+            <button
+              key={slotIdx}
+              type="button"
+              className={`${styles.slotTab} ${isCurrent ? styles.slotTabActive : ""} ${
+                isMaxed ? styles.slotTabMaxed : ""
+              } ${!unlocked ? styles.slotTabLocked : ""}`}
+              onClick={() => {
+                if (unlocked) setActiveSlotIndex(slotIdx);
+              }}
+              disabled={!unlocked}
+              title={
+                !unlocked
+                  ? ru
+                    ? `Вкачай Майнер #${slotIdx} до MAX уровня!`
+                    : `Max out Miner #${slotIdx} first!`
+                  : undefined
+              }
+            >
+              <span>{ru ? `МАЙНЕР #${slotIdx + 1}` : `MINER #${slotIdx + 1}`}</span>
+              {isMaxed && <span className={styles.slotBadge}>★ MAX</span>}
+              {!isMaxed && isSlotOwned && <small>T{slotState.tier}L{slotState.level}</small>}
+              {!unlocked && <small>🔒</small>}
+            </button>
+          );
+        })}
+      </div>
+
       <div className={styles.artStage}>
         <span className={styles.orbit} aria-hidden="true" />
         <Image
@@ -636,15 +717,15 @@ export default function FleetNftPanel() {
         <div className={styles.heading}>
           <div>
             <span>{ru ? "ЭВОЛЮЦИОННЫЙ NFT МАЙНЕР" : "EVOLVING NFT MINER"}</span>
-            <h2>{owned ? "FLEET PASS" : ru ? "СОБЕРИ СВОЙ ФЛОТ" : "BUILD YOUR FLEET"}</h2>
+            <h2>{owned ? `FLEET PASS (СЛОТ #${activeSlotIndex + 1})` : ru ? `СОБЕРИ СВОЙ ФЛОТ (СЛОТ #${activeSlotIndex + 1})` : `BUILD YOUR FLEET (SLOT #${activeSlotIndex + 1})`}</h2>
           </div>
           <b>{owned ? `T${fleet.tier} · LVL ${fleet.level}` : "T1 · LVL 1"}</b>
         </div>
 
         <p className={styles.description}>
           {ru
-            ? "NFT приходит в кошелек и добывает пойнты каждый час. При улучшении старый корабль сжигается, а новая версия минтится автоматически."
-            : "The NFT arrives in your wallet and mines points every hour. Upgrades burn the old ship and mint its evolved form automatically."}
+            ? "NFT приходит в кошелек и добывает пойнты каждый час. После максимальной прокачки одного майнера откроется слот для следующего!"
+            : "The NFT arrives in your wallet and mines points every hour. Maxing out a miner unlocks the next miner slot!"}
         </p>
 
         <div className={styles.stats}>
@@ -757,5 +838,64 @@ export default function FleetNftPanel() {
         </div>
       </section>
     </section>
+  );
+
+  return (
+    <>
+      {/* ─── Compact Glowing Info Banner (Header Entry Point) ─── */}
+      <section className={styles.infoBanner}>
+        <div className={styles.infoBannerGlow} />
+        <div className={styles.infoBannerContent}>
+          <div className={styles.infoBannerIcon}>🛸</div>
+          <div className={styles.infoBannerText}>
+            <span>{ru ? "NFT МАЙНЕРЫ ФЛОТА" : "NFT FLEET MINERS"}</span>
+            <h3>{ru ? `Суммарный доход: ${totalRate} PTS/H` : `Total Rate: ${totalRate} PTS/H`}</h3>
+            <p>
+              {ru
+                ? `Слот #${activeSlotIndex + 1} • Накоплено: ${totalClaimable.toLocaleString()} PTS`
+                : `Slot #${activeSlotIndex + 1} • Ready: ${totalClaimable.toLocaleString()} PTS`}
+            </p>
+          </div>
+        </div>
+        <div className={styles.infoBannerActions}>
+          <button
+            type="button"
+            className={styles.glowingInfoBtn}
+            onClick={() => setIsInfoModalOpen(true)}
+          >
+            <span>✨</span>
+            <span>{ru ? "ИНФО И КОРАБЛИ" : "INFO & SHIPS"}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ─── Info Modal Drawer ─── */}
+      {isInfoModalOpen && (
+        <div
+          className={styles.infoModalBackdrop}
+          onClick={() => setIsInfoModalOpen(false)}
+        >
+          <div
+            className={styles.infoModalContent}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.infoModalHeader}>
+              <h2 className={styles.infoModalTitle}>
+                {ru ? "🛸 NFT ФЛОТ И МАЙНЕРЫ" : "🛸 NFT FLEET & MINERS"}
+              </h2>
+              <button
+                type="button"
+                className={styles.infoModalClose}
+                onClick={() => setIsInfoModalOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            {renderFleetContent()}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

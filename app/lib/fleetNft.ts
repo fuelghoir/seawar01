@@ -75,3 +75,31 @@ export function fleetMaxUpgradeCost(tier: number, level: number) {
   }
   return cost;
 }
+
+export const MAX_MINER_SLOTS = 10;
+
+export type MultiFleetState = {
+  activeSlot: number;
+  slots: FleetState[];
+};
+
+export const EMPTY_MULTI_FLEET_STATE: MultiFleetState = {
+  activeSlot: 0,
+  slots: [EMPTY_FLEET_STATE],
+};
+
+export function canUnlockNextSlot(slots: FleetState[], slotIndex: number): boolean {
+  if (slotIndex === 0) return true; // Slot #1 is always available
+  if (slotIndex >= MAX_MINER_SLOTS) return false;
+  // Slot N requires Slot N-1 to be maxed (tier 3, level 3)
+  const prev = slots[slotIndex - 1];
+  return Boolean(prev && prev.tokenId > 0 && prev.maxed);
+}
+
+export function getTotalPointsPerHour(slots: FleetState[]): number {
+  return slots.reduce((sum, slot) => sum + (slot.pointsPerHour || 0), 0);
+}
+
+export function getTotalClaimablePoints(slots: FleetState[]): number {
+  return slots.reduce((sum, slot) => sum + (slot.claimablePoints || 0), 0);
+}

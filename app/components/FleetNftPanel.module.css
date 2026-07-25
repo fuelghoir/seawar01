@@ -616,3 +616,270 @@
     box-shadow: none !important;
   }
 }
+
+/* ─── Compact Glowing Info Banner ─── */
+.infoBanner {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(8, 25, 45, 0.95), rgba(4, 12, 26, 0.98));
+  border: 1px solid rgba(67, 215, 255, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.infoBannerGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 10% 50%, rgba(67, 215, 255, 0.15), transparent 60%);
+  pointer-events: none;
+}
+
+.infoBannerContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.infoBannerIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(67, 215, 255, 0.12);
+  border: 1px solid rgba(67, 215, 255, 0.3);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.infoBannerText {
+  min-width: 0;
+}
+
+.infoBannerText span {
+  display: block;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 9px;
+  font-weight: 900;
+  color: #64ddff;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.infoBannerText h3 {
+  margin: 2px 0 0;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.infoBannerText p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(226, 241, 255, 0.7);
+}
+
+.infoBannerActions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ─── Glowing Info Button ─── */
+.glowingInfoBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #43d7ff;
+  background: linear-gradient(135deg, rgba(67, 215, 255, 0.25), rgba(0, 150, 255, 0.15));
+  color: #ffffff;
+  font-family: var(--font-orbitron), monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(67, 215, 255, 0.4), inset 0 0 8px rgba(67, 215, 255, 0.2);
+  transition: all 0.25s ease;
+  animation: glowPulse 2s infinite ease-in-out;
+}
+
+.glowingInfoBtn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(67, 215, 255, 0.4), rgba(0, 150, 255, 0.3));
+  box-shadow: 0 0 22px rgba(67, 215, 255, 0.7), inset 0 0 12px rgba(67, 215, 255, 0.4);
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(67, 215, 255, 0.4), inset 0 0 6px rgba(67, 215, 255, 0.2);
+    border-color: #43d7ff;
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(67, 215, 255, 0.8), 0 0 35px rgba(0, 220, 255, 0.4), inset 0 0 14px rgba(67, 215, 255, 0.5);
+    border-color: #a6f2ff;
+  }
+}
+
+/* ─── Multi-miner Slot Tabs ─── */
+.slotTabsContainer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(67, 215, 255, 0.3) transparent;
+}
+
+.slotTabsContainer::-webkit-scrollbar {
+  height: 4px;
+}
+
+.slotTabsContainer::-webkit-scrollbar-thumb {
+  background: rgba(67, 215, 255, 0.3);
+  border-radius: 2px;
+}
+
+.slotTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(4, 15, 30, 0.7);
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-orbitron), monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.slotTab:hover:not(:disabled) {
+  border-color: rgba(67, 215, 255, 0.5);
+  color: #fff;
+  background: rgba(67, 215, 255, 0.1);
+}
+
+.slotTabActive {
+  border-color: var(--fleet-accent, #43d7ff) !important;
+  color: #ffffff !important;
+  background: color-mix(in srgb, var(--fleet-accent, #43d7ff) 20%, rgba(4, 15, 30, 0.9)) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--fleet-accent, #43d7ff) 25%, transparent);
+}
+
+.slotTabMaxed {
+  border-color: rgba(255, 200, 80, 0.5);
+  color: #ffc850;
+}
+
+.slotTabLocked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.slotBadge {
+  font-size: 8px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(255, 200, 80, 0.2);
+  color: #ffc850;
+  font-weight: 900;
+}
+
+/* ─── Info Modal Drawer ─── */
+.infoModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(2, 8, 16, 0.85);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.infoModalContent {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(67, 215, 255, 0.4);
+  background: linear-gradient(145deg, rgba(6, 20, 38, 0.98), rgba(3, 10, 20, 0.99));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(67, 215, 255, 0.2);
+  padding: 20px;
+}
+
+.infoModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.infoModalTitle {
+  font-family: var(--font-orbitron), monospace;
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.infoModalClose {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.infoModalClose:hover {
+  background: rgba(255, 60, 60, 0.3);
+  border-color: #ff4444;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
