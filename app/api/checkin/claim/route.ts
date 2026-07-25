@@ -15,12 +15,13 @@ export async function POST(req: NextRequest) {
     const admin = adminSupabase();
 
     // 1. Try RPC first
-    let rpcRes: any = null;
+    let rpcRes: { data?: unknown; error?: unknown } | null = null;
     try {
-      rpcRes = await admin.rpc("claim_daily_checkin", {
+      const res = await admin.rpc("claim_daily_checkin", {
         p_wallet: wallet,
         p_is_base_app: isBaseApp,
       });
+      rpcRes = res as { data?: unknown; error?: unknown };
     } catch {
       // ignore RPC error and use fallback
     }
