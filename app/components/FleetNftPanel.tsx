@@ -34,6 +34,7 @@ import {
   ZERO_ADDRESS,
   MAX_MINER_SLOTS,
   canUnlockNextSlot,
+  getTotalClaimablePoints,
 } from "../lib/fleetNft";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
@@ -302,6 +303,12 @@ export default function FleetNftPanel() {
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
 
+  const totalClaimableAllSlots = useMemo(() => getTotalClaimablePoints(minerSlots), [minerSlots]);
+  const ownedMinersCount = useMemo(
+    () => minerSlots.filter((s) => s.tokenId > 0 || s.tier > 0).length,
+    [minerSlots]
+  );
+
   const nextUpgradePrice = useMemo(() => {
     const fallback = fleetNextPrice(fleet.tier || 1, fleet.level || 1);
     return fleet.nextPrice > 0 ? fleet.nextPrice : fallback;
@@ -501,16 +508,21 @@ export default function FleetNftPanel() {
   }, [approveError, purchaseAction, purchaseError, ru]);
 
   useEffect(() => {
-    if (
-      !claimMined ||
-      !claimProofHash ||
-      !address ||
-      claimHandledRef.current ||
-      lastCreditedClaimHashRef.current === claimProofHash
-    ) return;
+    if (!claimMined || !address || claimHandledRef.current) return;
+    if (claimProofHash && lastCreditedClaimHashRef.current === claimProofHash) return;
+
     claimHandledRef.current = true;
-    lastCreditedClaimHashRef.current = claimProofHash;
-    commitFleet({ ...fleet, claimablePoints: 0 }, activeSlotIndex);
+    if (claimProofHash) {
+      lastCreditedClaimHashRef.current = claimProofHash;
+    }
+
+    setMinerSlots((current) => {
+      const updated = current.map((s) => ({ ...s, claimablePoints: 0 }));
+      if (address) {
+        localStorage.setItem(slotsCacheKey(address), JSON.stringify(updated));
+      }
+      return updated;
+    });
     setMessage(ru ? "Зачисляем пойнты..." : "Crediting points...");
     fetchWithRetry("/api/fleet-nft/claim-points", {
       method: "POST",
@@ -528,7 +540,7 @@ export default function FleetNftPanel() {
         void refreshFleet();
         void refetch();
       });
-  }, [address, claimMined, claimProofHash, commitFleet, fleet, refetch, refreshFleet, ru, activeSlotIndex]);
+  }, [address, claimMined, claimProofHash, refetch, refreshFleet, ru]);
 
   const startPurchase = async (actionOverride?: "max") => {
     if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
@@ -573,7 +585,7 @@ export default function FleetNftPanel() {
       try {
         const res = await fetch(`/api/fleet-nft/migrate-sig?wallet=${address}`);
         const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.signature) throw new Error("Signature failed");
+        if (!res.ok || !data?.signature) throw new Error("Migration failed");
         sig = data.signature;
         setDiscountSignature(sig);
       } catch {
@@ -612,7 +624,7 @@ export default function FleetNftPanel() {
   };
 
   const claimPoints = () => {
-    if (!txWarmReady || !address || !deployed || fleet.claimablePoints <= 0 || claimPending) return;
+    if (!txWarmReady || !address || !deployed || totalClaimableAllSlots <= 0 || claimPending) return;
     setMessage("");
     claimHandledRef.current = false;
     resetClaim();
@@ -815,7 +827,13 @@ export default function FleetNftPanel() {
 
           <div className={styles.stats}>
             <div><span>{ru ? "СКОРОСТЬ" : "RATE"}</span><b>{owned ? fleet.pointsPerHour : 50} PTS/H</b></div>
-            <div><span>{ru ? "НАКОПЛЕНО" : "READY"}</span><b>{fleet.claimablePoints.toLocaleString()} PTS</b></div>
+            <div>
+              <span>{ru ? "НАКОПЛЕНО" : "READY"}</span>
+              <b>
+                {totalClaimableAllSlots.toLocaleString()} PTS
+                {ownedMinersCount > 1 ? " (FULL)" : ""}
+              </b>
+            </div>
             <div><span>{ru ? "СЛЕДУЮЩИЙ LVL" : "NEXT LEVEL"}</span><b>{fleet.maxed ? "MAX" : formatUsdc(actionPrice)}</b></div>
           </div>
 
@@ -828,8 +846,19 @@ export default function FleetNftPanel() {
                 {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
               </button>
             )}
-            <button type="button" className={styles.secondary} onClick={claimPoints} disabled={!isConnected || !txWarmReady || !deployed || fleet.claimablePoints <= 0 || claimPending}>
-              {!txWarmReady ? "SYNCING..." : claimPending ? ru ? "КЛЕЙМИМ..." : "CLAIMING..." : ru ? "ЗАБРАТЬ POINTS" : "CLAIM POINTS"}
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={claimPoints}
+              disabled={!isConnected || !txWarmReady || !deployed || totalClaimableAllSlots <= 0 || claimPending}
+            >
+              {!txWarmReady
+                ? "SYNCING..."
+                : claimPending
+                  ? (ru ? "КЛЕЙМИМ..." : "CLAIMING...")
+                  : (ru
+                      ? (ownedMinersCount > 1 ? "ЗАБРАТЬ ВСЕ (FULL)" : "ЗАБРАТЬ POINTS")
+                      : (ownedMinersCount > 1 ? "CLAIM ALL (FULL)" : "CLAIM POINTS"))}
             </button>
           </div>
           {!isBaseApp && deployed && (
