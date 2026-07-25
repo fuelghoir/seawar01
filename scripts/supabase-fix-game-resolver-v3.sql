@@ -185,9 +185,9 @@ BEGIN
   IF v_season_key IS NULL THEN v_season_key := 'S2'; END IF;
   IF v_bp_season_key IS NULL THEN v_bp_season_key := 'S1'; END IF;
 
-  SELECT last_checkin_date, streak_count
+  SELECT last_checkin, checkin_streak
     INTO v_last_checkin, v_streak
-    FROM player_checkins
+    FROM player_stats
     WHERE wallet = v_wallet;
 
   IF v_last_checkin IS NOT NULL AND v_last_checkin = v_today THEN
@@ -226,13 +226,6 @@ BEGIN
   IF p_is_base_app THEN
     v_reward := v_reward * 2;
   END IF;
-
-  INSERT INTO player_checkins (wallet, last_checkin_date, streak_count, updated_at)
-  VALUES (v_wallet, v_today, v_streak, now())
-  ON CONFLICT (wallet) DO UPDATE
-    SET last_checkin_date = excluded.last_checkin_date,
-        streak_count = excluded.streak_count,
-        updated_at = now();
 
   INSERT INTO player_stats (wallet, points, updated_at)
   VALUES (v_wallet, v_reward, now())
