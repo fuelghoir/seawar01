@@ -100,7 +100,17 @@ function readSlotsCached(wallet?: string): FleetState[] {
     const raw = localStorage.getItem(slotsCacheKey(wallet));
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const slot0 = parsed[0] || EMPTY_FLEET_STATE;
+        const sanitized = parsed.map((slot: FleetState, idx: number) => {
+          if (idx === 0) return slot;
+          if (slot0.tokenId > 0 && slot.tokenId === slot0.tokenId) {
+            return EMPTY_FLEET_STATE;
+          }
+          return slot;
+        });
+        return sanitized;
+      }
     }
     const single = readCached(wallet);
     return [single];
@@ -191,7 +201,7 @@ export default function FleetNftPanel() {
 
   const [isLegacyMiner, setIsLegacyMiner] = useState(false);
 
-  const commitFleet = useCallback((next: FleetState, targetSlotIndex = activeSlotIndex) => {
+  const commitFleet = useCallback((next: FleetState, targetSlotIndex = 0) => {
     setMinerSlots((current) => {
       const updated = [...current];
       while (updated.length <= targetSlotIndex) {
@@ -205,6 +215,15 @@ export default function FleetNftPanel() {
         return current;
       }
       updated[targetSlotIndex] = next;
+
+      // Sanitize: ensure slot 1..N do not duplicate slot 0's tokenId
+      const slot0TokenId = updated[0]?.tokenId || 0;
+      for (let i = 1; i < updated.length; i++) {
+        if (slot0TokenId > 0 && updated[i]?.tokenId === slot0TokenId) {
+          updated[i] = EMPTY_FLEET_STATE;
+        }
+      }
+
       if (address) {
         localStorage.setItem(slotsCacheKey(address), JSON.stringify(updated));
       }
@@ -213,7 +232,7 @@ export default function FleetNftPanel() {
     if (address && targetSlotIndex === 0) {
       localStorage.setItem(cacheKey(address), JSON.stringify(next));
     }
-  }, [address, activeSlotIndex]);
+  }, [address]);
 
   const { data: fleetRead, refetch } = useReadContract({
     address: FLEET_NFT_CONTRACT_ADDRESS,
@@ -250,7 +269,7 @@ export default function FleetNftPanel() {
         chainId: base.id,
       }));
       if (nextV2 && nextV2.tokenId > 0) {
-        commitFleet(nextV2, activeSlotIndex);
+        commitFleet(nextV2, 0);
         setIsLegacyMiner(false);
         return nextV2;
       }
@@ -262,12 +281,12 @@ export default function FleetNftPanel() {
         chainId: base.id,
       }));
       if (nextV1 && nextV1.tokenId > 0) {
-        commitFleet(nextV1, activeSlotIndex);
+        commitFleet(nextV1, 0);
         setIsLegacyMiner(true);
         return nextV1;
       }
       if (nextV2) {
-        commitFleet(nextV2, activeSlotIndex);
+        commitFleet(nextV2, 0);
         setIsLegacyMiner(false);
         return nextV2;
       }
@@ -275,7 +294,7 @@ export default function FleetNftPanel() {
     } catch {
       return null;
     }
-  }, [address, commitFleet, deployed, wagmiConfig, activeSlotIndex]);
+  }, [address, commitFleet, deployed, wagmiConfig]);
 
   useEffect(() => {
     const cachedSlots = readSlotsCached(address);
@@ -288,16 +307,16 @@ export default function FleetNftPanel() {
     const nextV1 = parseFleetState(legacyFleetRead);
 
     if (nextV2 && nextV2.tokenId > 0) {
-      commitFleet(nextV2, activeSlotIndex);
+      commitFleet(nextV2, 0);
       setIsLegacyMiner(false);
     } else if (nextV1 && nextV1.tokenId > 0) {
-      commitFleet(nextV1, activeSlotIndex);
+      commitFleet(nextV1, 0);
       setIsLegacyMiner(true);
     } else if (nextV2) {
-      commitFleet(nextV2, activeSlotIndex);
+      commitFleet(nextV2, 0);
       setIsLegacyMiner(false);
     }
-  }, [commitFleet, fleetRead, legacyFleetRead, activeSlotIndex]);
+  }, [commitFleet, fleetRead, legacyFleetRead]);
 
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
