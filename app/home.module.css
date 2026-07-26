@@ -2405,6 +2405,17 @@
   color: #00dcb4;
 }
 
+.mobileCheckinInProfile {
+  border-color: rgba(168, 85, 247, 0.42);
+  background:
+    radial-gradient(circle at 10% 50%, rgba(168, 85, 247, 0.22), transparent 34%),
+    linear-gradient(105deg, rgba(var(--bg-secondary-rgb), 0.94), rgba(var(--bg-abyss-rgb), 0.99));
+}
+
+.mobileCheckinInProfile::before {
+  background: linear-gradient(90deg, #a855f7, var(--accent), transparent 88%);
+}
+
 .turboGumCardLogo {
   width: 66px;
   max-width: 100%;
@@ -2573,6 +2584,7 @@
   box-shadow: none;
 }
 
+.mobileCheckinBlock,
 .mobileSeasonRewardBlock,
 .mobileBattlePassBlock {
   position: relative;

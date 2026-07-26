@@ -567,7 +567,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     <b>{history.length}</b>
                   </div>
                 </div>
-                {renderMobileCheckinButton()}
               </>
             )}
 
@@ -618,6 +617,9 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 </div>
 
                 <div className={styles.mobileRewardsStack}>
+                  <div className={styles.mobileCheckinBlock}>
+                    {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
+                  </div>
                   {USDC_SEASON_REWARDS_ENABLED && (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <SeasonPoolCard variant="wide" address={address} showEstimate />
@@ -743,6 +745,8 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     </span>
                     <span className={styles.playNowShimmer} aria-hidden="true" />
                   </button>
+
+                  {renderMobileCheckinButton()}
 
                   <SecretSbtCard
                     wins={profileView.totalWins}
