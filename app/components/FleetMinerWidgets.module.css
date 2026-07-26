@@ -41,11 +41,15 @@
 
 .minerShip {
   position: absolute;
-  top: 3px;
-  right: -10px;
-  width: 79%;
+  top: 4px;
+  right: 4px;
+  width: 155px;
+  max-width: 52%;
   height: auto;
-  filter: drop-shadow(0 12px 9px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 10px rgba(67, 215, 255, 0.26));
+  z-index: 2;
+  pointer-events: none;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 9px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 12px rgba(67, 215, 255, 0.35));
 }
 
 .minerCopy,

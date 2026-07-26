@@ -141,6 +141,7 @@ export default function LeaderboardPage() {
           <FleetMinerSummary
             address={address}
             onOpen={() => router.push("/shop#fleet-nft")}
+            hidePoolCard
           />
         </div>
 

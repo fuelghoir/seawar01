@@ -338,9 +338,11 @@ export function SeasonRewardsIntro({
 export function FleetMinerSummary({
   address,
   onOpen,
+  hidePoolCard = false,
 }: {
   address?: `0x${string}`;
   onOpen: () => void;
+  hidePoolCard?: boolean;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
@@ -374,7 +376,7 @@ export function FleetMinerSummary({
             : ru ? "КУПИТЬ · 0.5 USDC" : "BUY · 0.5 USDC"}
         </button>
       </section>
-      {USDC_SEASON_REWARDS_ENABLED && (
+      {USDC_SEASON_REWARDS_ENABLED && !hidePoolCard && (
         <SeasonPoolCard address={address} showEstimate={!!address} />
       )}
     </div>
