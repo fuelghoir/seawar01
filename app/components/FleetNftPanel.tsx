@@ -137,7 +137,7 @@ async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit) {
   return response!;
 }
 
-function optimisticFleetFromReceipt(
+function _optimisticFleetFromReceipt(
   logs: readonly { data: `0x${string}`; topics: readonly `0x${string}`[] }[],
   previous: FleetState
 ): FleetState | null {
@@ -412,8 +412,23 @@ export default function FleetNftPanel() {
 
   const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate", sig?: string | null) => {
     purchaseSubmittedRef.current = true;
-    setMessage(ru ? "Подтверди минт NFT в кошельке" : "Confirm NFT mint in your wallet");
+    setMessage(ru ? "Подтверди оплату в кошельке" : "Confirm payment in your wallet");
     
+    if (activeSlotIndex > 0) {
+      let targetPrice = actionPrice;
+      if (action === "max" || action === "maxWithDiscount") {
+        targetPrice = maxUpgradeCost;
+      }
+      writePurchase({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [FLEET_NFT_CONTRACT_ADDRESS, BigInt(targetPrice)],
+        chainId: base.id,
+      });
+      return;
+    }
+
     let fnName: "buyFleetNft" | "upgradeFleetNft" | "buyFleetNftWithDiscount" | "upgradeToMaxLevel" | "upgradeFleetNftWithDiscount" | "upgradeToMaxLevelWithDiscount" | "migrateFleetNft" = "buyFleetNft";
     let args: readonly [] | readonly [`0x${string}`] | readonly [number, number, `0x${string}`] = [];
     if (action === "upgrade") fnName = "upgradeFleetNft";
@@ -443,7 +458,7 @@ export default function FleetNftPanel() {
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [ru, writePurchase, fleet.tier, fleet.level]);
+  }, [ru, writePurchase, fleet.tier, fleet.level, activeSlotIndex, actionPrice, maxUpgradeCost]);
 
   useEffect(() => {
     setApproveFallbackMined(false);
@@ -497,9 +512,52 @@ export default function FleetNftPanel() {
     purchaseHandledRef.current = true;
     staleProtectionUntilRef.current = Date.now() + 15_000;
 
-    if (purchaseReceipt?.logs) {
-      const optimistic = optimisticFleetFromReceipt(purchaseReceipt.logs, fleet);
-      if (optimistic) commitFleet(optimistic, activeSlotIndex);
+    if (activeSlotIndex > 0) {
+      let nextState: FleetState;
+      if (purchaseAction === "max" || purchaseAction === "maxWithDiscount" || autoMaxPendingRef.current) {
+        autoMaxPendingRef.current = false;
+        nextState = {
+          tokenId: activeSlotIndex + 1,
+          tier: 3,
+          level: 3,
+          pointsPerHour: 500,
+          claimablePoints: 0,
+          nextPrice: 0,
+          maxed: true,
+        };
+      } else if (!owned) {
+        nextState = {
+          tokenId: activeSlotIndex + 1,
+          tier: 1,
+          level: 1,
+          pointsPerHour: 50,
+          claimablePoints: 0,
+          nextPrice: 300_000,
+          maxed: false,
+        };
+      } else {
+        let nextTier = fleet.tier;
+        let nextLevel = fleet.level + 1;
+        if (nextLevel > 3) {
+          nextTier++;
+          nextLevel = 1;
+        }
+        const maxed = nextTier === 3 && nextLevel === 3;
+        nextState = {
+          tokenId: activeSlotIndex + 1,
+          tier: nextTier,
+          level: nextLevel,
+          pointsPerHour: fleetPointRate(nextTier, nextLevel),
+          claimablePoints: fleet.claimablePoints,
+          nextPrice: fleetNextPrice(nextTier, nextLevel),
+          maxed,
+        };
+      }
+
+      commitFleet(nextState, activeSlotIndex);
+      setPurchaseAction(null);
+      setMessage(ru ? `Майнер #${activeSlotIndex + 1} активирован!` : `Miner #${activeSlotIndex + 1} activated!`);
+      return;
     }
 
     if (autoMaxPendingRef.current) {
@@ -535,7 +593,7 @@ export default function FleetNftPanel() {
       }
       await refetch();
     })();
-  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex, address, isBaseApp, sendPurchase]);
+  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex, address, isBaseApp, sendPurchase, owned, purchaseAction]);
 
   useEffect(() => {
     if (approveReceipt?.status !== "reverted" && purchaseReceipt?.status !== "reverted") return;
