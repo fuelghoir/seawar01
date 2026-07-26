@@ -66,12 +66,16 @@ function getInitialIsNarrowScreen(headersList: Headers) {
   );
 }
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams?: SearchParams }) {
   const headersList = await headers();
+  const params = searchParams ? await searchParams : {};
+  const tabParam = firstParam(params.tab);
+  const initialTab = tabParam === "quests" || tabParam === "profile" ? tabParam : null;
 
   return (
     <HomeClient
       initialIsNarrowScreen={getInitialIsNarrowScreen(headersList)}
+      initialTab={initialTab}
     />
   );
 }

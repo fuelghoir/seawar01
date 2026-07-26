@@ -48,6 +48,7 @@ import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
 import { HomeCard } from "./components/HomeCard";
+import { MobileDock, type MobileDockTab } from "./components/MobileDock";
 import {
   CheckIcon,
   ShieldIcon,
@@ -60,7 +61,6 @@ import {
   YoutubeIcon,
   ChevronRightIcon,
   AnchorIcon,
-  GiftIcon,
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
@@ -76,9 +76,10 @@ const BOOT_MAX_MS = 3600;
 
 type HomeClientProps = {
   initialIsNarrowScreen: boolean;
+  initialTab?: "quests" | "profile" | null;
 };
 
-export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
+export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeClientProps) {
   const router = useRouter();
   const { context, isInMiniApp, isReady } = useMiniApp();
   const { address, isConnected, chainId, status: accountStatus } = useAccount();
@@ -110,7 +111,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
     "quests" | "profile" | "history" | "referrals" | null
-  >(null);
+  >(initialTab);
   const autoConnected = useRef(false);
   const recordedReferralKey = useRef<string | null>(null);
 
@@ -406,8 +407,19 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       </span>
     </button>
   );
-  const mobileTabIndex =
-    openSection === "quests" ? 1 : openSection === "profile" ? 2 : 0;
+  const selectMobileTab = (tab: MobileDockTab) => {
+    if (tab === "shop") {
+      router.push("/shop");
+      return;
+    }
+    if (tab === "leaderboard") {
+      router.push("/leaderboard");
+      return;
+    }
+
+    setOpenSection(tab === "quests" || tab === "profile" ? tab : null);
+    window.scrollTo({ top: 0, behavior: reducedFx ? "auto" : "smooth" });
+  };
 
   return (
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
@@ -537,42 +549,27 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
         <main className={styles.mobileShell}>
           <div className={styles.mobileScroll}>
             {!openSection && (
-              <header className={styles.mobileHomeLead}>
-                <span className={styles.mobileHomeMark} aria-hidden="true">
-                  <FleetMark />
-                </span>
-                <span className={styles.mobileHomeCopy}>
-                  <small>SEA BATTLE / LIVE OPERATIONS</small>
-                  <strong>{lang === "ru" ? "Боевой пост" : "Combat station"}</strong>
-                  <span>
-                    <i aria-hidden="true" />
-                    {lang === "ru" ? "Флот готов к выходу" : "Fleet ready to deploy"}
-                  </span>
-                </span>
-                <span className={styles.mobileHomeSector}>
-                  <small>SECTOR</small>
-                  <b>BASE</b>
-                </span>
-              </header>
+              <>
+                <div className={styles.mobileTopStats}>
+                  <div className={`${styles.mobileTopStat} ${styles.mobileTopStatPnl}`}>
+                    <span>{tr.mobile_pnl}</span>
+                    <b>
+                      {profileView.earningsUsdc >= 0 ? "+" : ""}
+                      {profileView.earningsUsdc.toFixed(2)} USDC
+                    </b>
+                  </div>
+                  <div className={styles.mobileTopStat}>
+                    <span>{tr.mobile_wins}</span>
+                    <b>{profileView.totalWins}</b>
+                  </div>
+                  <div className={styles.mobileTopStat}>
+                    <span>{tr.mobile_recent}</span>
+                    <b>{history.length}</b>
+                  </div>
+                </div>
+                {renderMobileCheckinButton()}
+              </>
             )}
-
-            <div className={styles.mobileTopStats}>
-              <div className={`${styles.mobileTopStat} ${styles.mobileTopStatPnl}`}>
-                <span>{tr.mobile_pnl}</span>
-                <b>
-                  {profileView.earningsUsdc >= 0 ? "+" : ""}
-                  {profileView.earningsUsdc.toFixed(2)} USDC
-                </b>
-              </div>
-              <div className={styles.mobileTopStat}>
-                <span>{tr.mobile_wins}</span>
-                <b>{profileView.totalWins}</b>
-              </div>
-              <div className={styles.mobileTopStat}>
-                <span>{tr.mobile_recent}</span>
-                <b>{history.length}</b>
-              </div>
-            </div>
 
             {openSection === "quests" ? (
               <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
@@ -596,26 +593,31 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               </section>
             ) : openSection === "profile" ? (
               <section className={`${styles.mobilePanel} ${styles.mobileTabPanel} ${styles.mobileProfilePanel}`}>
-                <SectionHeader label={tr.home_profile_title} accent="#a855f7" />
+                <SectionHeader label={tr.home_profile_title} accent="#f0b85d" />
                 <div className={styles.mobileProfileHero}>
-                  <div>
-                    <span>{displayName}</span>
-                    <b>{profileView.points.toLocaleString()} {tr.shop_pts}</b>
+                  <span className={styles.mobileProfileAvatar} aria-hidden="true">
+                    <AnchorIcon size={24} />
+                  </span>
+                  <div className={styles.mobileProfileIdentity}>
+                    <span>{lang === "ru" ? "\u041a\u0430\u043f\u0438\u0442\u0430\u043d" : "Captain"}</span>
+                    <b>{displayName}</b>
+                    <small>{address ? `${address.slice(0, 6)}...${address.slice(-4)}` : tr.connect}</small>
                   </div>
-                  <strong
-                    style={{
-                      color: profileView.earningsUsdc >= 0 ? "#00dcb4" : "#ef4444",
-                    }}
-                  >
-                    {profileView.earningsUsdc >= 0 ? "+" : ""}
-                    {profileView.earningsUsdc.toFixed(2)} USDC
-                  </strong>
+                  <div className={styles.mobileProfileScore}>
+                    <span>{tr.shop_pts}</span>
+                    <b>{profileView.points.toLocaleString()}</b>
+                    <strong
+                      style={{
+                        color: profileView.earningsUsdc >= 0 ? "#00dcb4" : "#ef4444",
+                      }}
+                    >
+                      {profileView.earningsUsdc >= 0 ? "+" : ""}
+                      {profileView.earningsUsdc.toFixed(2)} USDC
+                    </strong>
+                  </div>
                 </div>
 
                 <div className={styles.mobileRewardsStack}>
-                  <div className={styles.mobileCheckinBlock}>
-                    {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
-                  </div>
                   {USDC_SEASON_REWARDS_ENABLED && (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <SeasonPoolCard variant="wide" address={address} showEstimate />
@@ -633,6 +635,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                 </div>
 
                 <div className={styles.mobileProfileStatsStack}>
+                  <div className={styles.mobileStatsHeading}>
+                    <span>{lang === "ru" ? "\u0411\u043e\u0435\u0432\u043e\u0439 \u0436\u0443\u0440\u043d\u0430\u043b" : "Battle record"}</span>
+                    <b>
+                      {profileView.onchainGames > 0
+                        ? `${Math.round(profileView.onchainWinRate * 100)}% WR`
+                        : "-- WR"}
+                    </b>
+                  </div>
                   <div className={styles.mobileStatsGrid}>
                     <div className={styles.mobileStatBox}>
                       <span>{profileView.totalWins}</span>
@@ -734,8 +744,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     <span className={styles.playNowShimmer} aria-hidden="true" />
                   </button>
 
-                  {renderMobileCheckinButton()}
-
                   <SecretSbtCard
                     wins={profileView.totalWins}
                     winsLeft={sbtWinsLeft}
@@ -764,29 +772,6 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   )}
                 </section>
 
-                <section className={styles.mobileQuickGrid} aria-label="Quick navigation">
-                  <button onClick={() => router.push("/leaderboard")} type="button">
-                    <span className={styles.mobileQuickIcon}>
-                      <TrophyIcon size={20} />
-                    </span>
-                    <span>
-                      <b>{tr.home_leaderboard}</b>
-                      <small>{tr.home_leaderboard_sub}</small>
-                    </span>
-                    <ChevronRightIcon size={16} />
-                  </button>
-                  <button onClick={() => router.push("/shop")} type="button">
-                    <span className={styles.mobileQuickIcon}>
-                      <ShopIcon size={20} />
-                    </span>
-                    <span>
-                      <b>{tr.home_shop}</b>
-                      <small>{lang === "ru" ? "Усиления и награды" : "Upgrades and rewards"}</small>
-                    </span>
-                    <ChevronRightIcon size={16} />
-                  </button>
-                </section>
-
                 <div className={styles.mobileSocialRow}>
                   <a
                     href={TG_URL}
@@ -808,70 +793,14 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   </a>
                 </div>
 
-                <footer className={styles.mobileDockFooter}>
-                  <span className={styles.mobileDockBrand}>
-                    <FleetMark />
-                    <span>
-                      <b>SEA BATTLE</b>
-                      <small>ON-CHAIN NAVAL COMMAND</small>
-                    </span>
-                  </span>
-                  <span className={styles.mobileDockStatus}>
-                    <small>NETWORK</small>
-                    <b><i aria-hidden="true" /> BASE</b>
-                  </span>
-                  <span className={styles.mobileDockVersion}>v2.0</span>
-                </footer>
               </>
             )}
           </div>
 
-          <nav className={styles.mobileNav} aria-label="Mobile navigation">
-            <MobileNavFrame activeIndex={mobileTabIndex} />
-            <button
-              className={`${styles.mobileNavItem} ${!openSection ? styles.mobileNavActive : ""}`}
-              onClick={() => setOpenSection(null)}
-              type="button"
-              aria-current={!openSection ? "page" : undefined}
-            >
-              <AnchorIcon size={18} />
-              <span>{tr.mobile_home.toUpperCase()}</span>
-            </button>
-            <button
-              className={`${styles.mobileNavItem} ${openSection === "quests" ? styles.mobileNavActive : ""}`}
-              onClick={() => toggleSection("quests")}
-              type="button"
-              aria-current={openSection === "quests" ? "page" : undefined}
-            >
-              <ShieldIcon size={18} />
-              <span>{tr.mobile_quests.toUpperCase()}</span>
-            </button>
-            <button
-              className={`${styles.mobileNavItem} ${openSection === "profile" ? styles.mobileNavActive : ""}`}
-              onClick={() => toggleSection("profile")}
-              type="button"
-              aria-current={openSection === "profile" ? "page" : undefined}
-            >
-              <UserIcon size={18} />
-              <span>{tr.mobile_profile.toUpperCase()}</span>
-            </button>
-            <button
-              className={styles.mobileNavItem}
-              onClick={() => router.push("/shop")}
-              type="button"
-            >
-              <ShopIcon size={18} />
-              <span>{tr.mobile_shop.toUpperCase()}</span>
-            </button>
-            <button
-              className={styles.mobileNavItem}
-              onClick={() => router.push("/leaderboard")}
-              type="button"
-            >
-              <GiftIcon size={18} />
-              <span>{tr.mobile_airdrop.toUpperCase()}</span>
-            </button>
-          </nav>
+          <MobileDock
+            active={openSection === "quests" || openSection === "profile" ? openSection : "home"}
+            onSelect={selectMobileTab}
+          />
         </main>
       ) : (
       <main className={styles.layout}>
@@ -1285,58 +1214,6 @@ function FleetMark({ className }: { className?: string }) {
       <path d="M20 25h24" strokeWidth="6" />
       <path d="M14 39v2c0 10 8 17 18 17s18-7 18-17v-2" strokeWidth="5" />
       <path d="m10 39 4-4 5 4M54 39l-4-4-5 4" strokeWidth="5" />
-    </svg>
-  );
-}
-
-function MobileNavFrame({ activeIndex }: { activeIndex: number }) {
-  const activeX = activeIndex * 84 + 6;
-
-  return (
-    <svg
-      className={styles.mobileNavFrame}
-      viewBox="0 0 420 72"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="mobile-nav-surface" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--bg-secondary)" stopOpacity="0.98" />
-          <stop offset="1" stopColor="var(--bg-abyss)" stopOpacity="0.99" />
-        </linearGradient>
-        <linearGradient id="mobile-nav-active" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.2" />
-          <stop offset="1" stopColor="var(--accent-2)" stopOpacity="0.08" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M18 1h384c10 0 17 8 17 18v35c0 10-7 17-17 17H18C8 71 1 64 1 54V19C1 9 8 1 18 1Z"
-        fill="url(#mobile-nav-surface)"
-      />
-      <rect
-        className={styles.mobileNavActivePlate}
-        x={activeX}
-        y="6"
-        width="72"
-        height="60"
-        rx="13"
-        fill="url(#mobile-nav-active)"
-      />
-      <path
-        d="M18 1h384c10 0 17 8 17 18v35c0 10-7 17-17 17H18C8 71 1 64 1 54V19C1 9 8 1 18 1Z"
-        className={styles.mobileNavOutline}
-      />
-      {[84, 168, 252, 336].map((x) => (
-        <path
-          key={x}
-          d={`M${x} 18v36`}
-          className={styles.mobileNavDivider}
-        />
-      ))}
-      <path
-        d={`M${activeX + 22} 5h28`}
-        className={styles.mobileNavSignal}
-      />
     </svg>
   );
 }

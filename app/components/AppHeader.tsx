@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useDisconnect } from "wagmi";
-import { StarIcon, AnchorIcon } from "./Icons";
+import { StarIcon, AnchorIcon, CopyIcon, LogOutIcon } from "./Icons";
 import { useSettings, TR } from "../lib/settings";
 import { forgetWalletReconnectPreference } from "../lib/walletReconnect";
 import styles from "./AppHeader.module.css";
@@ -154,7 +154,8 @@ export function AppHeader({
                   }}
                   type="button"
                 >
-                  📋 {tr.wallet_copy_address}
+                  <CopyIcon size={15} />
+                  <span>{tr.wallet_copy_address}</span>
                 </button>
               </>
             )}
@@ -163,7 +164,8 @@ export function AppHeader({
               onClick={handleDisconnect}
               type="button"
             >
-              ⏏ {tr.wallet_disconnect}
+              <LogOutIcon size={15} />
+              <span>{tr.wallet_disconnect}</span>
             </button>
           </div>
         )}

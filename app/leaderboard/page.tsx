@@ -8,11 +8,44 @@ import { getSeasonState, type SeasonState } from "../lib/season";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { FleetMinerSummary, SeasonPoolCard } from "../components/FleetMinerWidgets";
+import { MobileDock } from "../components/MobileDock";
 import { useSettings, TR } from "../lib/settings";
 import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
 
 type PageItem = number | "gap";
+
+function LeaderboardPodium({
+  entries,
+  myAddr,
+}: {
+  entries: LeaderboardEntry[];
+  myAddr?: string;
+}) {
+  const podium = [entries[1], entries[0], entries[2]].filter(
+    (entry): entry is LeaderboardEntry => Boolean(entry)
+  );
+
+  return (
+    <section className={styles.podium} aria-label="Top three captains">
+      {podium.map((entry) => {
+        const rank = entries.indexOf(entry) + 1;
+        return (
+          <article
+            key={entry.wallet}
+            className={`${styles.podiumItem} ${styles[`podiumRank${rank}`]}`}
+          >
+            <span className={styles.podiumRank}>#{rank}</span>
+            <span className={styles.podiumAvatar}>{rank === 1 ? "01" : `0${rank}`}</span>
+            <WalletName address={entry.wallet} className={styles.podiumName} />
+            <strong>{entry.points.toLocaleString()}</strong>
+            {entry.wallet === myAddr && <small className={styles.podiumYou}>YOU</small>}
+          </article>
+        );
+      })}
+    </section>
+  );
+}
 
 function getPageItems(page: number, totalPages: number): PageItem[] {
   if (totalPages <= 5) {
@@ -93,7 +126,7 @@ export default function LeaderboardPage() {
           <button className={styles.backBtn} onClick={() => router.push("/")}>
             ← {tr.back}
           </button>
-          <h1 className={styles.title}>AIRDROP & {tr.leaderboard.toUpperCase()}</h1>
+          <h1 className={styles.title}>{tr.leaderboard.toUpperCase()}</h1>
           <button
             className={styles.helpBtn}
             onClick={() => setShowHelp(!showHelp)}
@@ -103,16 +136,10 @@ export default function LeaderboardPage() {
           </button>
         </div>
 
-        <div className={styles.airdropPoolBlock}>
-          <SeasonPoolCard variant="wide" address={address} showEstimate />
-        </div>
-
-        <div className={styles.airdropMinerBlock}>
-          <FleetMinerSummary
-            address={address}
-            onOpen={() => router.push("/shop#fleet-nft")}
-            hidePoolCard
-          />
+        <div className={styles.leaderHero}>
+          <span>{lang === "ru" ? "\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u043a\u0430\u043f\u0438\u0442\u0430\u043d\u043e\u0432" : "Captain rankings"}</span>
+          <strong>{total.toLocaleString()} {lang === "ru" ? "\u0438\u0433\u0440\u043e\u043a\u043e\u0432" : "players"}</strong>
+          <p>{tr.lb_subtitle}</p>
         </div>
 
         <div className={styles.tabsContainer}>
@@ -143,8 +170,6 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        <div className={styles.subtitle}>{tr.lb_subtitle}</div>
-
         {loading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
@@ -162,6 +187,7 @@ export default function LeaderboardPage() {
           <p className={styles.empty}>{tr.lb_empty}</p>
         ) : (
           <>
+            {page === 1 && <LeaderboardPodium entries={entries} myAddr={myAddr} />}
             <div className={styles.table}>
               <div className={`${styles.tableHeader} ${mode === "season" ? styles.tableHeaderSeason : ""}`}>
                 <span className={styles.colRank}>#</span>
@@ -185,7 +211,14 @@ export default function LeaderboardPage() {
                       {rank}
                     </span>
                     <span className={styles.colWallet}>
-                      <WalletName address={entry.wallet} className={styles.walletText} />
+                      <span className={styles.walletIdentity}>
+                        <WalletName address={entry.wallet} className={styles.walletText} />
+                        {mode !== "season" && (
+                          <small className={styles.mobileMeta}>
+                            {entry.wins}W / {entry.checkin_streak}D
+                          </small>
+                        )}
+                      </span>
                       {isMe && <span className={styles.youBadge}>{tr.you_label}</span>}
                     </span>
                     {mode !== "season" && (
@@ -250,7 +283,25 @@ export default function LeaderboardPage() {
             )}
           </>
         )}
+
+        <section className={styles.rewardIntel}>
+          <div className={styles.rewardIntelHead}>
+            <span>{lang === "ru" ? "\u041d\u0430\u0433\u0440\u0430\u0434\u044b \u0441\u0435\u0437\u043e\u043d\u0430" : "Season rewards"}</span>
+            <small>{lang === "ru" ? "\u041f\u0443\u043b \u0438 \u043c\u0430\u0439\u043d\u0435\u0440 \u0444\u043b\u043e\u0442\u0430" : "Pool and fleet miner"}</small>
+          </div>
+          <div className={styles.airdropPoolBlock}>
+            <SeasonPoolCard variant="wide" address={address} showEstimate />
+          </div>
+          <div className={styles.airdropMinerBlock}>
+            <FleetMinerSummary
+              address={address}
+              onOpen={() => router.push("/shop#fleet-nft")}
+              hidePoolCard
+            />
+          </div>
+        </section>
       </div>
+      <MobileDock active="leaderboard" />
     </div>
   );
 }

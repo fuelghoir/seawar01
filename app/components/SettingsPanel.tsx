@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 import { useSettings, THEMES, TR } from "../lib/settings";
 import { isGameSoundEnabled, setGameSoundEnabled } from "../lib/sounds";
 import { SocialConnectPanel } from "./SocialConnectPanel";
+import { SettingsIcon } from "./Icons";
 import styles from "./SettingsPanel.module.css";
 
 export function SettingsPanel() {
@@ -36,8 +37,10 @@ export function SettingsPanel() {
         onClick={() => setOpen(v => !v)}
         title={tr.settings_title}
         type="button"
+        aria-label={tr.settings_title}
+        aria-expanded={open}
       >
-        ⚙
+        <SettingsIcon size={18} />
       </button>
 
       {open && (
@@ -66,7 +69,7 @@ export function SettingsPanel() {
                 onClick={() => setLang(l)}
                 type="button"
               >
-                {l === "en" ? "🇺🇸 EN" : "🇷🇺 RU"}
+                {l.toUpperCase()}
               </button>
             ))}
           </div>

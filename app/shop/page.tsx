@@ -69,6 +69,7 @@ import {
   validateSeasonLevelClaims,
 } from "../lib/season";
 import { SettingsPanel } from "../components/SettingsPanel";
+import { MobileDock } from "../components/MobileDock";
 import FleetNftPanel from "../components/FleetNftPanel";
 import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
@@ -243,7 +244,6 @@ export default function ShopPage() {
     Partial<Record<ShopItemSlug, number>>
   >({});
   const [claimingSeasonLevels, setClaimingSeasonLevels] = useState<number[]>([]);
-  const [showMobileBack, setShowMobileBack] = useState(false);
   const [bombQuantity, setBombQuantity] = useState(1);
   const [bombBoughtQty, setBombBoughtQty] = useState(0);
 
@@ -298,21 +298,6 @@ export default function ShopPage() {
     const params = new URLSearchParams(window.location.search);
     const value = params.get("code") || params.get("promo");
     if (value) setPromoCode(value);
-  }, []);
-
-  useEffect(() => {
-    const updateMobileBack = () => {
-      const isMobile = window.matchMedia("(max-width: 720px)").matches;
-      setShowMobileBack(isMobile && window.scrollY > 220);
-    };
-
-    updateMobileBack();
-    window.addEventListener("scroll", updateMobileBack, { passive: true });
-    window.addEventListener("resize", updateMobileBack);
-    return () => {
-      window.removeEventListener("scroll", updateMobileBack);
-      window.removeEventListener("resize", updateMobileBack);
-    };
   }, []);
 
   const getItemPurchaseQty = (slug: ShopItemSlug, allowMany = true) => {
@@ -1436,10 +1421,13 @@ export default function ShopPage() {
               </div>
             </section>
 
-            <FleetNftPanel />
-            {USDC_SEASON_REWARDS_ENABLED && <SeasonPoolCard variant="wide" />}
+            <nav className={styles.shopSectionNav} aria-label={lang === "ru" ? "\u0420\u0430\u0437\u0434\u0435\u043b\u044b \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430" : "Shop sections"}>
+              <a href="#shop-items">{lang === "ru" ? "\u0422\u043e\u0432\u0430\u0440\u044b" : "Items"}</a>
+              <a href="#shop-season">{lang === "ru" ? "\u0421\u0435\u0437\u043e\u043d" : "Season"}</a>
+              <a href="#shop-inventory">{lang === "ru" ? "\u0410\u0440\u0441\u0435\u043d\u0430\u043b" : "Inventory"}</a>
+            </nav>
 
-            <section className={`${styles.card} ${styles.featuredCard}`}>
+            <section className={`${styles.card} ${styles.featuredCard}`} id="shop-items">
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <ShopIcon size={24} />
@@ -1581,7 +1569,12 @@ export default function ShopPage() {
               {shopMsg && <p className={styles.msg}>{shopMsg}</p>}
             </section>
 
-            {SEASON_UI_ENABLED && <section className={`${styles.card} ${styles.seasonCard}`}>
+            <div className={styles.shopFleetBlock}>
+              <FleetNftPanel />
+            </div>
+            {USDC_SEASON_REWARDS_ENABLED && <SeasonPoolCard variant="wide" />}
+
+            {SEASON_UI_ENABLED && <section className={`${styles.card} ${styles.seasonCard}`} id="shop-season">
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <TrophyIcon size={24} />
@@ -1831,7 +1824,7 @@ export default function ShopPage() {
               {sbtMsg && <p className={styles.msg}>{sbtMsg}</p>}
             </section>
 
-            <section className={`${styles.card} ${styles.inventoryCard}`}>
+            <section className={`${styles.card} ${styles.inventoryCard}`} id="shop-inventory">
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">
                   <ShieldIcon size={24} />
@@ -1990,17 +1983,7 @@ export default function ShopPage() {
                   {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
                 </section>
       </main>
-      <button
-        className={`${styles.mobileBackToMenu} ${
-          showMobileBack ? styles.mobileBackToMenuVisible : ""
-        }`}
-        onClick={() => router.push("/")}
-        type="button"
-        aria-label={tr.main_menu}
-      >
-        <span aria-hidden="true">←</span>
-        <span>{tr.main_menu}</span>
-      </button>
+      <MobileDock active="shop" />
     </div>
   );
 }
