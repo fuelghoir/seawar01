@@ -19,6 +19,8 @@
   appearance: none;
   -webkit-appearance: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
   transition:
     transform 140ms ease,
     border-color 160ms ease,
@@ -193,22 +195,16 @@
   }
 
   .interactive:hover,
-  .interactive:focus-visible {
+  .interactive:active {
     transform: none;
     filter: none;
-    box-shadow: none;
   }
 
   .interactive.empty:hover,
-  .interactive.empty:focus-visible {
-    border-color: rgba(170, 196, 207, 0.22);
-    background:
-      radial-gradient(circle at 72% 24%, rgba(255, 255, 255, 0.12) 0 5%, transparent 7%),
-      linear-gradient(145deg, #607681, #405661 58%, #293b43);
-    box-shadow:
-      inset 0 -4px 0 rgba(0, 0, 0, 0.34),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 3px 2px rgba(0, 0, 0, 0.3);
+  .interactive.empty:active {
+    border-color: rgba(var(--accent-rgb), 0.52);
+    background: rgba(var(--bg-primary-rgb), 0.52);
+    box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.1);
   }
 }
 

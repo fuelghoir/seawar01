@@ -174,21 +174,16 @@ html[data-effects="full"] body {
 }
 
 html[data-effects="full"] body::before {
-  opacity: 0.9;
+  opacity: 0.26;
 }
 
 html[data-effects="full"] body::after {
   animation: scanlineDrift 14s linear infinite;
-  opacity: 0.6;
+  opacity: 0.1;
 }
 
 html[data-effects="full"] .aurora {
-  position: fixed;
-  inset: 0;
-  display: block;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
+  display: none;
 }
 
 .aurora-blob {
@@ -698,13 +693,13 @@ html[data-wallet-request="true"] * {
 @media (min-width: 721px) {
   body {
     background:
-      linear-gradient(180deg, rgba(var(--bg-abyss-rgb), 0.45) 0%, rgba(var(--bg-abyss-rgb), 0.65) 100%),
+      linear-gradient(180deg, rgba(var(--bg-abyss-rgb), 0.66) 0%, rgba(var(--bg-abyss-rgb), 0.8) 100%),
       url(/dock-bg.png) no-repeat center center / cover !important;
     background-attachment: fixed !important;
   }
   html[data-effects="full"] body {
     background:
-      linear-gradient(180deg, rgba(var(--bg-abyss-rgb), 0.45) 0%, rgba(var(--bg-abyss-rgb), 0.65) 100%),
+      linear-gradient(180deg, rgba(var(--bg-abyss-rgb), 0.66) 0%, rgba(var(--bg-abyss-rgb), 0.8) 100%),
       url(/dock-bg.png) no-repeat center center / cover !important;
     background-attachment: fixed !important;
   }

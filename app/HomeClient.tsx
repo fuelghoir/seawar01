@@ -536,6 +536,26 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       {isMobileHome ? (
         <main className={styles.mobileShell}>
           <div className={styles.mobileScroll}>
+            {!openSection && (
+              <header className={styles.mobileHomeLead}>
+                <span className={styles.mobileHomeMark} aria-hidden="true">
+                  <FleetMark />
+                </span>
+                <span className={styles.mobileHomeCopy}>
+                  <small>SEA BATTLE / LIVE OPERATIONS</small>
+                  <strong>{lang === "ru" ? "Боевой пост" : "Combat station"}</strong>
+                  <span>
+                    <i aria-hidden="true" />
+                    {lang === "ru" ? "Флот готов к выходу" : "Fleet ready to deploy"}
+                  </span>
+                </span>
+                <span className={styles.mobileHomeSector}>
+                  <small>SECTOR</small>
+                  <b>BASE</b>
+                </span>
+              </header>
+            )}
+
             <div className={styles.mobileTopStats}>
               <div className={`${styles.mobileTopStat} ${styles.mobileTopStatPnl}`}>
                 <span>{tr.mobile_pnl}</span>
@@ -744,6 +764,29 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                   )}
                 </section>
 
+                <section className={styles.mobileQuickGrid} aria-label="Quick navigation">
+                  <button onClick={() => router.push("/leaderboard")} type="button">
+                    <span className={styles.mobileQuickIcon}>
+                      <TrophyIcon size={20} />
+                    </span>
+                    <span>
+                      <b>{tr.home_leaderboard}</b>
+                      <small>{tr.home_leaderboard_sub}</small>
+                    </span>
+                    <ChevronRightIcon size={16} />
+                  </button>
+                  <button onClick={() => router.push("/shop")} type="button">
+                    <span className={styles.mobileQuickIcon}>
+                      <ShopIcon size={20} />
+                    </span>
+                    <span>
+                      <b>{tr.home_shop}</b>
+                      <small>{lang === "ru" ? "Усиления и награды" : "Upgrades and rewards"}</small>
+                    </span>
+                    <ChevronRightIcon size={16} />
+                  </button>
+                </section>
+
                 <div className={styles.mobileSocialRow}>
                   <a
                     href={TG_URL}
@@ -764,6 +807,21 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
                     YOUTUBE
                   </a>
                 </div>
+
+                <footer className={styles.mobileDockFooter}>
+                  <span className={styles.mobileDockBrand}>
+                    <FleetMark />
+                    <span>
+                      <b>SEA BATTLE</b>
+                      <small>ON-CHAIN NAVAL COMMAND</small>
+                    </span>
+                  </span>
+                  <span className={styles.mobileDockStatus}>
+                    <small>NETWORK</small>
+                    <b><i aria-hidden="true" /> BASE</b>
+                  </span>
+                  <span className={styles.mobileDockVersion}>v2.0</span>
+                </footer>
               </>
             )}
           </div>
