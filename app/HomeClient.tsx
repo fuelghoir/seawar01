@@ -60,6 +60,7 @@ import {
   YoutubeIcon,
   ChevronRightIcon,
   AnchorIcon,
+  GiftIcon,
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
@@ -794,8 +795,8 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               onClick={() => router.push("/leaderboard")}
               type="button"
             >
-              <TrophyIcon size={18} />
-              <span>{tr.mobile_top.toUpperCase()}</span>
+              <GiftIcon size={18} />
+              <span>{tr.mobile_airdrop.toUpperCase()}</span>
             </button>
           </nav>
         </main>

@@ -7,7 +7,7 @@ import { getLeaderboard, LEADERBOARD_PAGE_SIZE, LeaderboardEntry } from "../lib/
 import { getSeasonState, type SeasonState } from "../lib/season";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
-import { FleetMinerSummary } from "../components/FleetMinerWidgets";
+import { FleetMinerSummary, SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { useSettings, TR } from "../lib/settings";
 import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
@@ -93,7 +93,7 @@ export default function LeaderboardPage() {
           <button className={styles.backBtn} onClick={() => router.push("/")}>
             ← {tr.back}
           </button>
-          <h1 className={styles.title}>{tr.leaderboard}</h1>
+          <h1 className={styles.title}>AIRDROP & {tr.leaderboard.toUpperCase()}</h1>
           <button
             className={styles.helpBtn}
             onClick={() => setShowHelp(!showHelp)}
@@ -101,6 +101,10 @@ export default function LeaderboardPage() {
           >
             ?
           </button>
+        </div>
+
+        <div style={{ marginBottom: "16px" }}>
+          <SeasonPoolCard variant="wide" address={address} showEstimate />
         </div>
 
         <div className={styles.tabsContainer}>

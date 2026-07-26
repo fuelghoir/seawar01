@@ -683,6 +683,7 @@ export function HeroBattleGrid({
               <span className={styles.footerBrand}>BASE</span>
             </div>
           </div>
+          <div className={styles.rowSpacerRight} aria-hidden="true" />
         </div>
       </div>
 

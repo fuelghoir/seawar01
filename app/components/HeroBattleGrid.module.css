@@ -1,4 +1,4 @@
-﻿/* РІвЂќР‚РІвЂќР‚ Battle Grid (labels OUTSIDE panel for true symmetric grid) РІвЂќР‚РІвЂќР‚ */
+/* РІвЂќР‚РІвЂќР‚ Battle Grid (labels OUTSIDE panel for true symmetric grid) РІвЂќР‚РІвЂќР‚ */
 
 .outer {
   display: flex;
@@ -97,6 +97,12 @@
   /* Top padding mirrors panel padding-top so first row label aligns with first row */
   padding-top: 8px;
   padding-bottom: 8px;
+}
+
+.rowSpacerRight {
+  width: var(--label-w);
+  flex-shrink: 0;
+  pointer-events: none;
 }
 .rowLabel {
   height: var(--cell);
