@@ -545,7 +545,18 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ───── Responsive ───── */
+.airdropPoolBlock,
+.airdropMinerBlock {
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+.airdropPoolBlock > * {
+  width: 100%;
+  box-sizing: border-box;
+}
 
 @media (max-width: 720px) {
   .mobileSeasonIntel { display: block; }

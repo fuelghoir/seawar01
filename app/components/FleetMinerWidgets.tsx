@@ -360,6 +360,7 @@ export function FleetMinerSummary({
           width={280}
           height={196}
           alt=""
+          unoptimized
         />
         <div className={styles.minerCopy}>
           <span>{ru ? "NFT МАЙНЕР" : "NFT POINT MINER"}</span>

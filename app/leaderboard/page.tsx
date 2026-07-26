@@ -103,8 +103,16 @@ export default function LeaderboardPage() {
           </button>
         </div>
 
-        <div style={{ marginBottom: "16px" }}>
+        <div className={styles.airdropPoolBlock}>
           <SeasonPoolCard variant="wide" address={address} showEstimate />
+        </div>
+
+        <div className={styles.airdropMinerBlock}>
+          <FleetMinerSummary
+            address={address}
+            onOpen={() => router.push("/shop#fleet-nft")}
+            hidePoolCard
+          />
         </div>
 
         <div className={styles.tabsContainer}>
@@ -136,14 +144,6 @@ export default function LeaderboardPage() {
         )}
 
         <div className={styles.subtitle}>{tr.lb_subtitle}</div>
-
-        <div className={styles.mobileSeasonIntel}>
-          <FleetMinerSummary
-            address={address}
-            onOpen={() => router.push("/shop#fleet-nft")}
-            hidePoolCard
-          />
-        </div>
 
         {loading ? (
           <div className={styles.loadingWrap}>
