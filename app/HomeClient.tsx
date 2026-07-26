@@ -406,6 +406,8 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
       </span>
     </button>
   );
+  const mobileTabIndex =
+    openSection === "quests" ? 1 : openSection === "profile" ? 2 : 0;
 
   return (
     <div className={`${styles.app} ${isMobileHome ? styles.mobileApp : ""}`}>
@@ -553,16 +555,25 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
             </div>
 
             {openSection === "quests" ? (
-              address && (
-                <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
-                  <SectionHeader label={tr.home_quests} accent="#3b82f6" />
+              <section className={`${styles.mobilePanel} ${styles.mobileTabPanel}`}>
+                <SectionHeader label={tr.home_quests} accent="#3b82f6" />
+                {address ? (
                   <QuestHub
                     address={address}
                     isInMiniApp={isInMiniApp}
                     onPointsChanged={loadProfile}
                   />
-                </section>
-              )
+                ) : (
+                  <div className={styles.mobileEmptyState}>
+                    <ShieldIcon size={28} />
+                    <strong>{tr.home_quests}</strong>
+                    <p>{tr.home_pc_hint}</p>
+                    <button type="button" onClick={() => setShowWalletConnect(true)}>
+                      {tr.connect}
+                    </button>
+                  </div>
+                )}
+              </section>
             ) : openSection === "profile" ? (
               <section className={`${styles.mobilePanel} ${styles.mobileTabPanel} ${styles.mobileProfilePanel}`}>
                 <SectionHeader label={tr.home_profile_title} accent="#a855f7" />
@@ -758,10 +769,12 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
           </div>
 
           <nav className={styles.mobileNav} aria-label="Mobile navigation">
+            <MobileNavFrame activeIndex={mobileTabIndex} />
             <button
               className={`${styles.mobileNavItem} ${!openSection ? styles.mobileNavActive : ""}`}
               onClick={() => setOpenSection(null)}
               type="button"
+              aria-current={!openSection ? "page" : undefined}
             >
               <AnchorIcon size={18} />
               <span>{tr.mobile_home.toUpperCase()}</span>
@@ -770,6 +783,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               className={`${styles.mobileNavItem} ${openSection === "quests" ? styles.mobileNavActive : ""}`}
               onClick={() => toggleSection("quests")}
               type="button"
+              aria-current={openSection === "quests" ? "page" : undefined}
             >
               <ShieldIcon size={18} />
               <span>{tr.mobile_quests.toUpperCase()}</span>
@@ -778,6 +792,7 @@ export default function Home({ initialIsNarrowScreen }: HomeClientProps) {
               className={`${styles.mobileNavItem} ${openSection === "profile" ? styles.mobileNavActive : ""}`}
               onClick={() => toggleSection("profile")}
               type="button"
+              aria-current={openSection === "profile" ? "page" : undefined}
             >
               <UserIcon size={18} />
               <span>{tr.mobile_profile.toUpperCase()}</span>
@@ -1196,6 +1211,78 @@ const bootFallback: Record<string, CSSProperties> = {
   },
 };
 
+function FleetMark({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="32" cy="12" r="7" strokeWidth="5" />
+      <path d="M32 19v30" strokeWidth="6" />
+      <path d="M20 25h24" strokeWidth="6" />
+      <path d="M14 39v2c0 10 8 17 18 17s18-7 18-17v-2" strokeWidth="5" />
+      <path d="m10 39 4-4 5 4M54 39l-4-4-5 4" strokeWidth="5" />
+    </svg>
+  );
+}
+
+function MobileNavFrame({ activeIndex }: { activeIndex: number }) {
+  const activeX = activeIndex * 84 + 6;
+
+  return (
+    <svg
+      className={styles.mobileNavFrame}
+      viewBox="0 0 420 72"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="mobile-nav-surface" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--bg-secondary)" stopOpacity="0.98" />
+          <stop offset="1" stopColor="var(--bg-abyss)" stopOpacity="0.99" />
+        </linearGradient>
+        <linearGradient id="mobile-nav-active" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.2" />
+          <stop offset="1" stopColor="var(--accent-2)" stopOpacity="0.08" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M18 1h384c10 0 17 8 17 18v35c0 10-7 17-17 17H18C8 71 1 64 1 54V19C1 9 8 1 18 1Z"
+        fill="url(#mobile-nav-surface)"
+      />
+      <rect
+        className={styles.mobileNavActivePlate}
+        x={activeX}
+        y="6"
+        width="72"
+        height="60"
+        rx="13"
+        fill="url(#mobile-nav-active)"
+      />
+      <path
+        d="M18 1h384c10 0 17 8 17 18v35c0 10-7 17-17 17H18C8 71 1 64 1 54V19C1 9 8 1 18 1Z"
+        className={styles.mobileNavOutline}
+      />
+      {[84, 168, 252, 336].map((x) => (
+        <path
+          key={x}
+          d={`M${x} 18v36`}
+          className={styles.mobileNavDivider}
+        />
+      ))}
+      <path
+        d={`M${activeX + 22} 5h28`}
+        className={styles.mobileNavSignal}
+      />
+    </svg>
+  );
+}
+
 function InitialLoader() {
   const checks = ["MINIAPP", "WALLET", "PROFILE", "FLEET"];
 
@@ -1212,7 +1299,7 @@ function InitialLoader() {
           <span className={styles.bootRing} />
           <span className={styles.bootRing} />
           <span className={styles.bootCore} style={bootFallback.core}>
-            <AnchorIcon size={28} />
+            <FleetMark className={styles.bootLogo} />
           </span>
         </div>
 

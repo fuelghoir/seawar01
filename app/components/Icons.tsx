@@ -118,10 +118,10 @@ export const ChevronRightIcon = make(
 
 export const SwordIcon = make(
   <>
-    <line x1="14.5" y1="9.5" x2="3" y2="21" />
-    <polyline points="3 3 21 3 21 21 3 21 3 3" />
-    <path d="m3 3 9 9" />
-    <polyline points="18 12 12 6 15 3 21 9 18 12" />
+    <path d="m4 20 5-5" />
+    <path d="m6.5 17.5 2 2" />
+    <path d="M8.5 15.5 5 12 17 2l5 5-10 12-3.5-3.5Z" />
+    <path d="m14 6 4 4" />
   </>,
   22
 );
