@@ -198,6 +198,7 @@ export default function FleetNftPanel() {
   const claimHandledRef = useRef(false);
   const lastCreditedClaimHashRef = useRef<string | null>(null);
   const staleProtectionUntilRef = useRef(0);
+  const autoMaxPendingRef = useRef(false);
 
   const [isLegacyMiner, setIsLegacyMiner] = useState(false);
 
@@ -334,9 +335,13 @@ export default function FleetNftPanel() {
   }, [fleet.tier, fleet.level, fleet.nextPrice]);
 
   const maxUpgradeCost = useMemo(() => {
-    const cost = fleetMaxUpgradeCost(fleet.tier, fleet.level);
-    return isBaseApp ? cost / 2 : cost;
-  }, [fleet.tier, fleet.level, isBaseApp]);
+    const tier = owned ? fleet.tier : 1;
+    const level = owned ? fleet.level : 1;
+    const baseCost = fleetMaxUpgradeCost(tier, level);
+    const initialMintCost = owned ? 0 : 500_000;
+    const totalCost = baseCost + initialMintCost;
+    return isBaseApp ? totalCost / 2 : totalCost;
+  }, [fleet.tier, fleet.level, owned, isBaseApp]);
 
   const actionPrice = owned
     ? (isBaseApp ? nextUpgradePrice / 2 : nextUpgradePrice)
@@ -497,6 +502,28 @@ export default function FleetNftPanel() {
       if (optimistic) commitFleet(optimistic, activeSlotIndex);
     }
 
+    if (autoMaxPendingRef.current) {
+      autoMaxPendingRef.current = false;
+      setMessage(ru ? "Улучшаем до MAX уровня..." : "Upgrading to MAX level...");
+      const maxAction = isBaseApp ? "maxWithDiscount" : "max";
+      purchaseHandledRef.current = false;
+      purchaseSubmittedRef.current = false;
+      setPurchaseAction(maxAction);
+
+      if (maxAction === "maxWithDiscount") {
+        fetch(`/api/fleet-nft/discount-sig?wallet=${address}&action=${maxAction}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.signature) sendPurchase(maxAction, data.signature);
+            else sendPurchase(maxAction);
+          })
+          .catch(() => sendPurchase(maxAction));
+      } else {
+        sendPurchase(maxAction);
+      }
+      return;
+    }
+
     setPurchaseAction(null);
     setMessage(ru ? "Майнер обновлен в кошельке" : "Miner updated in your wallet");
 
@@ -508,11 +535,12 @@ export default function FleetNftPanel() {
       }
       await refetch();
     })();
-  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex]);
+  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex, address, isBaseApp, sendPurchase]);
 
   useEffect(() => {
     if (approveReceipt?.status !== "reverted" && purchaseReceipt?.status !== "reverted") return;
     setPurchaseAction(null);
+    autoMaxPendingRef.current = false;
     setMessage(ru ? "Транзакция отклонена" : "Transaction reverted");
   }, [approveReceipt, purchaseReceipt, ru]);
 
@@ -521,6 +549,7 @@ export default function FleetNftPanel() {
     if (!error || !purchaseAction) return;
     const rejected = /user rejected|rejected the request/i.test(error.message);
     setPurchaseAction(null);
+    autoMaxPendingRef.current = false;
     setMessage(rejected
       ? ru ? "Отклонено в кошельке" : "Rejected in wallet"
       : ru ? "Не удалось отправить транзакцию" : "Could not send transaction");
@@ -565,6 +594,10 @@ export default function FleetNftPanel() {
     if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
     
     let action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" = actionOverride ?? (owned ? (isLegacyMiner ? "migrate" : "upgrade") : "buy");
+    if (actionOverride === "max" && !owned) {
+      autoMaxPendingRef.current = true;
+      action = "buy";
+    }
     if (isBaseApp && action !== "migrate") {
       if (action === "buy") action = "buyWithDiscount";
       if (action === "upgrade") action = "upgradeWithDiscount";
@@ -903,9 +936,11 @@ export default function FleetNftPanel() {
             <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
               {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
             </button>
-            {owned && !fleet.maxed && !isLegacyMiner && (
+            {!fleet.maxed && !isLegacyMiner && (
               <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
-                {ru ? "МАКСИМУМ ЗА" : "MAX FOR"} {formatUsdc(maxUpgradeCost)}
+                {owned
+                  ? (ru ? "МАКСИМУМ ЗА" : "MAX FOR")
+                  : (ru ? "КУПИТЬ MAX ЗА" : "BUY MAX FOR")} {formatUsdc(maxUpgradeCost)}
               </button>
             )}
             <button
