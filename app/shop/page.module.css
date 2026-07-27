@@ -3556,6 +3556,26 @@
     height: 138px !important;
   }
 
+  .featuredItem:not(.featuredItemHero) {
+    min-height: 420px !important;
+    padding-bottom: 98px;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemTopline {
+    top: 58px;
+    height: 138px;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemArt {
+    width: 116px !important;
+    height: 116px !important;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemBody {
+    top: 208px;
+    min-height: 92px;
+  }
+
   .featuredItem .itemBody,
   .featuredItemHero .itemBody {
     top: 244px;
@@ -3668,17 +3688,5 @@
   .seasonCard .seasonLevelReward,
   .seasonCard .levelStatus {
     text-align: center;
-  }
-}
-
-@media (max-width: 390px) {
-  .featuredItem .itemFooterStacked .itemActions,
-  .featuredItemHero .itemFooterStacked .itemActions {
-    grid-template-columns: 1fr;
-  }
-
-  .featuredItem .itemFooterStacked .activateButton,
-  .featuredItemHero .itemFooterStacked .activateButton {
-    grid-column: 1;
   }
 }
