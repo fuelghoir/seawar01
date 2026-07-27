@@ -392,10 +392,34 @@
     padding: 12px;
   }
 
+  .inviteHero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .heroCopy {
+    text-align: center;
+  }
+
   .actionGrid,
   .stats,
   .sharePicker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shareOption:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .actionBtn,
+  .shareOption {
+    min-height: 44px;
+  }
+
+  .linkLabel,
+  .note {
+    text-align: center;
   }
 
   .linkRow {

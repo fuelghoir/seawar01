@@ -567,6 +567,14 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     <b>{history.length}</b>
                   </div>
                 </div>
+                <div className={styles.mobileMinerBlock}>
+                  <FleetMinerSummary
+                    address={address}
+                    onOpen={() => router.push("/shop#fleet-nft")}
+                    hidePoolCard
+                    variant="mobile"
+                  />
+                </div>
               </>
             )}
 
@@ -1333,6 +1341,11 @@ function SectionHeader({ label, accent }: { label: string; accent: string }) {
       <span className={styles.sectionLabel} style={{ color: accent }}>
         {label}
       </span>
+      <span
+        className={`${styles.sectionBar} ${styles.sectionBarMirror}`}
+        style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
+        aria-hidden="true"
+      />
     </div>
   );
 }

@@ -654,6 +654,10 @@
   border-radius: 2px;
 }
 
+.sectionBarMirror {
+  display: none;
+}
+
 .sectionLabel {
   font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 11px;
@@ -3231,5 +3235,166 @@
   .mobileProfilePanel .profileFull {
     border-color: rgba(126, 164, 180, 0.16);
     background: rgba(126, 164, 180, 0.04);
+  }
+}
+
+/* Final mobile rhythm: every Home tab shares one centered content axis. */
+@media (max-width: 720px) {
+  .mobileScroll {
+    gap: 12px;
+    padding-inline: 2px;
+  }
+
+  .mobileScroll > * {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+  }
+
+  .mobileTopStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobileTopStat {
+    align-items: center;
+    padding-inline: 5px;
+    text-align: center;
+  }
+
+  .mobileMinerBlock {
+    min-width: 0;
+  }
+
+  .mobileBattlePanel,
+  .mobileActionStack,
+  .mobileScroll > .recentSection,
+  .mobileSocialRow,
+  .mobilePanel,
+  .mobileProfileHero,
+  .mobileProfileStatsStack {
+    border-radius: 12px;
+  }
+
+  .mobilePanel,
+  .mobileActionStack,
+  .mobileScroll > .recentSection {
+    padding: 12px;
+  }
+
+  .mobileTabPanel {
+    gap: 12px;
+  }
+
+  .sectionHeader {
+    width: 100%;
+    justify-content: center;
+    gap: 9px;
+    margin: 2px 0 10px;
+    text-align: center;
+  }
+
+  .mobileTabPanel > .sectionHeader {
+    margin-top: 0;
+    margin-bottom: 2px;
+  }
+
+  .sectionBar,
+  .sectionBarMirror {
+    width: clamp(24px, 11vw, 44px);
+    height: 1px;
+    border-radius: 999px;
+    opacity: 0.7;
+  }
+
+  .sectionBarMirror {
+    display: block;
+  }
+
+  .sectionLabel {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .mobileCheckinButton {
+    grid-template-columns: 58px minmax(0, 1fr) 58px;
+    gap: 4px;
+    padding-inline: 8px;
+    text-align: center;
+  }
+
+  .mobileCheckinIcon,
+  .mobileCheckinAction {
+    justify-self: center;
+  }
+
+  .mobileCheckinCopy {
+    text-align: center;
+  }
+
+  .mobileCheckinAction {
+    width: 58px;
+    min-width: 0;
+  }
+
+  .mobileCheckinButtonDone .mobileCheckinAction {
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .mobileProfilePanel > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mobileProfileHero {
+    grid-template-columns: 72px minmax(0, 1fr) 72px;
+    gap: 6px;
+    padding-inline: 8px;
+    border-left-width: 1px;
+  }
+
+  .mobileProfileAvatar {
+    justify-self: center;
+  }
+
+  .mobileProfileIdentity,
+  .mobileProfileScore {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .mobileProfileScore {
+    width: 72px;
+  }
+
+  .mobileStatsGrid {
+    gap: 6px;
+  }
+
+  .mobileStatBox {
+    padding-inline: 3px;
+  }
+
+  .mobileSocial {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 370px) {
+  .mobileProfileHero {
+    grid-template-columns: 62px minmax(0, 1fr) 62px;
+  }
+
+  .mobileProfileScore {
+    width: 62px;
+  }
+
+  .mobileCheckinButton {
+    grid-template-columns: 52px minmax(0, 1fr) 52px;
+  }
+
+  .mobileCheckinAction {
+    width: 52px;
   }
 }

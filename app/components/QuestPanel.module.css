@@ -391,3 +391,64 @@
   padding-top: 4px;
   margin: 0;
 }
+
+@media (max-width: 520px) {
+  .questHeader {
+    min-height: 52px;
+    padding: 10px 12px;
+  }
+
+  .questHeaderLeft,
+  .questHeaderRight {
+    min-width: 0;
+  }
+
+  .questHeaderLeft {
+    gap: 6px;
+  }
+
+  .questLabel {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .questWeek,
+  .questRerollCount,
+  .questBadge {
+    font-size: 9px;
+  }
+
+  .questBody {
+    padding: 0 10px 10px;
+  }
+
+  .questCard {
+    align-items: center;
+    padding: 12px 10px;
+    text-align: center;
+  }
+
+  .questCardTop {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .questCardInfo,
+  .questRewardCol,
+  .questRewardBaseAppActive,
+  .questRewardPromoContainer {
+    align-items: center;
+  }
+
+  .questProgressRow,
+  .questActions {
+    width: 100%;
+  }
+
+  .questClaimBtn,
+  .questRerollBtn {
+    min-height: 44px;
+  }
+}

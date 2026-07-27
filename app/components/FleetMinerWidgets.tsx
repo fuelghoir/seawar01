@@ -339,27 +339,35 @@ export function FleetMinerSummary({
   address,
   onOpen,
   hidePoolCard = false,
+  variant = "default",
 }: {
   address?: `0x${string}`;
   onOpen: () => void;
   hidePoolCard?: boolean;
+  variant?: "default" | "mobile";
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
   const { fleet } = useFleetMinerState(address);
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
+  const mobile = variant === "mobile";
 
   return (
-    <div className={styles.summaryStack}>
-      <section className={styles.minerCard}>
+    <div
+      className={`${styles.summaryStack} ${mobile ? styles.summaryStackMobile : ""}`}
+    >
+      <section
+        className={`${styles.minerCard} ${mobile ? styles.minerCardMobile : ""}`}
+      >
         <div className={styles.minerGlow} aria-hidden="true" />
         <Image
           className={styles.minerShip}
           src={`/nft/fleet-tier-${visualTier}.png`}
           width={280}
           height={196}
-          alt=""
+          alt={ru ? "Корабль NFT-майнер" : "NFT miner ship"}
+          priority={mobile}
           unoptimized
         />
         <div className={styles.minerCopy}>

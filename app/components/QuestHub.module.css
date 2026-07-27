@@ -573,11 +573,11 @@
 
 @media (max-width: 520px) {
   .tabs {
-    min-height: 40px;
+    min-height: 52px;
   }
 
   .tab {
-    min-height: 32px;
+    min-height: 44px;
     font-size: 9px;
     letter-spacing: 0.06em;
   }
@@ -604,12 +604,13 @@
   }
 
   .socialConnectHead {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
+    text-align: center;
   }
 
   .socialConnectHead small {
-    text-align: left;
+    text-align: center;
   }
 
   .socialConnectGrid {
@@ -618,6 +619,22 @@
 
   .creatorForm {
     grid-template-columns: 1fr;
+  }
+
+  .creatorIntro {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .creatorIntro span:last-child {
+    align-items: center;
+  }
+
+  .creatorForm button,
+  .globalAction,
+  .claimedPill,
+  .socialConnectCard button {
+    min-height: 44px;
   }
 
   .creatorRewardRow,

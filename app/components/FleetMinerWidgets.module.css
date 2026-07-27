@@ -4,6 +4,10 @@
   width: 100%;
 }
 
+.summaryStackMobile {
+  gap: 0;
+}
+
 .minerCard,
 .poolCard {
   position: relative;
@@ -413,5 +417,73 @@
 
   .minerGlow {
     opacity: 0.28;
+  }
+
+  .minerCardMobile {
+    min-height: 300px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 178px 16px 14px;
+    border-color: rgba(67, 215, 255, 0.3) !important;
+    border-radius: 12px !important;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(67, 215, 255, 0.13), transparent 37%),
+      linear-gradient(180deg, #091925 0%, #07131e 100%) !important;
+  }
+
+  .minerCardMobile .minerGlow {
+    top: 14px;
+    right: auto;
+    left: 50%;
+    width: 166px;
+    height: 166px;
+    opacity: 0.78;
+    transform: translateX(-50%);
+  }
+
+  .minerCardMobile .minerGlow::before,
+  .minerCardMobile .minerGlow::after {
+    content: "";
+    position: absolute;
+    border: 1px solid rgba(67, 215, 255, 0.13);
+    border-radius: 50%;
+  }
+
+  .minerCardMobile .minerGlow::before {
+    inset: 14px;
+  }
+
+  .minerCardMobile .minerGlow::after {
+    inset: -14px;
+    border-color: rgba(67, 215, 255, 0.08);
+  }
+
+  .minerCardMobile .minerShip {
+    top: 18px;
+    right: auto;
+    left: 50%;
+    width: min(246px, 76%);
+    max-width: none;
+    transform: translateX(-50%);
+  }
+
+  .minerCardMobile .minerCopy {
+    width: 100%;
+    text-align: center;
+  }
+
+  .minerCardMobile .minerCopy h2 {
+    margin-top: 5px;
+  }
+
+  .minerCardMobile .minerCopy p {
+    max-width: 280px;
+    margin-inline: auto;
+  }
+
+  .minerCardMobile button {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 12px;
   }
 }
