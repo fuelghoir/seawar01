@@ -3727,7 +3727,9 @@
   }
 
   .featuredItemHero .itemBody {
-    top: 465px;
+    top: 486px;
+    min-height: 98px;
+    padding-block: 10px;
   }
 }
 

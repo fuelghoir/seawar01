@@ -1611,23 +1611,21 @@ export default function ShopPage() {
                   <span className={styles.seasonRewardsLabel}>{seasonRewardsTitle}</span>
                   <strong>{seasonRewardsSummary}</strong>
                 </div>
-                {readySeasonRewards > 0 && (
-                  <button
-                    className={`${styles.seasonRewardsToggle} ${styles.seasonClaimAll}`}
-                    type="button"
-                    onClick={() => handleClaimSeasonLevels(claimableSeasonLevelNumbers)}
-                    disabled={!isConnected || seasonClaimBusy}
-                  >
-                    <TrophyIcon size={14} />
-                    <span>
-                      {claimingSeasonLevels.length > 1
-                        ? seasonClaimPending
-                          ? tr.shop_bomb_pending
-                          : tr.shop_claiming
-                        : seasonClaimAllLabel}
-                    </span>
-                  </button>
-                )}
+                <button
+                  className={`${styles.seasonRewardsToggle} ${styles.seasonClaimAll}`}
+                  type="button"
+                  onClick={() => handleClaimSeasonLevels(claimableSeasonLevelNumbers)}
+                  disabled={!isConnected || readySeasonRewards === 0 || seasonClaimBusy}
+                >
+                  <TrophyIcon size={14} />
+                  <span>
+                    {claimingSeasonLevels.length > 1
+                      ? seasonClaimPending
+                        ? tr.shop_bomb_pending
+                        : tr.shop_claiming
+                      : seasonClaimAllLabel}
+                  </span>
+                </button>
               </div>
 
               <div
