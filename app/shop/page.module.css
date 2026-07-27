@@ -3690,3 +3690,35 @@
     text-align: center;
   }
 }
+
+@media (min-width: 1041px) {
+  .featuredGrid {
+    grid-auto-rows: minmax(380px, auto);
+  }
+
+  .featuredItem {
+    min-height: 380px;
+    grid-template-rows: 1fr;
+  }
+
+  .featuredItemHero {
+    min-height: 0;
+    grid-template-rows: 1fr;
+  }
+
+  .featuredItemHero .itemBody {
+    top: 440px;
+    bottom: auto;
+    min-height: 120px;
+    padding: 16px 20px;
+    border-top: 1px solid color-mix(in srgb, var(--shop-accent) 18%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--shop-accent) 12%, transparent);
+    background:
+      linear-gradient(90deg, transparent, color-mix(in srgb, var(--shop-accent) 7%, transparent), transparent);
+  }
+
+  .featuredItemHero .itemFooter {
+    padding-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--shop-accent) 18%, transparent);
+  }
+}
