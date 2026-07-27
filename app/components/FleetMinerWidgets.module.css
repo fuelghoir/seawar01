@@ -419,6 +419,37 @@
     opacity: 0.28;
   }
 
+  .poolCardWide {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .poolCardWide .poolTop {
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .poolCardWide .poolAmount {
+    justify-items: center;
+  }
+
+  .poolCardWide .poolEstimate {
+    text-align: center;
+  }
+
+  .poolCardWide .poolMeta {
+    justify-content: center;
+  }
+
+  .poolCardWide .poolCta {
+    display: block;
+    text-align: center;
+  }
+
   .minerCardMobile {
     min-height: 300px;
     align-items: center;

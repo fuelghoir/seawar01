@@ -890,8 +890,25 @@
   }
 
   .rewardIntelHead {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+    padding: 4px 0 2px;
+    text-align: center;
+  }
+
+  .rewardIntel {
+    gap: 12px;
+    padding-top: 18px;
+  }
+
+  .airdropPoolBlock,
+  .airdropMinerBlock {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .airdropMinerBlock {
+    margin-top: 2px;
   }
 }

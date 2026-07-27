@@ -567,14 +567,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     <b>{history.length}</b>
                   </div>
                 </div>
-                <div className={styles.mobileMinerBlock}>
-                  <FleetMinerSummary
-                    address={address}
-                    onOpen={() => router.push("/shop#fleet-nft")}
-                    hidePoolCard
-                    variant="mobile"
-                  />
-                </div>
               </>
             )}
 

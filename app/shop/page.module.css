@@ -3587,4 +3587,98 @@
   .mobileBackToMenu {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22) !important;
   }
+
+  .featuredCard > .cardTop,
+  .seasonCard > .cardTop {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 9px;
+    text-align: center;
+  }
+
+  .featuredCard > .cardTop .cardInfo,
+  .seasonCard > .cardTop .cardInfo {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .featuredCard > .cardTop .cardDesc,
+  .seasonCard > .cardTop .cardDesc {
+    width: min(100%, 310px);
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .featuredCard > .cardTop .price,
+  .seasonCard > .cardTop .price {
+    grid-column: 1;
+    justify-self: center;
+    width: min(100%, 300px);
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .featuredItem .itemKicker,
+  .featuredItemHero .itemKicker {
+    left: 50%;
+    text-align: center;
+    transform: translateX(-50%);
+  }
+
+  .featuredItem .itemQty,
+  .featuredItemHero .itemQty,
+  .featuredItem .itemFooterStacked .itemQty,
+  .featuredItemHero .itemFooterStacked .itemQty {
+    justify-self: center;
+    text-align: center;
+  }
+
+  .featuredItem .itemFooterStacked .itemActions,
+  .featuredItemHero .itemFooterStacked .itemActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .featuredItem .itemFooterStacked .activateButton,
+  .featuredItemHero .itemFooterStacked .activateButton {
+    grid-column: 1 / -1;
+  }
+
+  .quantityControl,
+  .featuredItem .shopBuyButton,
+  .featuredItemHero .shopBuyButton,
+  .featuredItem .activateButton,
+  .featuredItemHero .activateButton {
+    min-height: 44px;
+  }
+
+  .seasonCard .seasonProgressTop,
+  .seasonCard .seasonRewardsInfo {
+    text-align: center;
+  }
+
+  .seasonCard .seasonRewardsHeader {
+    align-items: center;
+    text-align: center;
+  }
+
+  .seasonCard .seasonLevelMeta,
+  .seasonCard .seasonLevelReward,
+  .seasonCard .levelStatus {
+    text-align: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .featuredItem .itemFooterStacked .itemActions,
+  .featuredItemHero .itemFooterStacked .itemActions {
+    grid-template-columns: 1fr;
+  }
+
+  .featuredItem .itemFooterStacked .activateButton,
+  .featuredItemHero .itemFooterStacked .activateButton {
+    grid-column: 1;
+  }
 }

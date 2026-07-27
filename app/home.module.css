@@ -3262,10 +3262,6 @@
     text-align: center;
   }
 
-  .mobileMinerBlock {
-    min-width: 0;
-  }
-
   .mobileBattlePanel,
   .mobileActionStack,
   .mobileScroll > .recentSection,

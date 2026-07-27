@@ -483,8 +483,8 @@
 
 @media (max-width: 720px) {
   .container {
-    width: min(100% - 20px, 560px);
-    padding: 16px 0 34px;
+    width: min(100% - 24px, 460px);
+    padding: 16px 0 calc(96px + env(safe-area-inset-bottom));
   }
 
   .header,
@@ -498,7 +498,7 @@
 
   .titleBlock {
     max-width: none;
-    text-align: left;
+    text-align: center;
   }
 
   .titleBlock h1 {
@@ -506,11 +506,13 @@
   }
 
   .dropHead {
+    align-items: center;
     flex-direction: column;
+    text-align: center;
   }
 
   .dropHead b {
-    text-align: left;
+    text-align: center;
   }
 
   .connectorList {
@@ -523,6 +525,67 @@
 
   .claimAll {
     width: 100%;
+    min-height: 44px;
+  }
+
+  .dropGate,
+  .connectPanel,
+  .rewards {
+    border-radius: 14px;
+  }
+
+  .dropGate {
+    justify-items: center;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .dropButton {
+    min-height: 48px;
+  }
+
+  .rewards {
+    padding: 14px;
+  }
+
+  .rewardsTop {
+    align-items: center;
+    text-align: center;
+  }
+
+  .levelPill {
+    width: 100%;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .progressPanel,
+  .claimStrip {
+    padding: 14px;
+  }
+
+  .progressTop,
+  .claimStrip {
+    align-items: center;
+    text-align: center;
+  }
+
+  .progressTop {
+    gap: 5px;
+  }
+
+  .claimStrip strong {
+    margin-top: 5px;
+  }
+
+  .level {
+    text-align: center;
+  }
+
+  .levelMeta {
+    width: 100%;
   }
 
   .levels {
@@ -530,8 +593,17 @@
   }
 }
 
-@media (max-width: 390px) {
+@media (max-width: 520px) {
   .levels {
     grid-template-columns: 1fr;
+  }
+
+  .level {
+    min-height: 190px;
+    padding: 14px;
+  }
+
+  .levelClaim {
+    min-height: 44px;
   }
 }

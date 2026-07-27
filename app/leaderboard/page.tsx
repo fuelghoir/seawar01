@@ -297,6 +297,7 @@ export default function LeaderboardPage() {
               address={address}
               onOpen={() => router.push("/shop#fleet-nft")}
               hidePoolCard
+              variant="mobile"
             />
           </div>
         </section>

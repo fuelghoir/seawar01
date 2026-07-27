@@ -19,6 +19,7 @@ import { DropClaimPanel } from "../components/DropClaimPanel";
 import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { CheckIcon, ChevronRightIcon, TrophyIcon } from "../components/Icons";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
+import { MobileDock } from "../components/MobileDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { seaBattleAbi, SEABATTLE_CONTRACT_ADDRESS } from "../contracts/seaBattleAbi";
 import { USDC_SEASON_REWARDS_ENABLED } from "../lib/featureFlags";
@@ -525,6 +526,8 @@ export default function SeasonPage() {
           })}
         </div>
       </section>
+
+      <MobileDock active="shop" />
     </main>
   );
 }
