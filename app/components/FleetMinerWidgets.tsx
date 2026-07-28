@@ -344,21 +344,26 @@ export function FleetMinerSummary({
   address?: `0x${string}`;
   onOpen: () => void;
   hidePoolCard?: boolean;
-  variant?: "default" | "mobile";
+  variant?: "default" | "mobile" | "carousel";
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
   const { fleet } = useFleetMinerState(address);
   const owned = fleet.tokenId > 0;
   const visualTier = Math.max(1, fleet.tier || 1);
-  const mobile = variant === "mobile";
+  const mobile = variant === "mobile" || variant === "carousel";
+  const carousel = variant === "carousel";
 
   return (
     <div
-      className={`${styles.summaryStack} ${mobile ? styles.summaryStackMobile : ""}`}
+      className={`${styles.summaryStack} ${mobile ? styles.summaryStackMobile : ""} ${
+        carousel ? styles.summaryStackCarousel : ""
+      }`}
     >
       <section
-        className={`${styles.minerCard} ${mobile ? styles.minerCardMobile : ""}`}
+        className={`${styles.minerCard} ${mobile ? styles.minerCardMobile : ""} ${
+          carousel ? styles.minerCardCarousel : ""
+        }`}
       >
         <div className={styles.minerGlow} aria-hidden="true" />
         <Image

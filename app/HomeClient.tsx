@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useConnect, useSignMessage, useSwitchChain } from "wagmi";
 import { base } from "wagmi/chains";
@@ -81,6 +81,8 @@ type HomeClientProps = {
   initialTab?: "quests" | "profile" | null;
 };
 
+type MobileShowcasePage = "battle" | "miner";
+
 export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeClientProps) {
   const router = useRouter();
   const { context, isInMiniApp, isReady } = useMiniApp();
@@ -115,11 +117,37 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [openSection, setOpenSection] = useState<
     "quests" | "profile" | "history" | "referrals" | null
   >(initialTab);
+  const [mobileShowcasePage, setMobileShowcasePage] = useState<MobileShowcasePage>("battle");
   const autoConnected = useRef(false);
   const recordedReferralKey = useRef<string | null>(null);
+  const mobileShowcaseTouchStart = useRef<{ x: number; y: number } | null>(null);
 
   const toggleSection = (s: NonNullable<typeof openSection>) =>
     setOpenSection((prev) => (prev === s ? null : s));
+
+  const toggleMobileShowcase = useCallback(() => {
+    setMobileShowcasePage((current) => current === "battle" ? "miner" : "battle");
+  }, []);
+
+  const handleMobileShowcaseTouchStart = useCallback((event: TouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    mobileShowcaseTouchStart.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleMobileShowcaseTouchEnd = useCallback((event: TouchEvent<HTMLElement>) => {
+    const start = mobileShowcaseTouchStart.current;
+    const touch = event.changedTouches[0];
+    mobileShowcaseTouchStart.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
+
+    if (event.cancelable) event.preventDefault();
+    toggleMobileShowcase();
+  }, [toggleMobileShowcase]);
 
   // Capture referral params from the browser URL and Mini App launch context.
   useEffect(() => {
@@ -737,14 +765,85 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
               </section>
             ) : (
               <>
-                <section className={styles.mobileBattlePanel}>
-                  <div className={styles.mobileBattleHeader}>
-                    <span>{tr.mobile_your_fleet}</span>
-                    <span>{tr.mobile_enemy_grid}</span>
+                <section
+                  className={`${styles.mobileBattlePanel} ${styles.mobileShowcase}`}
+                  aria-label={lang === "ru" ? "Игровое поле и майнер" : "Battle grid and miner"}
+                  aria-roledescription="carousel"
+                  onTouchStart={handleMobileShowcaseTouchStart}
+                  onTouchEnd={handleMobileShowcaseTouchEnd}
+                >
+                  <div
+                    className={`${styles.mobileShowcaseSlide} ${styles.mobileShowcaseBattle} ${
+                      mobileShowcasePage === "battle"
+                        ? styles.mobileShowcaseSlideActive
+                        : styles.mobileShowcaseSlideBefore
+                    }`}
+                    aria-hidden={mobileShowcasePage !== "battle"}
+                    inert={mobileShowcasePage !== "battle"}
+                  >
+                    <div className={styles.mobileBattleHeader}>
+                      <span>{tr.mobile_your_fleet}</span>
+                      <span>{tr.mobile_enemy_grid}</span>
+                    </div>
+                    <HeroBattleGrid compact reducedFx={reducedFx} />
+                    <div className={styles.mobileBattleFooter}>
+                      {tr.mobile_scanning.toUpperCase()}
+                    </div>
                   </div>
-                  <HeroBattleGrid compact reducedFx={reducedFx} />
-                  <div className={styles.mobileBattleFooter}>
-                    {tr.mobile_scanning.toUpperCase()}
+
+                  <div
+                    className={`${styles.mobileShowcaseSlide} ${styles.mobileShowcaseMiner} ${
+                      mobileShowcasePage === "miner"
+                        ? styles.mobileShowcaseSlideActive
+                        : styles.mobileShowcaseSlideAfter
+                    }`}
+                    aria-hidden={mobileShowcasePage !== "miner"}
+                    inert={mobileShowcasePage !== "miner"}
+                  >
+                    <FleetMinerSummary
+                      address={address}
+                      onOpen={() => router.push("/shop#fleet-nft")}
+                      hidePoolCard
+                      variant="carousel"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`${styles.mobileShowcaseArrow} ${styles.mobileShowcaseArrowLeft}`}
+                    onClick={toggleMobileShowcase}
+                    aria-label={mobileShowcasePage === "battle"
+                      ? (lang === "ru" ? "Показать майнер" : "Show miner")
+                      : (lang === "ru" ? "Показать игровое поле" : "Show battle grid")}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.mobileShowcaseArrow} ${styles.mobileShowcaseArrowRight}`}
+                    onClick={toggleMobileShowcase}
+                    aria-label={mobileShowcasePage === "battle"
+                      ? (lang === "ru" ? "Показать майнер" : "Show miner")
+                      : (lang === "ru" ? "Показать игровое поле" : "Show battle grid")}
+                  >
+                    ›
+                  </button>
+
+                  <div className={styles.mobileShowcaseDots} aria-label={lang === "ru" ? "Выбор экрана" : "Choose screen"}>
+                    <button
+                      type="button"
+                      className={mobileShowcasePage === "battle" ? styles.mobileShowcaseDotActive : ""}
+                      onClick={() => setMobileShowcasePage("battle")}
+                      aria-label={lang === "ru" ? "Игровое поле" : "Battle grid"}
+                      aria-current={mobileShowcasePage === "battle" ? "true" : undefined}
+                    />
+                    <button
+                      type="button"
+                      className={mobileShowcasePage === "miner" ? styles.mobileShowcaseDotActive : ""}
+                      onClick={() => setMobileShowcasePage("miner")}
+                      aria-label={lang === "ru" ? "Майнер" : "Miner"}
+                      aria-current={mobileShowcasePage === "miner" ? "true" : undefined}
+                    />
                   </div>
                 </section>
 

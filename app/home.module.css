@@ -2915,14 +2915,14 @@
 .leftCol :global([class*="minerGlow"]) {
   width: 90px !important;
   height: 90px !important;
-  top: -20px !important;
+  top: -10px !important;
   right: -10px !important;
 }
 
 .leftCol :global([class*="minerShip"]) {
   width: 58% !important;
   right: -5px !important;
-  top: 2px !important;
+  top: 12px !important;
 }
 
 .leftCol :global([class*="minerCopy"]) h2 {
@@ -3393,4 +3393,128 @@
   .mobileCheckinAction {
     width: 52px;
   }
+}
+
+/* Mobile Home showcase: battle grid and miner share one fixed footprint. */
+@media (max-width: 720px) {
+  .mobileShowcase {
+    isolation: isolate;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  .mobileShowcaseSlide {
+    width: 100%;
+    transition:
+      opacity 220ms ease,
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 260ms;
+  }
+
+  .mobileShowcaseBattle {
+    position: relative;
+  }
+
+  .mobileShowcaseMiner {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+  }
+
+  .mobileShowcaseSlideActive {
+    z-index: 3;
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .mobileShowcaseSlideBefore,
+  .mobileShowcaseSlideAfter {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  .mobileShowcaseSlideBefore {
+    transform: translateX(-9%);
+  }
+
+  .mobileShowcaseSlideAfter {
+    transform: translateX(9%);
+  }
+
+  .mobileShowcaseArrow {
+    position: absolute;
+    top: 50%;
+    z-index: 7;
+    width: 42px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: rgba(116, 242, 218, 0.82);
+    font-family: var(--font-orbitron), "Orbitron", monospace;
+    font-size: 31px;
+    line-height: 1;
+    text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.55);
+    transform: translateY(-50%);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobileShowcaseArrow::before {
+    content: "";
+    position: absolute;
+    inset: 8px 6px;
+    z-index: -1;
+    border: 1px solid rgba(var(--accent-rgb), 0.24);
+    border-radius: 999px;
+    background: rgba(3, 16, 25, 0.76);
+  }
+
+  .mobileShowcaseArrowLeft {
+    left: 0;
+  }
+
+  .mobileShowcaseArrowRight {
+    right: 0;
+  }
+
+  .mobileShowcaseDots {
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    z-index: 8;
+    display: flex;
+    gap: 6px;
+    transform: translateX(-50%);
+  }
+
+  .mobileShowcaseDots button {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(164, 194, 207, 0.34);
+    cursor: pointer;
+  }
+
+  .mobileShowcaseDots .mobileShowcaseDotActive {
+    width: 18px;
+    background: #50e5c5;
+    box-shadow: 0 0 10px rgba(80, 229, 197, 0.55);
+  }
+}
+
+@media (max-width: 720px) and (prefers-reduced-motion: reduce) {
+  .mobileShowcaseSlide {
+    transition: none;
+  }
+}
+
+:global(html[data-effects="reduced"]) .mobileShowcaseSlide {
+  transition: none;
 }
