@@ -713,7 +713,6 @@ export function HeroBattleGrid({
               ✕
             </button>
             <div className={styles.easterEggHeader}>
-              <span>✨ {ru ? "ПАСХАЛКА НАЙДЕНА!" : "EASTER EGG FOUND!"}</span>
               <h2>{ru ? "Секрет Сетки Сражений" : "Hero Grid Secret"}</h2>
             </div>
             <div className={styles.easterEggContent}>
