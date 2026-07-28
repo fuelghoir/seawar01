@@ -427,6 +427,15 @@
 .easterEggHeader {
   text-align: center;
 }
+.easterEggHeader span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+}
 .easterEggHeader h2 {
   margin: 0;
   font-family: var(--font-orbitron), "Orbitron", monospace;

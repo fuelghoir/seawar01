@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, CSSProperties } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount } from "wagmi";
 import { useSettings } from "../lib/settings";
 import { isGameSoundEnabled } from "../lib/sounds";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
-import { buildEasterEggClaimMessage } from "../lib/easterEggIdentity";
 import {
   createBotState,
   botChooseTarget,
@@ -195,7 +194,6 @@ export function HeroBattleGrid({
   const { lang } = useSettings();
   const ru = lang === "ru";
   const { address } = useAccount();
-  const { signMessageAsync } = useSignMessage();
 
   const [rotateX, setRotateX] = useState(12);
   const [rotateY, setRotateY] = useState(0);
@@ -298,15 +296,11 @@ export function HeroBattleGrid({
       setClaimStatus({ loading: true, error: null, points: null });
       setShowModal(true);
       try {
-        const issuedAt = Date.now();
-        const message = buildEasterEggClaimMessage(address, issuedAt);
-        if (!message) throw new Error("Invalid wallet");
-        const signature = await signMessageAsync({ message });
         const res = await fetch("/api/easter-egg/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
-          body: JSON.stringify({ wallet: address, issuedAt, signature }),
+          body: JSON.stringify({ wallet: address }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -713,6 +707,7 @@ export function HeroBattleGrid({
               ✕
             </button>
             <div className={styles.easterEggHeader}>
+              <span>✨ {ru ? "ПАСХАЛКА НАЙДЕНА!" : "EASTER EGG FOUND!"}</span>
               <h2>{ru ? "Секрет Сетки Сражений" : "Hero Grid Secret"}</h2>
             </div>
             <div className={styles.easterEggContent}>
