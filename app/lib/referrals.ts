@@ -1,6 +1,10 @@
 import { supabase } from "./supabase";
+import {
+  normalizeReferralToken,
+  normalizeReferralWallet,
+} from "./referralIdentity";
 
-const WALLET_RE = /^0x[a-f0-9]{40}$/;
+export { buildReferralRecordMessage } from "./referralIdentity";
 
 type ReferralRow = {
   referee: string;
@@ -17,23 +21,50 @@ export interface ReferralStats {
   firstGameBonusPoints: number;
 }
 
-export async function recordReferral(referrer: string, referee: string): Promise<boolean> {
+export type ReferralLinks = {
+  wallet: string;
+  code: string | null;
+  ref: string;
+  link: string;
+  baseLink: string;
+};
+
+export async function recordReferral(
+  referrer: string,
+  referee: string,
+  signature: string,
+  issuedAt: number,
+): Promise<boolean> {
   const r1 = normalizeReferralRef(referrer);
-  const r2 = normalizeReferralRef(referee);
+  const r2 = normalizeReferralWallet(referee);
   if (!r1 || !r2 || r1 === r2) return false;
 
   const res = await fetch("/api/referrals/record", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ referrer: r1, referee: r2 }),
+    cache: "no-store",
+    body: JSON.stringify({ ref: r1, referee: r2, signature, issuedAt }),
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error || "Could not record referral");
   return Boolean(data?.recorded);
 }
 
+export async function resolveReferralRef(refValue: string): Promise<string | null> {
+  const ref = normalizeReferralRef(refValue);
+  if (!ref) return null;
+
+  const res = await fetch(`/api/referrals/resolve?ref=${encodeURIComponent(ref)}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || "Could not resolve referral");
+  return normalizeReferralWallet(data?.referrer);
+}
+
 export async function getReferralStats(wallet: string): Promise<ReferralStats> {
-  const addr = normalizeReferralRef(wallet);
+  const addr = normalizeReferralWallet(wallet);
   if (!addr) return emptyReferralStats();
 
   const refsWithRewards = await supabase
@@ -90,7 +121,7 @@ export async function getReferralStats(wallet: string): Promise<ReferralStats> {
 }
 
 export async function awardFirstGameReferralBonus(referee: string): Promise<boolean> {
-  const addr = normalizeReferralRef(referee);
+  const addr = normalizeReferralWallet(referee);
   if (!addr) return false;
 
   const { data, error } = await supabase.rpc("award_referral_first_game_bonus", {
@@ -101,19 +132,49 @@ export async function awardFirstGameReferralBonus(referee: string): Promise<bool
   return Boolean(data);
 }
 
-export function getReferralLink(wallet: string): string {
+export function getReferralLink(refValue: string): string {
   if (typeof window === "undefined") return "";
-  return buildReferralUrl(window.location.origin, wallet);
+  return buildReferralUrl(window.location.origin, refValue);
 }
 
-export function getBaseAppReferralLink(wallet: string): string {
-  return buildReferralUrl("https://base.app/app/seabattle.top", wallet);
+export function getBaseAppReferralLink(refValue: string): string {
+  return buildReferralUrl("https://base.app/app/seabattle.top", refValue);
+}
+
+export async function getPreferredReferralLinks(walletValue: string): Promise<ReferralLinks> {
+  const wallet = normalizeReferralWallet(walletValue);
+  if (!wallet) throw new Error("Invalid referral wallet");
+
+  const fallback: ReferralLinks = {
+    wallet,
+    code: null,
+    ref: wallet,
+    link: getReferralLink(wallet),
+    baseLink: getBaseAppReferralLink(wallet),
+  };
+
+  const res = await fetch(`/api/referrals/link?wallet=${encodeURIComponent(wallet)}`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) return fallback;
+
+  const ref = normalizeReferralRef(data?.ref);
+  if (!ref || typeof data?.link !== "string" || typeof data?.baseLink !== "string") {
+    return fallback;
+  }
+
+  return {
+    wallet,
+    code: typeof data.code === "string" ? data.code : null,
+    ref,
+    link: data.link,
+    baseLink: data.baseLink,
+  };
 }
 
 export function normalizeReferralRef(ref: string | null | undefined): string | null {
-  const normalized = ref?.trim().toLowerCase();
-  if (!normalized) return null;
-  return WALLET_RE.test(normalized) ? normalized : null;
+  return normalizeReferralToken(ref);
 }
 
 export function extractReferralRefFromCurrentUrl(): string | null {
@@ -167,8 +228,8 @@ export function extractReferralRefFromUrl(value: string | null | undefined): str
   return extractReferralRefFromText(value);
 }
 
-function buildReferralUrl(baseUrl: string, wallet: string): string {
-  const ref = normalizeReferralRef(wallet);
+function buildReferralUrl(baseUrl: string, refValue: string): string {
+  const ref = normalizeReferralRef(refValue);
   if (!ref) return baseUrl;
 
   try {
@@ -182,7 +243,7 @@ function buildReferralUrl(baseUrl: string, wallet: string): string {
 }
 
 function extractReferralRefFromText(text: string): string | null {
-  const match = text.match(/[?&#]ref=(0x[a-fA-F0-9]{40})\b/);
+  const match = text.match(/[?&#]ref=([a-zA-Z0-9_-]{3,42})(?![a-zA-Z0-9_-])/);
   return normalizeReferralRef(match?.[1]);
 }
 

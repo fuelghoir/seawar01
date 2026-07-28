@@ -131,7 +131,12 @@ export async function resolveFinishedGameStats(
       });
       await addSeasonXp(admin, player.wallet, rawPoints).catch(() => {});
       await addSeasonLeaderboardPoints(admin, player.wallet, rawPoints).catch(() => {});
-      await awardReferralGamePointsServer(admin, player.wallet, points).catch(() => {});
+      await awardReferralGamePointsServer(
+        admin,
+        player.wallet,
+        points,
+        `game:${gameId}:${player.wallet}`,
+      ).catch(() => {});
       await awardReferralFirstGameBonusServer(admin, player.wallet).catch(() => {});
       resolvedPlayers.push({ ...player, points });
     }

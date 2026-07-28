@@ -68,6 +68,20 @@
   color: rgba(255, 255, 255, 0.62);
 }
 
+.panelLead {
+  margin: -2px 0 14px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.emptyState {
+  margin: 0;
+  padding: 20px 0;
+  color: rgba(255, 255, 255, 0.42);
+  text-align: center;
+}
+
 .connectorList {
   display: flex;
   flex-wrap: wrap;

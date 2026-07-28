@@ -1,5 +1,9 @@
+import {
+  normalizeReferralToken,
+  normalizeReferralWallet,
+} from "./referralIdentity";
+
 const DEFAULT_PUBLIC_URL = "https://seabattle.top";
-const WALLET_RE = /^0x[a-f0-9]{40}$/;
 
 export function getPublicAppUrl() {
   const configured =
@@ -36,12 +40,11 @@ export function buildBaseAppMiniAppUrl(targetUrl: string) {
 }
 
 export function normalizePublicWallet(value: string | null | undefined) {
-  const wallet = value?.trim().toLowerCase();
-  return wallet && WALLET_RE.test(wallet) ? wallet : null;
+  return normalizeReferralWallet(value);
 }
 
-export function buildPublicReferralUrl(wallet: string, path = "/") {
-  const ref = normalizePublicWallet(wallet);
+export function buildPublicReferralUrl(refValue: string, path = "/") {
+  const ref = normalizeReferralToken(refValue);
   const url = new URL(path, getPublicAppUrl());
   if (ref) url.searchParams.set("ref", ref);
   return url.toString();

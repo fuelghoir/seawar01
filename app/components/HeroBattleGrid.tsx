@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, CSSProperties } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { useSettings } from "../lib/settings";
 import { isGameSoundEnabled } from "../lib/sounds";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
+import { buildEasterEggClaimMessage } from "../lib/easterEggIdentity";
 import {
   createBotState,
   botChooseTarget,
@@ -194,6 +195,7 @@ export function HeroBattleGrid({
   const { lang } = useSettings();
   const ru = lang === "ru";
   const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   const [rotateX, setRotateX] = useState(12);
   const [rotateY, setRotateY] = useState(0);
@@ -205,8 +207,7 @@ export function HeroBattleGrid({
     loading: boolean;
     error: string | null;
     points: number | null;
-    usdEligible: boolean;
-  }>({ loading: false, error: null, points: null, usdEligible: false });
+  }>({ loading: false, error: null, points: null });
 
   const dragStart = useRef({ x: 0, y: 0 });
   const lastPos = useRef({ x: 0, y: 0 });
@@ -294,13 +295,18 @@ export function HeroBattleGrid({
     setRotateY(0);
 
     if (address) {
-      setClaimStatus({ loading: true, error: null, points: null, usdEligible: false });
+      setClaimStatus({ loading: true, error: null, points: null });
       setShowModal(true);
       try {
+        const issuedAt = Date.now();
+        const message = buildEasterEggClaimMessage(address, issuedAt);
+        if (!message) throw new Error("Invalid wallet");
+        const signature = await signMessageAsync({ message });
         const res = await fetch("/api/easter-egg/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ wallet: address }),
+          cache: "no-store",
+          body: JSON.stringify({ wallet: address, issuedAt, signature }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -308,23 +314,20 @@ export function HeroBattleGrid({
             loading: false,
             error: data.error || "Claim failed",
             points: null,
-            usdEligible: false,
           });
         } else {
           setClaimStatus({
             loading: false,
             error: null,
             points: data.points,
-            usdEligible: data.usdEligible,
           });
           notifyPlayerDataRefresh();
         }
-      } catch {
+      } catch (error) {
         setClaimStatus({
           loading: false,
-          error: "Connection error",
+          error: error instanceof Error ? error.message : "Connection error",
           points: null,
-          usdEligible: false,
         });
       }
     } else {
@@ -335,7 +338,6 @@ export function HeroBattleGrid({
           ? "Пожалуйста, подключите кошелек, чтобы получить награду!"
           : "Please connect your wallet first to claim the reward!",
         points: null,
-        usdEligible: false,
       });
     }
 
@@ -740,16 +742,6 @@ export function HeroBattleGrid({
                       ? "Бонусные очки успешно зачислены на ваш баланс!"
                       : "Bonus points have been successfully added to your balance!"}
                   </p>
-                  {claimStatus.usdEligible && (
-                    <div className={styles.usdPrizeBadge}>
-                      <h4>🎁 {ru ? "СУПЕРПРИЗ!" : "GRAND PRIZE!"}</h4>
-                      <p>
-                        {ru
-                          ? "Вы первый, кто нашел пасхалку! Вам начислено $5 USDC. Заберите их на кошелек в панели 'USDC ДРОП'."
-                          : "You are the first finder! You won $5 USDC. Claim it to your wallet in the 'USDC DROP' panel."}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

@@ -61,7 +61,7 @@ type DropCampaign = {
   allocatedRaw?: string;
 };
 
-type Tab = "submissions" | "creators" | "drops" | "promos" | "easter_egg" | "season";
+type Tab = "submissions" | "creators" | "referrals" | "drops" | "promos" | "easter_egg" | "season";
 type RewardMode = "game" | "token";
 type TokenKind = "usdc" | "base" | "token";
 
@@ -95,6 +95,17 @@ type TokenInfo = {
   balance?: string;
   formattedBalance?: string;
 };
+
+type ReferralCodeEntry = {
+  code: string;
+  wallet: string;
+  is_primary: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const EASTER_USDC_ADMIN_ENABLED = false;
 
 const ITEM_OPTIONS = [
   { slug: "", label: "Без предмета" },
@@ -180,6 +191,9 @@ export default function AdminPage() {
     note: "",
   });
   const [generatedPromo, setGeneratedPromo] = useState<GeneratedPromo | null>(null);
+  const [referralCodes, setReferralCodes] = useState<ReferralCodeEntry[]>([]);
+  const [referralCodeForm, setReferralCodeForm] = useState({ wallet: "", code: "" });
+  const [referralCodeBusy, setReferralCodeBusy] = useState(false);
 
   // Easter Egg states
   const [easterEggStats, setEasterEggStats] = useState<{
@@ -232,18 +246,20 @@ export default function AdminPage() {
     setLoading(true);
     setError("");
     try {
-      const [creatorRes, dropsRes, easterEggRes, tokensRes, seasonConfigRes] = await Promise.all([
+      const [creatorRes, dropsRes, easterEggRes, tokensRes, seasonConfigRes, referralCodesRes] = await Promise.all([
         fetch("/api/admin/creator"),
         fetch("/api/admin/drops"),
         fetch("/api/admin/easter-egg"),
         fetch("/api/admin/drops?action=tokens"),
         fetch("/api/admin/season"),
+        fetch("/api/admin/referral-codes", { cache: "no-store" }),
       ]);
       const creatorData = await creatorRes.json().catch(() => null);
       const dropsData = await dropsRes.json().catch(() => null);
       const easterEggData = await easterEggRes.json().catch(() => null);
       const tokensData = await tokensRes.json().catch(() => null);
       const seasonConfigData = await seasonConfigRes.json().catch(() => null);
+      const referralCodesData = await referralCodesRes.json().catch(() => null);
 
       if (!creatorRes.ok) throw new Error(creatorData?.error || (isRu ? "Не удалось загрузить креаторов" : "Failed to load creators"));
       if (!dropsRes.ok) throw new Error(dropsData?.error || (isRu ? "Не удалось загрузить дропы" : "Failed to load drops"));
@@ -252,6 +268,9 @@ export default function AdminPage() {
       setCreators(creatorData?.creators ?? []);
       setRewards(creatorData?.rewards ?? []);
       setDrops(dropsData?.campaigns ?? []);
+      if (referralCodesRes.ok) {
+        setReferralCodes(referralCodesData?.codes ?? []);
+      }
 
       if (easterEggRes.ok && easterEggData) {
         setEasterEggStats({
@@ -726,6 +745,32 @@ export default function AdminPage() {
     }
   };
 
+  const saveReferralCode = async () => {
+    setError("");
+    setMessage("");
+    setReferralCodeBusy(true);
+    try {
+      const res = await fetch("/api/admin/referral-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(referralCodeForm),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || (isRu ? "Не удалось назначить реферальный код" : "Could not assign referral code"));
+      }
+      setMessage(isRu
+        ? `Код ${data.entry.code} назначен кошельку ${shortWallet(data.entry.wallet)}`
+        : `Code ${data.entry.code} assigned to ${shortWallet(data.entry.wallet)}`);
+      setReferralCodeForm({ wallet: "", code: "" });
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : (isRu ? "Не удалось назначить реферальный код" : "Could not assign referral code"));
+    } finally {
+      setReferralCodeBusy(false);
+    }
+  };
+
   const updateSeasonConfig = async () => {
     setError("");
     setMessage("");
@@ -759,6 +804,7 @@ export default function AdminPage() {
   const tabLabels = {
     submissions: isRu ? "Заявки" : "Submissions",
     creators: isRu ? "Креаторы" : "Creators",
+    referrals: isRu ? "Рефки" : "Referrals",
     drops: isRu ? "Дропы" : "Drops",
     promos: isRu ? "Промо" : "Promos",
     easter_egg: isRu ? "Пасхалка" : "Easter Egg",
@@ -811,7 +857,7 @@ export default function AdminPage() {
           </section>
 
           <nav className={styles.tabs}>
-            {(["submissions", "creators", "drops", "promos", "easter_egg", "season"] as Tab[]).map((entry) => (
+            {(["submissions", "creators", "referrals", "drops", "promos", "easter_egg", "season"] as Tab[]).map((entry) => (
               <button
                 key={entry}
                 className={tab === entry ? styles.activeTab : ""}
@@ -909,6 +955,72 @@ export default function AdminPage() {
                       {isRu ? "Наградить" : "Reward"}
                     </button>
                   </Row>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {tab === "referrals" && (
+            <section className={styles.panel}>
+              <h2>{isRu ? "Короткие реферальные ссылки" : "Short referral links"}</h2>
+              <p className={styles.panelLead}>
+                {isRu
+                  ? "Назначь кошельку короткий код. Новый код станет основным в профиле, старые ссылки продолжат работать."
+                  : "Assign a short code to a wallet. The new code becomes primary in Profile while older links keep working."}
+              </p>
+
+              <div className={styles.compactForm}>
+                <label>
+                  <span>{isRu ? "Кошелёк пользователя" : "User wallet"}</span>
+                  <input
+                    value={referralCodeForm.wallet}
+                    onChange={(event) => setReferralCodeForm((current) => ({ ...current, wallet: event.target.value }))}
+                    placeholder="0x..."
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  <span>{isRu ? "Короткий код" : "Short code"}</span>
+                  <input
+                    value={referralCodeForm.code}
+                    onChange={(event) => setReferralCodeForm((current) => ({ ...current, code: event.target.value.toLowerCase() }))}
+                    placeholder="captain"
+                    minLength={3}
+                    maxLength={32}
+                    pattern="[a-z0-9][a-z0-9_-]{2,31}"
+                    autoComplete="off"
+                  />
+                </label>
+                <button
+                  className={styles.primaryBtn}
+                  onClick={saveReferralCode}
+                  disabled={referralCodeBusy || !referralCodeForm.wallet.trim() || !referralCodeForm.code.trim()}
+                  type="button"
+                >
+                  {referralCodeBusy
+                    ? (isRu ? "Сохраняем..." : "Saving...")
+                    : (isRu ? "Назначить код" : "Assign code")}
+                </button>
+              </div>
+
+              <div className={styles.table} style={{ marginTop: 16 }}>
+                {referralCodes.length === 0 ? (
+                  <p className={styles.emptyState}>
+                    {isRu ? "Коротких кодов пока нет." : "No short codes yet."}
+                  </p>
+                ) : referralCodes.map((entry) => (
+                  <article
+                    key={entry.code}
+                    className={styles.submissionRow}
+                    style={{ gridTemplateColumns: "minmax(180px, 0.7fr) minmax(260px, 1.3fr) auto" }}
+                  >
+                    <div>
+                      <b>?ref={entry.code}</b>
+                      <small>{entry.is_primary ? (isRu ? "Основной код" : "Primary code") : (isRu ? "Старый алиас" : "Legacy alias")}</small>
+                    </div>
+                    <span title={entry.wallet}>{entry.wallet}</span>
+                    <span className={styles.status}>{entry.is_primary ? "PRIMARY" : "ALIAS"}</span>
+                  </article>
                 ))}
               </div>
             </section>
@@ -1294,6 +1406,44 @@ export default function AdminPage() {
           )}
 
           {tab === "easter_egg" && (
+            <section className={styles.panel}>
+              <h2>{isRu ? "Пасхалка — только очки" : "Easter Egg — points only"}</h2>
+              <div className={styles.easterEggStatsGrid} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 20 }}>
+                <div className={styles.stat}>
+                  <span>{isRu ? "Всего клеймов" : "Total claims"}</span>
+                  <b>{easterEggStats.totalClaimsCount}</b>
+                </div>
+                <div className={styles.stat}>
+                  <span>{isRu ? "Награда" : "Reward"}</span>
+                  <b>1 000–10 000 PTS</b>
+                </div>
+              </div>
+              <p className={styles.panelLead}>
+                {isRu
+                  ? "USDC-награды за пасхалку отключены. Каждое успешное вращение выдаёт только случайное количество очков."
+                  : "USDC rewards for the Easter Egg are disabled. Each successful spin grants points only."}
+              </p>
+              <h3>{isRu ? "Журнал клеймов" : "Claim log"}</h3>
+              <div className={styles.table} style={{ marginTop: 10 }}>
+                {easterEggStats.claims.length === 0 ? (
+                  <p className={styles.emptyState}>{isRu ? "Клеймов пока нет." : "No claims yet."}</p>
+                ) : easterEggStats.claims.map((claim) => (
+                  <article key={claim.wallet} className={styles.submissionRow} style={{ gridTemplateColumns: "minmax(220px, 1fr) minmax(140px, auto) auto" }}>
+                    <div>
+                      <b>{claim.wallet}</b>
+                      <small>{new Date(claim.last_claimed_at).toLocaleString(isRu ? "ru-RU" : "en-US")}</small>
+                    </div>
+                    <span className={styles.status}>{isRu ? "ТОЛЬКО ОЧКИ" : "POINTS ONLY"}</span>
+                    <button className={styles.inlineBtn} onClick={() => resetPlayerCooldown(claim.wallet)} type="button">
+                      {isRu ? "Сбросить кулдаун" : "Reset cooldown"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {EASTER_USDC_ADMIN_ENABLED && tab === "easter_egg" && (
             <section className={styles.panel}>
               <h2>{isRu ? "Пасхальное яйцо (Easter Egg)" : "Easter Egg Management"}</h2>
               

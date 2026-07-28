@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import {
-  getBaseAppReferralLink,
-  getReferralLink,
+  getPreferredReferralLinks,
   getReferralStats,
-  recordReferral,
   type ReferralStats,
 } from "../lib/referrals";
 import { TR, useSettings } from "../lib/settings";
@@ -20,7 +18,6 @@ import styles from "./ReferralPanel.module.css";
 
 interface Props {
   address: string;
-  refParam?: string | null;
   hideHeader?: boolean;
   expanded?: boolean;
   onToggleExpand?: () => void;
@@ -38,7 +35,6 @@ const TWITTER_REFERRAL_SHARE_TEXT = "Join me in Sea Battle on Base.";
 
 export default function ReferralPanel({
   address,
-  refParam,
   hideHeader = false,
   expanded: controlledExpanded,
   onToggleExpand,
@@ -65,17 +61,16 @@ export default function ReferralPanel({
 
   useEffect(() => {
     if (!address) return;
-    setLink(getReferralLink(address));
-    setBaseLink(getBaseAppReferralLink(address));
+    let cancelled = false;
+    getPreferredReferralLinks(address).then((links) => {
+      if (cancelled) return;
+      setLink(links.link);
+      setBaseLink(links.baseLink);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
-
-  useEffect(() => {
-    if (!refParam || !address) return;
-    const ref = refParam.toLowerCase();
-    const me = address.toLowerCase();
-    if (ref === me) return;
-    recordReferral(ref, me).catch(() => {});
-  }, [refParam, address]);
 
   const loadStats = useCallback(async () => {
     if (!address) return;

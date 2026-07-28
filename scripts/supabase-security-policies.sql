@@ -20,14 +20,14 @@ DROP POLICY IF EXISTS select_player_stats ON player_stats;
 CREATE POLICY select_player_stats ON player_stats 
   FOR SELECT TO anon, authenticated USING (true);
 
--- referrals: Anyone can view referrals and insert new referrals. Updates/Deletes are blocked.
+-- referrals: Public reads are allowed; writes go through the signature-verified API.
 DROP POLICY IF EXISTS select_referrals ON referrals;
 CREATE POLICY select_referrals ON referrals 
   FOR SELECT TO anon, authenticated USING (true);
 
 DROP POLICY IF EXISTS insert_referrals ON referrals;
-CREATE POLICY insert_referrals ON referrals 
-  FOR INSERT TO anon, authenticated WITH CHECK (lower(referrer) <> lower(referee));
+REVOKE INSERT, UPDATE, DELETE ON referrals FROM public, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON referrals TO service_role;
 
 -- games: Anyone can create (insert) games and read all games. 
 -- Update is allowed so players can commit boards and update state.

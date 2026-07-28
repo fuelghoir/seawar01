@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useConnect, useSwitchChain } from "wagmi";
+import { useAccount, useConnect, useSignMessage, useSwitchChain } from "wagmi";
 import { base } from "wagmi/chains";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import {
@@ -31,10 +31,12 @@ import {
 } from "./lib/limitedSbt";
 import { ItemArt, type ItemArtKind } from "./components/ItemArt";
 import {
+  buildReferralRecordMessage,
   extractReferralRefFromCurrentUrl,
   extractReferralRefFromMiniAppContext,
   normalizeReferralRef,
   recordReferral,
+  resolveReferralRef,
 } from "./lib/referrals";
 import { QuestHub } from "./components/QuestHub";
 import ReferralPanel from "./components/ReferralPanel";
@@ -90,6 +92,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     error: connectError,
   } = useConnect();
   const { switchChain } = useSwitchChain();
+  const { signMessageAsync } = useSignMessage();
   const { lang, effects } = useSettings();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
@@ -148,12 +151,25 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     if (recordedReferralKey.current === recordKey) return;
 
     recordedReferralKey.current = recordKey;
-    recordReferral(incomingRef, referee)
-      .then(() => safeClearReferralRef(incomingRef))
-      .catch(() => {
+    void (async () => {
+      try {
+        const referrer = await resolveReferralRef(incomingRef);
+        if (!referrer || referrer === referee) {
+          safeClearReferralRef(incomingRef);
+          return;
+        }
+
+        const issuedAt = Date.now();
+        const message = buildReferralRecordMessage(incomingRef, referee, issuedAt);
+        if (!message) return;
+        const signature = await signMessageAsync({ message });
+        await recordReferral(incomingRef, referee, signature, issuedAt);
+        safeClearReferralRef(incomingRef);
+      } catch {
         recordedReferralKey.current = null;
-      });
-  }, [address, incomingRef]);
+      }
+    })();
+  }, [address, incomingRef, signMessageAsync]);
 
   useEffect(() => {
     const minTimer = window.setTimeout(() => setBootMinDone(true), BOOT_MIN_MS);
@@ -713,7 +729,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     <SectionHeader label={tr.home_referrals_title} accent="#f59e0b" />
                     <ReferralPanel
                       address={address}
-                      refParam={incomingRef}
                       hideHeader
                       expanded
                     />
@@ -966,7 +981,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             <div className={styles.expandedPanel}>
               <ReferralPanel
                 address={address}
-                refParam={incomingRef}
                 hideHeader
                 expanded
               />

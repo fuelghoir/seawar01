@@ -72,11 +72,11 @@ BEGIN
 
   -- 3. Custom additional constraints for specific tables if they exist
   
-  -- referrals: add insert check to prevent self-referrals
+  -- referrals: writes go through the signature-verified server route.
   IF to_regclass('public.referrals') IS NOT NULL THEN
     DROP POLICY IF EXISTS insert_referrals ON referrals;
-    CREATE POLICY insert_referrals ON referrals 
-      FOR INSERT TO anon, authenticated WITH CHECK (lower(referrer) <> lower(referee));
+    REVOKE INSERT, UPDATE, DELETE ON referrals FROM public, anon, authenticated;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON referrals TO service_role;
   END IF;
 
 END;

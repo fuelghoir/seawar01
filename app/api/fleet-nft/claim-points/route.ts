@@ -6,6 +6,10 @@ import {
   FLEET_NFT_CONTRACT_ADDRESS,
   fleetPassAbi,
 } from "../../../contracts/fleetPassAbi";
+import {
+  FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+  fleetMinerSlotsAbi,
+} from "../../../contracts/fleetMinerSlotsAbi";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const BASE_RPCS = [
@@ -40,8 +44,11 @@ async function getConfirmedReceipt(hash: `0x${string}`) {
 
 
 export async function POST(req: NextRequest) {
-  if (FLEET_NFT_CONTRACT_ADDRESS === ZERO_ADDR) {
-    return NextResponse.json({ error: "Fleet NFT contract is not deployed" }, { status: 500 });
+  if (
+    FLEET_NFT_CONTRACT_ADDRESS === ZERO_ADDR
+    && FLEET_MINER_SLOTS_CONTRACT_ADDRESS === ZERO_ADDR
+  ) {
+    return NextResponse.json({ error: "Fleet miner contracts are not deployed" }, { status: 500 });
   }
 
   const admin = adminSupabase();
@@ -67,11 +74,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Claim transaction is not confirmed" }, { status: 409 });
   }
 
-  let claim: { tokenId: bigint; points: bigint } | null = null;
+  let claim: { tokenId: bigint; points: bigint; sources: Set<"legacy" | "slots"> } | null = null;
   for (const log of receipt.logs) {
     const isV2 = log.address.toLowerCase() === FLEET_NFT_CONTRACT_ADDRESS.toLowerCase();
     const isV1 = log.address.toLowerCase() === "0xe8ea934c519917832bff6fb82e96c95463497053";
-    if (!isV1 && !isV2) continue;
+    const isSlots = FLEET_MINER_SLOTS_CONTRACT_ADDRESS !== ZERO_ADDR
+      && log.address.toLowerCase() === FLEET_MINER_SLOTS_CONTRACT_ADDRESS.toLowerCase();
+    if (!isV1 && !isV2 && !isSlots) continue;
+
+    if (isSlots) {
+      try {
+        const decoded = decodeEventLog({
+          abi: fleetMinerSlotsAbi,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (
+          decoded.eventName === "PassivePointsClaimed"
+          && decoded.args.player.toLowerCase() === wallet
+          && decoded.args.points > BigInt(0)
+        ) {
+          if (!claim) {
+            claim = {
+              tokenId: -BigInt(decoded.args.slot),
+              points: BigInt(0),
+              sources: new Set(),
+            };
+          }
+          claim.points += decoded.args.points;
+          claim.sources.add("slots");
+        }
+      } catch {
+        // Ignore the aggregate claim event and unrelated logs.
+      }
+      continue;
+    }
+
     try {
       const decoded = decodeEventLog({
         abi: fleetPassAbi,
@@ -82,11 +120,15 @@ export async function POST(req: NextRequest) {
         decoded.eventName === "PassivePointsClaimed" &&
         decoded.args.player.toLowerCase() === wallet
       ) {
-        claim = {
-          tokenId: decoded.args.tokenId,
-          points: decoded.args.points,
-        };
-        break;
+        if (!claim) {
+          claim = {
+            tokenId: decoded.args.tokenId,
+            points: BigInt(0),
+            sources: new Set(),
+          };
+        }
+        claim.points += decoded.args.points;
+        claim.sources.add("legacy");
       }
     } catch {
       // Ignore unrelated contract logs.
@@ -110,5 +152,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     points: Number(data ?? 0),
     tokenId: claim.tokenId.toString(),
+    sources: Array.from(claim.sources),
   });
 }

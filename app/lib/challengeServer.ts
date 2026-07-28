@@ -301,18 +301,28 @@ export async function awardChallengeRewards(
   const challengerWon = winner.toLowerCase() === challenger.toLowerCase();
 
   await Promise.all([
-    bumpPlayerStats(admin, row.creator, {
-      points: creatorWon ? 50 : 0,
-      wins: creatorWon ? 1 : 0,
-      gamesPlayed: 1,
-      hits: 0,
-    }),
-    bumpPlayerStats(admin, challenger, {
-      points: hits + (challengerWon ? 50 : 0),
-      wins: challengerWon ? 1 : 0,
-      gamesPlayed: 1,
-      hits,
-    }),
+    bumpPlayerStats(
+      admin,
+      row.creator,
+      {
+        points: creatorWon ? 50 : 0,
+        wins: creatorWon ? 1 : 0,
+        gamesPlayed: 1,
+        hits: 0,
+      },
+      `challenge:${row.id}:${row.creator.toLowerCase()}`,
+    ),
+    bumpPlayerStats(
+      admin,
+      challenger,
+      {
+        points: hits + (challengerWon ? 50 : 0),
+        wins: challengerWon ? 1 : 0,
+        gamesPlayed: 1,
+        hits,
+      },
+      `challenge:${row.id}:${challenger.toLowerCase()}`,
+    ),
   ]);
 }
 
@@ -338,6 +348,7 @@ async function bumpPlayerStats(
   admin: SupabaseClient,
   wallet: string,
   delta: { points: number; wins: number; gamesPlayed: number; hits: number },
+  referralSourceKey: string,
 ) {
   const addr = wallet.toLowerCase();
   const multiplier = await getGamePointMultiplier(admin, addr);
@@ -374,7 +385,7 @@ async function bumpPlayerStats(
   }
 
   await addSeasonXp(admin, addr, Math.max(1, delta.points)).catch(() => {});
-  await awardReferralGamePointsServer(admin, addr, points).catch(() => {});
+  await awardReferralGamePointsServer(admin, addr, points, referralSourceKey).catch(() => {});
   await awardReferralFirstGameBonusServer(admin, addr).catch(() => {});
 }
 

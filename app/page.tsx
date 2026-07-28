@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { farcasterConfig } from "../farcaster.config";
 import HomeClient from "./HomeClient";
+import { normalizeReferralToken } from "./lib/referralIdentity";
 import { createSeoMetadata, SITE_DESCRIPTION, SITE_TITLE } from "./lib/seo";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -15,7 +16,7 @@ export async function generateMetadata({
   searchParams?: SearchParams;
 }): Promise<Metadata> {
   const params = searchParams ? await searchParams : {};
-  const ref = normalizeMetadataRef(firstParam(params.ref));
+  const ref = normalizeReferralToken(firstParam(params.ref));
   const launchUrl = ref
     ? withReferralParam(farcasterConfig.miniapp.homeUrl, ref)
     : farcasterConfig.miniapp.homeUrl;
@@ -82,12 +83,6 @@ export default async function Page({ searchParams }: { searchParams?: SearchPara
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function normalizeMetadataRef(ref: string | undefined): string | null {
-  const normalized = ref?.trim().toLowerCase();
-  if (!normalized) return null;
-  return /^0x[a-f0-9]{40}$/.test(normalized) ? normalized : null;
 }
 
 function withReferralParam(baseUrl: string, ref: string): string {

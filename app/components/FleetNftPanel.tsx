@@ -17,16 +17,19 @@ import {
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
-import { decodeEventLog, encodeFunctionData } from "viem";
+import { encodeFunctionData } from "viem";
 import {
   FLEET_NFT_CONTRACT_ADDRESS,
   fleetPassAbi,
 } from "../contracts/fleetPassAbi";
+import {
+  FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+  fleetMinerSlotsAbi,
+} from "../contracts/fleetMinerSlotsAbi";
 import { erc20Abi, USDC_ADDRESS } from "../contracts/seaBattleAbi";
 import {
   EMPTY_FLEET_STATE,
   fleetNextPrice,
-  fleetPointRate,
   fleetMaxUpgradeCost,
   formatUsdc,
   parseFleetState,
@@ -36,6 +39,7 @@ import {
   canUnlockNextSlot,
   getTotalClaimablePoints,
 } from "../lib/fleetNft";
+import { parseFleetMinerSlots } from "../lib/fleetMinerSlots";
 import { BUILDER_CODE_SUFFIX } from "../providers";
 import { useSettings } from "../lib/settings";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
@@ -44,6 +48,30 @@ import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./FleetNftPanel.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
+type LegacyPurchaseAction =
+  | "buy"
+  | "upgrade"
+  | "max"
+  | "buyWithDiscount"
+  | "upgradeWithDiscount"
+  | "maxWithDiscount"
+  | "migrate";
+type SlotPurchaseAction =
+  | "slotBuy"
+  | "slotUpgrade"
+  | "slotMax"
+  | "slotBuyMax"
+  | "slotBuyWithDiscount"
+  | "slotUpgradeWithDiscount"
+  | "slotMaxWithDiscount"
+  | "slotBuyMaxWithDiscount";
+type PurchaseAction = LegacyPurchaseAction | SlotPurchaseAction;
+
+type SlotDiscountAuthorization = {
+  signature: `0x${string}`;
+  deadline: bigint;
+  paidPrice: bigint;
+};
 const FLEET_EVOLUTION = [
   {
     tier: 1,
@@ -78,10 +106,6 @@ function cacheKey(wallet: string) {
   return `seabattle_fleet_nft_${wallet.toLowerCase()}`;
 }
 
-function slotsCacheKey(wallet: string) {
-  return `seabattle_fleet_slots_${wallet.toLowerCase()}`;
-}
-
 function readCached(wallet?: string): FleetState {
   if (!wallet || typeof window === "undefined") return EMPTY_FLEET_STATE;
   try {
@@ -95,28 +119,7 @@ function readCached(wallet?: string): FleetState {
 }
 
 function readSlotsCached(wallet?: string): FleetState[] {
-  if (!wallet || typeof window === "undefined") return [EMPTY_FLEET_STATE];
-  try {
-    const raw = localStorage.getItem(slotsCacheKey(wallet));
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const slot0 = parsed[0] || EMPTY_FLEET_STATE;
-        const sanitized = parsed.map((slot: FleetState, idx: number) => {
-          if (idx === 0) return slot;
-          if (slot0.tokenId > 0 && slot.tokenId === slot0.tokenId) {
-            return EMPTY_FLEET_STATE;
-          }
-          return slot;
-        });
-        return sanitized;
-      }
-    }
-    const single = readCached(wallet);
-    return [single];
-  } catch {
-    return [EMPTY_FLEET_STATE];
-  }
+  return [readCached(wallet)];
 }
 
 function wait(ms: number) {
@@ -137,40 +140,6 @@ async function fetchWithRetry(input: RequestInfo | URL, init?: RequestInit) {
   return response!;
 }
 
-function _optimisticFleetFromReceipt(
-  logs: readonly { data: `0x${string}`; topics: readonly `0x${string}`[] }[],
-  previous: FleetState
-): FleetState | null {
-  for (const log of logs) {
-    try {
-      const decoded = decodeEventLog({
-        abi: fleetPassAbi,
-        data: log.data,
-        topics: [...log.topics] as [] | [`0x${string}`, ...`0x${string}`[]],
-      });
-      if (decoded.eventName !== "FleetMinted" && decoded.eventName !== "FleetEvolved") {
-        continue;
-      }
-
-      const tokenId = Number(decoded.args.tokenId);
-      const tier = Number(decoded.args.tier);
-      const level = Number(decoded.args.level);
-      return {
-        tokenId,
-        tier,
-        level,
-        pointsPerHour: fleetPointRate(tier, level),
-        claimablePoints: previous.claimablePoints,
-        nextPrice: fleetNextPrice(tier, level),
-        maxed: tier === 3 && level === 3,
-      };
-    } catch {
-      // Ignore unrelated USDC transfer logs.
-    }
-  }
-  return null;
-}
-
 export default function FleetNftPanel() {
   const { address, isConnected } = useAccount();
   const wagmiConfig = useConfig();
@@ -178,6 +147,7 @@ export default function FleetNftPanel() {
   const ru = lang === "ru";
   const txWarmReady = useTransactionWarmup(isConnected, address);
   const deployed = FLEET_NFT_CONTRACT_ADDRESS !== ZERO_ADDRESS;
+  const slotsDeployed = FLEET_MINER_SLOTS_CONTRACT_ADDRESS !== ZERO_ADDRESS;
 
   const [activeSlotIndex, setActiveSlotIndex] = useState<number>(0);
   const [minerSlots, setMinerSlots] = useState<FleetState[]>(() => readSlotsCached(address));
@@ -187,7 +157,7 @@ export default function FleetNftPanel() {
 
   const [isBaseApp, setIsBaseApp] = useState(false);
   const [message, setMessage] = useState("");
-  const [purchaseAction, setPurchaseAction] = useState<"buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" | null>(null);
+  const [purchaseAction, setPurchaseAction] = useState<PurchaseAction | null>(null);
   const [discountSignature, setDiscountSignature] = useState<string | null>(null);
   const [approveFallbackMined, setApproveFallbackMined] = useState(false);
   const [purchaseFallbackMined, setPurchaseFallbackMined] = useState(false);
@@ -199,6 +169,8 @@ export default function FleetNftPanel() {
   const lastCreditedClaimHashRef = useRef<string | null>(null);
   const staleProtectionUntilRef = useRef(0);
   const autoMaxPendingRef = useRef(false);
+  const purchaseSlotRef = useRef(0);
+  const slotDiscountDeadlineRef = useRef<bigint | null>(null);
 
   const [isLegacyMiner, setIsLegacyMiner] = useState(false);
 
@@ -217,17 +189,6 @@ export default function FleetNftPanel() {
       }
       updated[targetSlotIndex] = next;
 
-      // Sanitize: ensure slot 1..N do not duplicate slot 0's tokenId
-      const slot0TokenId = updated[0]?.tokenId || 0;
-      for (let i = 1; i < updated.length; i++) {
-        if (slot0TokenId > 0 && updated[i]?.tokenId === slot0TokenId) {
-          updated[i] = EMPTY_FLEET_STATE;
-        }
-      }
-
-      if (address) {
-        localStorage.setItem(slotsCacheKey(address), JSON.stringify(updated));
-      }
       return updated;
     });
     if (address && targetSlotIndex === 0) {
@@ -258,6 +219,25 @@ export default function FleetNftPanel() {
       refetchInterval: 10_000,
     },
   });
+
+  const { data: extraSlotsRead, refetch: refetchExtraSlots } = useReadContract({
+    address: FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+    abi: fleetMinerSlotsAbi,
+    functionName: "allMinerStatesOf",
+    args: [address || ZERO_ADDRESS],
+    chainId: base.id,
+    query: {
+      enabled: slotsDeployed && !!address,
+      refetchInterval: 10_000,
+    },
+  });
+
+  const commitExtraSlots = useCallback((extraSlots: FleetState[]) => {
+    setMinerSlots((current) => [
+      current[0] || EMPTY_FLEET_STATE,
+      ...extraSlots,
+    ]);
+  }, []);
 
   const refreshFleet = useCallback(async () => {
     if (!address || !deployed) return null;
@@ -297,11 +277,33 @@ export default function FleetNftPanel() {
     }
   }, [address, commitFleet, deployed, wagmiConfig]);
 
+  const refreshExtraSlots = useCallback(async () => {
+    if (!address || !slotsDeployed) return null;
+    try {
+      const next = parseFleetMinerSlots(await readContract(wagmiConfig, {
+        address: FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+        abi: fleetMinerSlotsAbi,
+        functionName: "allMinerStatesOf",
+        args: [address],
+        chainId: base.id,
+      }));
+      if (next) commitExtraSlots(next);
+      return next;
+    } catch {
+      return null;
+    }
+  }, [address, commitExtraSlots, slotsDeployed, wagmiConfig]);
+
   useEffect(() => {
     const cachedSlots = readSlotsCached(address);
     setMinerSlots(cachedSlots);
     if (typeof window !== "undefined") setIsBaseApp(isBaseAppUserAgent(navigator.userAgent));
   }, [address]);
+
+  useEffect(() => {
+    const parsed = parseFleetMinerSlots(extraSlotsRead);
+    if (parsed) commitExtraSlots(parsed);
+  }, [commitExtraSlots, extraSlotsRead]);
 
   useEffect(() => {
     const nextV2 = parseFleetState(fleetRead);
@@ -319,11 +321,21 @@ export default function FleetNftPanel() {
     }
   }, [commitFleet, fleetRead, legacyFleetRead]);
 
-  const owned = fleet.tokenId > 0;
+  const owned = activeSlotIndex === 0 ? fleet.tokenId > 0 : fleet.tier > 0;
+  const slotsStateReady = slotsDeployed && extraSlotsRead !== undefined;
+  const activeContractReady = activeSlotIndex === 0 ? deployed : slotsStateReady;
   const visualTier = Math.max(1, fleet.tier || 1);
   const visualLevel = Math.max(1, fleet.level || 1);
 
   const totalClaimableAllSlots = useMemo(() => getTotalClaimablePoints(minerSlots), [minerSlots]);
+  const legacyClaimablePoints = minerSlots[0]?.claimablePoints || 0;
+  const extraClaimablePoints = useMemo(
+    () => getTotalClaimablePoints(minerSlots.slice(1)),
+    [minerSlots],
+  );
+  const claimExtraNext = slotsDeployed
+    && extraClaimablePoints > 0
+    && (activeSlotIndex > 0 || legacyClaimablePoints <= 0);
   const ownedMinersCount = useMemo(
     () => minerSlots.filter((s) => s.tokenId > 0 || s.tier > 0).length,
     [minerSlots]
@@ -337,25 +349,29 @@ export default function FleetNftPanel() {
   const maxUpgradeCost = useMemo(() => {
     const tier = owned ? fleet.tier : 1;
     const level = owned ? fleet.level : 1;
-    const baseCost = fleetMaxUpgradeCost(tier, level);
+    const baseCost = activeSlotIndex > 0 && owned && fleet.maxUpgradePrice !== undefined
+      ? fleet.maxUpgradePrice
+      : fleetMaxUpgradeCost(tier, level);
     const initialMintCost = owned ? 0 : 500_000;
     const totalCost = baseCost + initialMintCost;
     return isBaseApp ? totalCost / 2 : totalCost;
-  }, [fleet.tier, fleet.level, owned, isBaseApp]);
+  }, [activeSlotIndex, fleet.level, fleet.maxUpgradePrice, fleet.tier, isBaseApp, owned]);
 
   const actionPrice = owned
     ? (isBaseApp ? nextUpgradePrice / 2 : nextUpgradePrice)
     : (isBaseApp ? 250_000 : 500_000);
 
-  const actionLabel = !deployed
+  const actionLabel = !activeContractReady
     ? ru ? "СКОРО" : "SOON"
     : owned
-      ? isLegacyMiner
+      ? activeSlotIndex === 0 && isLegacyMiner
         ? ru ? "БЕСПЛАТНЫЙ ПЕРЕНОС В V2" : "FREE MIGRATE TO V2"
         : fleet.maxed
           ? ru ? "МАКСИМУМ" : "MAXED"
           : `${ru ? "УЛУЧШИТЬ" : "UPGRADE"} · ${formatUsdc(actionPrice)}`
-      : `${ru ? "КУПИТЬ NFT" : "BUY NFT"} · ${formatUsdc(actionPrice)}`;
+      : `${activeSlotIndex > 0
+          ? (ru ? "КУПИТЬ МАЙНЕР" : "BUY MINER")
+          : (ru ? "КУПИТЬ NFT" : "BUY NFT")} · ${formatUsdc(actionPrice)}`;
 
   const {
     data: approveHash,
@@ -410,24 +426,62 @@ export default function FleetNftPanel() {
     claimCallsPending ||
     (!!claimCallsData?.id && !claimCallsSuccess && !claimHandledRef.current);
 
-  const sendPurchase = useCallback((action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate", sig?: string | null) => {
+  const sendPurchase = useCallback((action: PurchaseAction, sig?: string | null) => {
     purchaseSubmittedRef.current = true;
     setMessage(ru ? "Подтверди оплату в кошельке" : "Confirm payment in your wallet");
-    
-    if (activeSlotIndex > 0) {
-      let targetPrice = actionPrice;
-      if (action === "max" || action === "maxWithDiscount") {
-        targetPrice = maxUpgradeCost;
-      }
-      const rewardShare = Math.floor((targetPrice * 80) / 100);
-      const rewardVaultAddr = "0x39016cE335546b6ab9776a1cC78cf210f84f5a5b" as `0x${string}`;
 
+    if (action.startsWith("slot")) {
+      if (!slotsDeployed) {
+        purchaseSubmittedRef.current = false;
+        setPurchaseAction(null);
+        setMessage(ru
+          ? "Покупка дополнительных майнеров временно закрыта: USDC не списаны"
+          : "Extra miner purchases are temporarily disabled: no USDC was charged");
+        return;
+      }
+      if (!slotsStateReady) {
+        purchaseSubmittedRef.current = false;
+        setPurchaseAction(null);
+        setMessage(ru ? "Синхронизируем on-chain слоты..." : "Syncing on-chain slots...");
+        return;
+      }
+
+      const slot = purchaseSlotRef.current;
+      const discounted = action.endsWith("WithDiscount");
+      if (discounted && (!sig || slotDiscountDeadlineRef.current === null)) {
+        purchaseSubmittedRef.current = false;
+        setPurchaseAction(null);
+        setMessage(ru ? "Подпись скидки недействительна" : "Discount signature is invalid");
+        return;
+      }
+
+      let fnName:
+        | "buyMiner"
+        | "buyMinerWithDiscount"
+        | "buyMinerToMax"
+        | "buyMinerToMaxWithDiscount"
+        | "upgradeMiner"
+        | "upgradeMinerWithDiscount"
+        | "upgradeMinerToMax"
+        | "upgradeMinerToMaxWithDiscount" = "buyMiner";
+      if (action === "slotBuyWithDiscount") fnName = "buyMinerWithDiscount";
+      if (action === "slotBuyMax") fnName = "buyMinerToMax";
+      if (action === "slotBuyMaxWithDiscount") fnName = "buyMinerToMaxWithDiscount";
+      if (action === "slotUpgrade") fnName = "upgradeMiner";
+      if (action === "slotUpgradeWithDiscount") fnName = "upgradeMinerWithDiscount";
+      if (action === "slotMax") fnName = "upgradeMinerToMax";
+      if (action === "slotMaxWithDiscount") fnName = "upgradeMinerToMaxWithDiscount";
+
+      const args = discounted
+        ? [slot, slotDiscountDeadlineRef.current!, sig as `0x${string}`] as const
+        : [slot] as const;
       writePurchase({
-        address: USDC_ADDRESS,
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [rewardVaultAddr, BigInt(rewardShare)],
+        address: FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+        abi: fleetMinerSlotsAbi,
+        functionName: fnName,
+        args: args as never,
         chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
       });
       return;
     }
@@ -461,7 +515,7 @@ export default function FleetNftPanel() {
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [ru, writePurchase, fleet.tier, fleet.level, activeSlotIndex, actionPrice, maxUpgradeCost]);
+  }, [fleet.level, fleet.tier, ru, slotsDeployed, slotsStateReady, writePurchase]);
 
   useEffect(() => {
     setApproveFallbackMined(false);
@@ -515,51 +569,15 @@ export default function FleetNftPanel() {
     purchaseHandledRef.current = true;
     staleProtectionUntilRef.current = Date.now() + 15_000;
 
-    if (activeSlotIndex > 0) {
-      let nextState: FleetState;
-      if (purchaseAction === "max" || purchaseAction === "maxWithDiscount" || autoMaxPendingRef.current) {
-        autoMaxPendingRef.current = false;
-        nextState = {
-          tokenId: activeSlotIndex + 1,
-          tier: 3,
-          level: 3,
-          pointsPerHour: 500,
-          claimablePoints: 0,
-          nextPrice: 0,
-          maxed: true,
-        };
-      } else if (!owned) {
-        nextState = {
-          tokenId: activeSlotIndex + 1,
-          tier: 1,
-          level: 1,
-          pointsPerHour: 50,
-          claimablePoints: 0,
-          nextPrice: 300_000,
-          maxed: false,
-        };
-      } else {
-        let nextTier = fleet.tier;
-        let nextLevel = fleet.level + 1;
-        if (nextLevel > 3) {
-          nextTier++;
-          nextLevel = 1;
-        }
-        const maxed = nextTier === 3 && nextLevel === 3;
-        nextState = {
-          tokenId: activeSlotIndex + 1,
-          tier: nextTier,
-          level: nextLevel,
-          pointsPerHour: fleetPointRate(nextTier, nextLevel),
-          claimablePoints: fleet.claimablePoints,
-          nextPrice: fleetNextPrice(nextTier, nextLevel),
-          maxed,
-        };
-      }
-
-      commitFleet(nextState, activeSlotIndex);
+    if (purchaseAction?.startsWith("slot")) {
+      const purchasedSlot = purchaseSlotRef.current;
       setPurchaseAction(null);
-      setMessage(ru ? `Майнер #${activeSlotIndex + 1} активирован!` : `Miner #${activeSlotIndex + 1} activated!`);
+      setDiscountSignature(null);
+      slotDiscountDeadlineRef.current = null;
+      setMessage(ru
+        ? `Майнер #${purchasedSlot + 1} подтверждён on-chain`
+        : `Miner #${purchasedSlot + 1} confirmed on-chain`);
+      void refreshExtraSlots().then(() => refetchExtraSlots());
       return;
     }
 
@@ -596,12 +614,13 @@ export default function FleetNftPanel() {
       }
       await refetch();
     })();
-  }, [commitFleet, fleet, purchaseMined, purchaseReceipt, refetch, refreshFleet, ru, activeSlotIndex, address, isBaseApp, sendPurchase, owned, purchaseAction]);
+  }, [address, commitFleet, fleet, isBaseApp, owned, purchaseAction, purchaseMined, purchaseReceipt, refetch, refetchExtraSlots, refreshExtraSlots, refreshFleet, ru, sendPurchase]);
 
   useEffect(() => {
     if (approveReceipt?.status !== "reverted" && purchaseReceipt?.status !== "reverted") return;
     setPurchaseAction(null);
     autoMaxPendingRef.current = false;
+    slotDiscountDeadlineRef.current = null;
     setMessage(ru ? "Транзакция отклонена" : "Transaction reverted");
   }, [approveReceipt, purchaseReceipt, ru]);
 
@@ -611,13 +630,14 @@ export default function FleetNftPanel() {
     const rejected = /user rejected|rejected the request/i.test(error.message);
     setPurchaseAction(null);
     autoMaxPendingRef.current = false;
+    slotDiscountDeadlineRef.current = null;
     setMessage(rejected
       ? ru ? "Отклонено в кошельке" : "Rejected in wallet"
       : ru ? "Не удалось отправить транзакцию" : "Could not send transaction");
   }, [approveError, purchaseAction, purchaseError, ru]);
 
   useEffect(() => {
-    if (!claimMined || !address || claimHandledRef.current) return;
+    if (!claimMined || !claimProofHash || !address || claimHandledRef.current) return;
     if (claimProofHash && lastCreditedClaimHashRef.current === claimProofHash) return;
 
     claimHandledRef.current = true;
@@ -625,13 +645,6 @@ export default function FleetNftPanel() {
       lastCreditedClaimHashRef.current = claimProofHash;
     }
 
-    setMinerSlots((current) => {
-      const updated = current.map((s) => ({ ...s, claimablePoints: 0 }));
-      if (address) {
-        localStorage.setItem(slotsCacheKey(address), JSON.stringify(updated));
-      }
-      return updated;
-    });
     setMessage(ru ? "Зачисляем пойнты..." : "Crediting points...");
     fetchWithRetry("/api/fleet-nft/claim-points", {
       method: "POST",
@@ -647,12 +660,104 @@ export default function FleetNftPanel() {
       .catch((err) => setMessage(err instanceof Error ? err.message : "Point claim failed"))
       .finally(() => {
         void refreshFleet();
+        void refreshExtraSlots();
         void refetch();
+        void refetchExtraSlots();
       });
-  }, [address, claimMined, claimProofHash, refetch, refreshFleet, ru]);
+  }, [address, claimMined, claimProofHash, refetch, refetchExtraSlots, refreshExtraSlots, refreshFleet, ru]);
 
   const startPurchase = async (actionOverride?: "max") => {
-    if (!txWarmReady || !address || !deployed || fleet.maxed || purchaseAction) return;
+    if (!txWarmReady || !address || fleet.maxed || purchaseAction) return;
+    if (activeSlotIndex > 0) {
+      if (!slotsDeployed) {
+        setMessage(ru
+          ? "Дополнительные майнеры на техобслуживании. Оплата отключена, USDC не спишутся."
+          : "Extra miners are under maintenance. Payments are disabled and no USDC will be charged.");
+        return;
+      }
+      if (!slotsStateReady) {
+        setMessage(ru ? "Синхронизируем on-chain слоты..." : "Syncing on-chain slots...");
+        return;
+      }
+
+      let action: SlotPurchaseAction = actionOverride === "max"
+        ? (owned ? "slotMax" : "slotBuyMax")
+        : (owned ? "slotUpgrade" : "slotBuy");
+      if (isBaseApp) {
+        if (action === "slotBuy") action = "slotBuyWithDiscount";
+        if (action === "slotUpgrade") action = "slotUpgradeWithDiscount";
+        if (action === "slotMax") action = "slotMaxWithDiscount";
+        if (action === "slotBuyMax") action = "slotBuyMaxWithDiscount";
+      }
+
+      let requiredPrice = BigInt(Math.round(actionOverride === "max" ? maxUpgradeCost : actionPrice));
+      let signature: `0x${string}` | null = null;
+      purchaseSlotRef.current = activeSlotIndex;
+      purchaseSubmittedRef.current = false;
+      purchaseHandledRef.current = false;
+      slotDiscountDeadlineRef.current = null;
+      setPurchaseAction(action);
+      setDiscountSignature(null);
+      resetApprove();
+      resetPurchase();
+
+      if (action.endsWith("WithDiscount")) {
+        setMessage(ru ? "Получаем скидку..." : "Getting discount...");
+        try {
+          const params = new URLSearchParams({
+            wallet: address,
+            scope: "slots",
+            action,
+            slot: String(activeSlotIndex),
+          });
+          const res = await fetch(`/api/fleet-nft/discount-sig?${params}`);
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.signature || !data?.deadline || !data?.paidPrice) {
+            throw new Error(data?.error || "Signature failed");
+          }
+          const authorization: SlotDiscountAuthorization = {
+            signature: data.signature as `0x${string}`,
+            deadline: BigInt(data.deadline),
+            paidPrice: BigInt(data.paidPrice),
+          };
+          if (authorization.paidPrice <= 0) throw new Error("Invalid discount price");
+          signature = authorization.signature;
+          requiredPrice = authorization.paidPrice;
+          slotDiscountDeadlineRef.current = authorization.deadline;
+          setDiscountSignature(signature);
+        } catch (error) {
+          setPurchaseAction(null);
+          setMessage(error instanceof Error
+            ? error.message
+            : ru ? "Не удалось получить скидку" : "Could not get discount signature");
+          return;
+        }
+      }
+
+      const allowance = await readContract(wagmiConfig, {
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [address, FLEET_MINER_SLOTS_CONTRACT_ADDRESS],
+        chainId: base.id,
+      }).catch(() => BigInt(0));
+
+      if (allowance >= requiredPrice) {
+        sendPurchase(action, signature);
+        return;
+      }
+
+      setMessage(ru ? "Одобри точную сумму USDC для этой покупки" : "Approve the exact USDC amount for this purchase");
+      writeApprove({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [FLEET_MINER_SLOTS_CONTRACT_ADDRESS, requiredPrice],
+        chainId: base.id,
+      });
+      return;
+    }
+    if (!deployed) return;
     
     let action: "buy" | "upgrade" | "max" | "buyWithDiscount" | "upgradeWithDiscount" | "maxWithDiscount" | "migrate" = actionOverride ?? (owned ? (isLegacyMiner ? "migrate" : "upgrade") : "buy");
     if (actionOverride === "max" && !owned) {
@@ -672,6 +777,8 @@ export default function FleetNftPanel() {
 
     setMessage("");
     setPurchaseAction(action);
+    purchaseSlotRef.current = 0;
+    slotDiscountDeadlineRef.current = null;
     previousTokenRef.current = fleet.tokenId;
     purchaseSubmittedRef.current = false;
     purchaseHandledRef.current = false;
@@ -737,11 +844,42 @@ export default function FleetNftPanel() {
   };
 
   const claimPoints = () => {
-    if (!txWarmReady || !address || !deployed || totalClaimableAllSlots <= 0 || claimPending) return;
+    if (
+      !txWarmReady || !address || totalClaimableAllSlots <= 0 || claimPending
+      || (!deployed && !slotsDeployed)
+    ) return;
     setMessage("");
     claimHandledRef.current = false;
     resetClaim();
 
+    const claimSlots = claimExtraNext;
+    if (claimSlots) {
+      const claimData = encodeFunctionData({
+        abi: fleetMinerSlotsAbi,
+        functionName: "claimAllPassivePoints",
+      });
+      if (paymasterSupported && PAYMASTER_URL) {
+        sendClaimCalls({
+          calls: [{
+            to: FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+            data: claimData,
+            dataSuffix: BUILDER_CODE_SUFFIX,
+          }],
+          capabilities: { paymasterService: { url: PAYMASTER_URL } },
+        });
+        return;
+      }
+      writeClaim({
+        address: FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
+        abi: fleetMinerSlotsAbi,
+        functionName: "claimAllPassivePoints",
+        chainId: base.id,
+        dataSuffix: BUILDER_CODE_SUFFIX,
+      });
+      return;
+    }
+
+    if (!deployed || legacyClaimablePoints <= 0) return;
     const targetContract = isLegacyMiner ? "0xe8ea934c519917832bff6fb82e96c95463497053" : FLEET_NFT_CONTRACT_ADDRESS;
 
     if (paymasterSupported && PAYMASTER_URL) {
@@ -976,9 +1114,13 @@ export default function FleetNftPanel() {
           </div>
 
           <p className={styles.description}>
-            {ru
-              ? "NFT приходит в кошелек и добывает пойнты каждый час. После максимальной прокачки одного майнера откроется слот для следующего!"
-              : "The NFT arrives in your wallet and mines points every hour. Maxing out a miner unlocks the next miner slot!"}
+            {activeSlotIndex === 0
+              ? ru
+                ? "NFT приходит в кошелек и добывает пойнты каждый час. После максимальной прокачки откроется следующий on-chain майнер."
+                : "The NFT arrives in your wallet and mines points every hour. Maxing it out unlocks the next on-chain miner."
+              : ru
+                ? "Дополнительный майнер хранится on-chain и добывает пойнты каждый час. MAX-уровень открывает следующий слот."
+                : "The extra miner is stored on-chain and mines points every hour. Reaching MAX unlocks the next slot."}
           </p>
 
           <div className={styles.stats}>
@@ -994,11 +1136,11 @@ export default function FleetNftPanel() {
           </div>
 
           <div className={styles.actions}>
-            <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !deployed || fleet.maxed || busy}>
+            <button type="button" className={styles.primary} onClick={() => startPurchase()} disabled={!isConnected || !txWarmReady || !activeContractReady || fleet.maxed || busy}>
               {!txWarmReady ? "SYNCING..." : busy ? ru ? "ПОДТВЕРЖДАЕМ..." : "CONFIRMING..." : actionLabel}
             </button>
-            {!fleet.maxed && !isLegacyMiner && (
-              <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !deployed || busy}>
+            {!fleet.maxed && !(activeSlotIndex === 0 && isLegacyMiner) && (
+              <button type="button" className={styles.secondary} onClick={() => startPurchase("max")} disabled={!isConnected || !txWarmReady || !activeContractReady || busy}>
                 {owned
                   ? (ru ? "МАКСИМУМ ЗА" : "MAX FOR")
                   : (ru ? "КУПИТЬ MAX ЗА" : "BUY MAX FOR")} {formatUsdc(maxUpgradeCost)}
@@ -1008,15 +1150,15 @@ export default function FleetNftPanel() {
               type="button"
               className={styles.secondary}
               onClick={claimPoints}
-              disabled={!isConnected || !txWarmReady || !deployed || totalClaimableAllSlots <= 0 || claimPending}
+              disabled={!isConnected || !txWarmReady || (!deployed && !slotsDeployed) || totalClaimableAllSlots <= 0 || claimPending}
             >
               {!txWarmReady
                 ? "SYNCING..."
                 : claimPending
                   ? (ru ? "КЛЕЙМИМ..." : "CLAIMING...")
-                  : (ru
-                      ? (ownedMinersCount > 1 ? "ЗАБРАТЬ ВСЕ (FULL)" : "ЗАБРАТЬ POINTS")
-                      : (ownedMinersCount > 1 ? "CLAIM ALL (FULL)" : "CLAIM POINTS"))}
+                  : claimExtraNext
+                    ? (ru ? "ЗАБРАТЬ POINTS МАЙНЕРОВ #2-#10" : "CLAIM MINERS #2-#10 POINTS")
+                    : (ru ? "ЗАБРАТЬ POINTS NFT" : "CLAIM NFT POINTS")}
             </button>
           </div>
           {!isBaseApp && deployed && (

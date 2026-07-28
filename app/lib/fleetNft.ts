@@ -7,7 +7,9 @@ export type FleetState = {
   pointsPerHour: number;
   claimablePoints: number;
   nextPrice: number;
+  maxUpgradePrice?: number;
   maxed: boolean;
+  unlocked?: boolean;
 };
 
 export const EMPTY_FLEET_STATE: FleetState = {
@@ -17,7 +19,9 @@ export const EMPTY_FLEET_STATE: FleetState = {
   pointsPerHour: 0,
   claimablePoints: 0,
   nextPrice: 500_000,
+  maxUpgradePrice: 28_100_000,
   maxed: false,
+  unlocked: false,
 };
 
 export function parseFleetState(value: unknown): FleetState | null {
@@ -91,6 +95,8 @@ export const EMPTY_MULTI_FLEET_STATE: MultiFleetState = {
 export function canUnlockNextSlot(slots: FleetState[], slotIndex: number): boolean {
   if (slotIndex === 0) return true; // Slot #1 is always available
   if (slotIndex >= MAX_MINER_SLOTS) return false;
+  const target = slots[slotIndex];
+  if (typeof target?.unlocked === "boolean") return target.unlocked;
   // Slot N requires Slot N-1 to be maxed (tier 3, level 3)
   const prev = slots[slotIndex - 1];
   if (!prev) return false;

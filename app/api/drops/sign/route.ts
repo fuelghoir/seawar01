@@ -190,7 +190,7 @@ async function getClaimCandidate(
 
   const reward = await supabase
     .from("creator_rewards")
-    .select("id,wallet,reward_kind,status,amount_raw,token_address")
+    .select("id,wallet,reward_kind,status,amount_raw,token_address,reward_label")
     .eq("id", creatorRewardId)
     .eq("wallet", wallet)
     .maybeSingle();
@@ -199,6 +199,9 @@ async function getClaimCandidate(
   }
   if (!reward.data) {
     return { error: "No creator reward for this wallet", status: 404 };
+  }
+  if (reward.data.reward_label === "Easter Egg Grand Prize") {
+    return { error: "Easter Egg USDC rewards are disabled", status: 403 };
   }
   if (reward.data.status !== "claimable") {
     return { error: "Creator reward is not claimable", status: 403 };

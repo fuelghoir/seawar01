@@ -40,7 +40,12 @@ export async function GET(req: NextRequest) {
       : row.drop_campaigns;
     return campaign?.status === "active";
   });
-  const activeCreatorRewards = await filterUnclaimedCreatorRewards(wallet, creatorRewards.data ?? []);
+  const activeCreatorRewards = await filterUnclaimedCreatorRewards(
+    wallet,
+    (creatorRewards.data ?? []).filter(
+      (reward) => reward.reward_label !== "Easter Egg Grand Prize",
+    ),
+  );
 
   return NextResponse.json({
     allocations: [
