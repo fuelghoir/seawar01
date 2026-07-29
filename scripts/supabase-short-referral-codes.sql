@@ -104,7 +104,7 @@ begin
     now(),
     now()
   )
-  on conflict (code) do update
+  on conflict on constraint referral_codes_pkey do update
   set is_primary = true,
       created_by = coalesce(excluded.created_by, existing.created_by),
       updated_at = now()

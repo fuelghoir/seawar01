@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { adminSupabase, requireAdminSession } from "../../../lib/adminAuth";
 import {
   normalizeReferralCode,
@@ -41,13 +42,23 @@ export async function POST(req: NextRequest) {
     if (!wallet) return jsonError("Invalid referral wallet", 400);
     if (!code) return jsonError("Use 3-32 lowercase letters, numbers, _ or -", 400);
 
-    const { data, error } = await adminSupabase().rpc("set_primary_referral_code", {
+    const admin = adminSupabase();
+    const { data, error } = await admin.rpc("set_primary_referral_code", {
       p_wallet: wallet,
       p_code: code,
       p_created_by: session.address,
     });
     if (error) {
       if (error.code === "23505") return jsonError("Referral code is already assigned", 409);
+      if (shouldUseDirectFallback(error)) {
+        const entry = await setPrimaryReferralCodeFallback(
+          admin,
+          wallet,
+          code,
+          session.address,
+        );
+        return NextResponse.json({ entry }, { headers: NO_STORE_HEADERS });
+      }
       throw error;
     }
 
@@ -73,7 +84,11 @@ function handleAdminError(error: unknown) {
     );
   }
 
-  const status = /admin login required/i.test(message) ? 401 : 500;
+  const status = /admin login required/i.test(message)
+    ? 401
+    : /already assigned/i.test(message)
+      ? 409
+      : 500;
   return jsonError(message, status);
 }
 
@@ -87,6 +102,80 @@ function readError(error: unknown) {
     };
   }
   return { code: "", message: "Referral code request failed" };
+}
+
+function shouldUseDirectFallback(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42702" ||
+    error.code === "PGRST202" ||
+    /column reference.*code.*ambiguous|set_primary_referral_code.*schema cache/i.test(
+      error.message ?? "",
+    )
+  );
+}
+
+async function setPrimaryReferralCodeFallback(
+  admin: SupabaseClient,
+  wallet: string,
+  code: string,
+  createdBy: string,
+) {
+  const columns = "code,wallet,is_primary,created_by,created_at,updated_at";
+  const { data: existing, error: existingError } = await admin
+    .from("referral_codes")
+    .select(columns)
+    .eq("code", code)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing && existing.wallet !== wallet) {
+    throw new Error("Referral code is already assigned");
+  }
+
+  const { data: previousPrimary, error: previousError } = await admin
+    .from("referral_codes")
+    .select(columns)
+    .eq("wallet", wallet)
+    .eq("is_primary", true)
+    .maybeSingle();
+  if (previousError) throw previousError;
+
+  if (previousPrimary && previousPrimary.code !== code) {
+    const { error: demoteError } = await admin
+      .from("referral_codes")
+      .update({ is_primary: false, updated_at: new Date().toISOString() })
+      .eq("code", previousPrimary.code)
+      .eq("wallet", wallet);
+    if (demoteError) throw demoteError;
+  }
+
+  const now = new Date().toISOString();
+  const { data: entry, error: upsertError } = await admin
+    .from("referral_codes")
+    .upsert(
+      {
+        code,
+        wallet,
+        is_primary: true,
+        created_by: createdBy,
+        updated_at: now,
+      },
+      { onConflict: "code" },
+    )
+    .select(columns)
+    .single();
+
+  if (upsertError) {
+    if (previousPrimary && previousPrimary.code !== code) {
+      await admin
+        .from("referral_codes")
+        .update({ is_primary: true, updated_at: now })
+        .eq("code", previousPrimary.code)
+        .eq("wallet", wallet);
+    }
+    throw upsertError;
+  }
+
+  return entry;
 }
 
 function jsonError(error: string, status: number) {
