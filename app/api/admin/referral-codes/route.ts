@@ -60,9 +60,33 @@ export async function POST(req: NextRequest) {
 }
 
 function handleAdminError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Referral code request failed";
+  const { code, message } = readError(error);
+  if (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (code === "PGRST202" && /set_primary_referral_code/i.test(message)) ||
+    /referral_codes.*schema cache|set_primary_referral_code.*schema cache/i.test(message)
+  ) {
+    return jsonError(
+      "Short referral schema is not installed. Run scripts/supabase-short-referral-codes.sql in Supabase SQL Editor.",
+      503,
+    );
+  }
+
   const status = /admin login required/i.test(message) ? 401 : 500;
   return jsonError(message, status);
+}
+
+function readError(error: unknown) {
+  if (error instanceof Error) return { code: "", message: error.message };
+  if (error && typeof error === "object") {
+    const value = error as { code?: unknown; message?: unknown };
+    return {
+      code: typeof value.code === "string" ? value.code : "",
+      message: typeof value.message === "string" ? value.message : "Referral code request failed",
+    };
+  }
+  return { code: "", message: "Referral code request failed" };
 }
 
 function jsonError(error: string, status: number) {
