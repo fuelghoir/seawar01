@@ -7,6 +7,7 @@ const publicRoutes = [
   { path: "/season", priority: 0.9, changeFrequency: "daily" },
   { path: "/shop", priority: 0.86, changeFrequency: "daily" },
   { path: "/leaderboard", priority: 0.82, changeFrequency: "hourly" },
+  { path: "/stats", priority: 0.78, changeFrequency: "weekly" },
   { path: "/challenge", priority: 0.72, changeFrequency: "weekly" },
 ] as const;
 

@@ -10,3 +10,5 @@ cloudflared*.*
 /contracts/
 docs/
 promo-screenshots/
+/deliverables/
+/.next-stale-*/

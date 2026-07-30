@@ -15,7 +15,11 @@ export const farcasterConfig = {
     name: "Sea Battle",
     subtitle: "Onchain Battleship with friends",
     description: "Classic Battleship game on Base. Every shot is an onchain transaction. Create a game, share with a friend, place ships, fire!",
-    screenshotUrls: [`${ROOT_URL}/hero.png`],
+    screenshotUrls: [
+      `${ROOT_URL}/app-screenshots/01-home.png`,
+      `${ROOT_URL}/app-screenshots/02-game-modes.png`,
+      `${ROOT_URL}/app-screenshots/03-leaderboard.png`,
+    ],
     iconUrl: `${ROOT_URL}/icon.png`,
     splashImageUrl: `${ROOT_URL}/splash.png`,
     splashBackgroundColor: "#0A1628",

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "stats:grant": "node scripts/generate-grant-stats.mjs",
+    "capture:grant": "node scripts/capture-grant-assets.mjs",
+    "deck:grant": "node scripts/generate-grant-deck.mjs"
   },
   "dependencies": {
     "@base-org/account": "^2.5.3",
@@ -33,6 +36,8 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
+    "playwright-core": "^1.62.0",
+    "pptxgenjs": "^4.0.1",
     "solc": "^0.8.34",
     "typescript": "^5"
   }
