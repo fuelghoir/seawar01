@@ -197,51 +197,6 @@ const FrameChrome: React.FC = () => {
         style={{
           position: "absolute",
           left: 64,
-          top: 49,
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          color: C.ice,
-          fontSize: 15,
-          fontWeight: 700,
-          ...mono,
-        }}
-      >
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            display: "grid",
-            placeItems: "center",
-            color: C.void,
-            background: C.cyan,
-            clipPath:
-              "polygon(0 0, 76% 0, 100% 24%, 100% 100%, 0 100%)",
-            fontSize: 13,
-            letterSpacing: 0,
-          }}
-        >
-          SB
-        </span>
-        SEA BATTLE <span style={{color: C.muted}}>// BASE MAINNET</span>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          right: 66,
-          top: 60,
-          color: C.muted,
-          fontSize: 12,
-          fontWeight: 600,
-          ...mono,
-        }}
-      >
-        GRANT FILM · DATA THROUGH JUL 2026
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 64,
           right: 64,
           bottom: 49,
           height: 2,
@@ -419,7 +374,7 @@ const HeroScene: React.FC = () => {
   const glow = 0.5 + Math.sin(frame * 0.05) * 0.14;
 
   return (
-    <Scene duration={180} shade>
+    <Scene duration={150} shade>
       <Img
         src={asset("grant-video/app-desktop.png")}
         style={{
@@ -623,7 +578,7 @@ const ProductScene: React.FC = () => {
   const phone = useReveal(12, 80);
   const phoneY = interpolate(frame, [0, 210], [-30, 12], clamp);
   return (
-    <Scene duration={210}>
+    <Scene duration={180}>
       <div style={{position: "absolute", left: 132, top: 152, width: 930}}>
         <Kicker color={C.aqua}>ONE PRODUCT · THREE WAYS TO PLAY</Kicker>
         <h2
@@ -764,7 +719,7 @@ const TractionScene: React.FC = () => {
   const frame = useCurrentFrame();
   const bgScale = interpolate(frame, [0, 270], [1.06, 1.015], clamp);
   return (
-    <Scene duration={270}>
+    <Scene duration={210}>
       <Img
         src={asset("grant-video/stats-hero.png")}
         style={{
@@ -863,7 +818,7 @@ const JulyScene: React.FC = () => {
   const pulse = 0.72 + Math.sin(frame * 0.065) * 0.18;
 
   return (
-    <Scene duration={210}>
+    <Scene duration={180}>
       <div style={{position: "absolute", left: 132, top: 158}}>
         <Kicker color={C.violet}>JULY 2026 · THE CLEAR NUMBER</Kicker>
       </div>
@@ -1006,7 +961,7 @@ const GrowthScene: React.FC = () => {
     easing: Easing.out(Easing.cubic),
   });
   return (
-    <Scene duration={240}>
+    <Scene duration={180}>
       <div style={{position: "absolute", left: 132, right: 132, top: 142}}>
         <Kicker color={C.aqua}>MONTHLY GAMES · APR → JUL</Kicker>
         <div
@@ -1215,7 +1170,7 @@ const EconomyScene: React.FC = () => {
   const shot = useReveal(10, 80);
   const floatY = Math.sin(frame * 0.035) * 9;
   return (
-    <Scene duration={240}>
+    <Scene duration={180}>
       <div
         style={{
           ...shot,
@@ -1400,7 +1355,7 @@ const CommunityScene: React.FC = () => {
   });
   const tokenX = 224 + pathProgress * 1410;
   return (
-    <Scene duration={180}>
+    <Scene duration={150}>
       <div style={{position: "absolute", left: 132, right: 132, top: 155}}>
         <Kicker color={C.coral}>THE COMMUNITY LOOP</Kicker>
         <div
@@ -1608,7 +1563,7 @@ const GrantScene: React.FC = () => {
     easing: Easing.out(Easing.cubic),
   });
   return (
-    <Scene duration={330}>
+    <Scene duration={300}>
       <div
         style={{
           position: "absolute",
@@ -1754,7 +1709,7 @@ const FinalScene: React.FC = () => {
     config: {damping: 22, stiffness: 120, mass: 1},
   });
   return (
-    <Scene duration={180}>
+    <Scene duration={240}>
       <Img
         src={asset("grant-video/app-desktop.png")}
         style={{
@@ -1851,31 +1806,31 @@ export const SeaBattleGrantFilm: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: C.void, color: C.ice}}>
       <AmbientGrid />
-      <Sequence from={0} durationInFrames={180}>
+      <Sequence from={0} durationInFrames={150}>
         <HeroScene />
       </Sequence>
-      <Sequence from={180} durationInFrames={210}>
+      <Sequence from={150} durationInFrames={180}>
         <ProductScene />
       </Sequence>
-      <Sequence from={390} durationInFrames={270}>
+      <Sequence from={330} durationInFrames={210}>
         <TractionScene />
       </Sequence>
-      <Sequence from={660} durationInFrames={210}>
+      <Sequence from={540} durationInFrames={180}>
         <JulyScene />
       </Sequence>
-      <Sequence from={870} durationInFrames={240}>
+      <Sequence from={720} durationInFrames={180}>
         <GrowthScene />
       </Sequence>
-      <Sequence from={1110} durationInFrames={240}>
+      <Sequence from={900} durationInFrames={180}>
         <EconomyScene />
       </Sequence>
-      <Sequence from={1350} durationInFrames={180}>
+      <Sequence from={1080} durationInFrames={150}>
         <CommunityScene />
       </Sequence>
-      <Sequence from={1530} durationInFrames={330}>
+      <Sequence from={1230} durationInFrames={300}>
         <GrantScene />
       </Sequence>
-      <Sequence from={1860} durationInFrames={180}>
+      <Sequence from={1530} durationInFrames={240}>
         <FinalScene />
       </Sequence>
       <FrameChrome />

@@ -64,7 +64,7 @@ on July 30, 2026:
 3. Connect a wallet only if you want to test a transaction.
 4. Open the [statistics dashboard](https://seabattle.top/stats) to review the
    evidence and methodology.
-5. Watch the [68-second grant film](https://seabattle.top/grant-video/sea-battle-base-grant-film.mp4).
+5. Watch the [59-second grant film](https://seabattle.top/grant-video/sea-battle-base-grant-film.mp4).
 6. Inspect the main contract on
    [BaseScan](https://basescan.org/address/0x8de75fbc38b1e47e53fb2e85791c935f5f653aa6).
 
@@ -265,7 +265,7 @@ as historical migration records.
 
 [![Watch the Sea Battle grant film](public/grant-video/sea-battle-grant-preview.jpg)](https://seabattle.top/grant-video/sea-battle-base-grant-film.mp4)
 
-- [Public 68-second grant film](https://seabattle.top/grant-video/sea-battle-base-grant-film.mp4)
+- [Public 59-second grant film](https://seabattle.top/grant-video/sea-battle-base-grant-film.mp4)
 - [Home screenshot](public/app-screenshots/01-home.png)
 - [Game-mode screenshot](public/app-screenshots/02-game-modes.png)
 - [Leaderboard screenshot](public/app-screenshots/03-leaderboard.png)

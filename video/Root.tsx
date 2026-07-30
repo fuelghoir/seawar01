@@ -3,7 +3,7 @@ import {Composition} from "remotion";
 import {SeaBattleGrantFilm} from "./SeaBattleGrantFilm";
 
 export const VIDEO_FPS = 30;
-export const VIDEO_DURATION = 2040;
+export const VIDEO_DURATION = 1770;
 
 export const VideoRoot: React.FC = () => {
   return (
