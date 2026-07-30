@@ -4,8 +4,24 @@ import { chromium } from "playwright-core";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const outputRoot = path.join(projectRoot, "deliverables", "screenshots");
-const chromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const baseUrl = process.env.CAPTURE_BASE_URL || "http://localhost:3000";
+const chromeCandidates = [
+  process.env.CHROME_EXECUTABLE_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+].filter(Boolean);
+const chromeExecutable = chromeCandidates.find((candidate) => fs.existsSync(candidate));
+
+if (!chromeExecutable) {
+  throw new Error(
+    "Google Chrome or Chromium was not found. Set CHROME_EXECUTABLE_PATH to the browser executable."
+  );
+}
 
 fs.mkdirSync(outputRoot, { recursive: true });
 

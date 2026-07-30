@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
+dotenv.config({ path: path.join(projectRoot, ".env.local") });
 dotenv.config({ path: path.join(projectRoot, ".env") });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

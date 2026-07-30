@@ -1,7 +1,11 @@
 {
-  "name": "new-mini-app-quickstart",
-  "version": "0.1.0",
+  "name": "sea-battle-on-base",
+  "version": "1.0.0",
+  "description": "Production onchain Battleship game and Base Mini App.",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
