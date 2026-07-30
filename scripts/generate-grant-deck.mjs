@@ -457,7 +457,7 @@ function addPill(slide, text, x, y, w, color = C.aqua) {
     [9.81, 2.38, 2.84, `${stats.headline.completionRatePct}%`, "Completion rate", "Finished / all game records", C.aqua],
     [0.72, 4.32, 2.84, stats.headline.latestMau, "Tracked MAU", "Full product-event footprint", C.cyan],
     [3.75, 4.32, 2.84, stats.headline.latestCoreMau, "Core-action MAU", "Game, economy, quest, social", C.aqua],
-    [6.78, 4.32, 2.84, stats.headline.latestGamePlayers, "July game players", "Wallets in game records", C.violet],
+    [6.78, 4.32, 2.84, fmt(stats.acquisition.monthly.at(-1).games), "Games in July", `${stats.headline.latestGamePlayers} unique player wallets`, C.violet],
     [9.81, 4.32, 2.84, `+${stats.headline.latestMauGrowthPct}%`, "Tracked MoM growth", "June → July", C.coral],
   ];
   for (const [x, y, w, value, label, detail, color] of metrics) {
@@ -474,7 +474,7 @@ function addPill(slide, text, x, y, w, color = C.aqua) {
   addTitle(
     slide,
     "The activity signal accelerated in July.",
-    "Tracked MAU rose from 30 in April to 255 in July. We keep broad activity, core actions, and direct game players separate."
+    "Tracked MAU rose from 30 in April to 255 in July. We keep broad activity, core actions, and unique wallets recorded in games separate."
   );
   addPanel(slide, 0.72, 2.35, 8.15, 3.85);
   const months = stats.acquisition.monthly;
@@ -535,7 +535,7 @@ function addPill(slide, text, x, y, w, color = C.aqua) {
   const side = [
     ["255", "Tracked MAU", "All attributable product events", C.cyan],
     ["70", "Core-action MAU", "Strict actions only", C.aqua],
-    ["62", "Game players", "Present in July game records", C.violet],
+    [fmt(stats.acquisition.monthly.at(-1).games), "Games in July", `${stats.headline.latestGamePlayers} unique player wallets`, C.violet],
     ["96.9%", "MoM return", "94 of 97 June wallets", C.coral],
   ];
   side.forEach(([value, label, detail, color], index) => {
@@ -605,9 +605,9 @@ function addPill(slide, text, x, y, w, color = C.aqua) {
     {
       y: 4.8,
       w: 6.35,
-      value: "62",
-      title: "JULY GAME PLAYERS",
-      detail: "Human wallets directly present in July production game records.",
+      value: String(stats.headline.latestGamePlayers),
+      title: "UNIQUE JULY PLAYER WALLETS",
+      detail: `${fmt(stats.acquisition.monthly.at(-1).games)} games were recorded across these human wallets in July.`,
       color: C.violet,
     },
   ];

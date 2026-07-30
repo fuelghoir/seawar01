@@ -9,7 +9,10 @@
     "lint": "next lint",
     "stats:grant": "node scripts/generate-grant-stats.mjs",
     "capture:grant": "node scripts/capture-grant-assets.mjs",
-    "deck:grant": "node scripts/generate-grant-deck.mjs"
+    "deck:grant": "node scripts/generate-grant-deck.mjs",
+    "video:preview": "remotion studio video/index.ts",
+    "video:still": "remotion still video/index.ts SeaBattleGrantFilm deliverables/Sea_Battle_Base_Grant_preview.png --frame=735",
+    "video:render": "remotion render video/index.ts SeaBattleGrantFilm deliverables/Sea_Battle_Base_Grant_Film.mp4 --codec=h264 --crf=18 --concurrency=4"
   },
   "dependencies": {
     "@base-org/account": "^2.5.3",
@@ -28,8 +31,11 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/space-grotesk": "^5.2.8",
     "@next/eslint-plugin-next": "^15.3.4",
     "@react-native-async-storage/async-storage": "^1.24.0",
+    "@remotion/cli": "4.0.502",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -38,7 +44,9 @@
     "eslint-config-next": "15.3.4",
     "playwright-core": "^1.62.0",
     "pptxgenjs": "^4.0.1",
+    "remotion": "4.0.502",
     "solc": "^0.8.34",
-    "typescript": "^5"
+    "typescript": "^5",
+    "zod": "4.4.3"
   }
 }

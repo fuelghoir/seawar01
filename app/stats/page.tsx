@@ -54,6 +54,7 @@ function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
   const areaPath = coordinates.length
     ? `${path} L ${coordinates.at(-1)?.x} ${height - insetY} L ${coordinates[0].x} ${height - insetY} Z`
     : "";
+  const latest = points.at(-1);
 
   return (
     <div className={styles.chartShell}>
@@ -108,7 +109,10 @@ function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
       <div className={styles.chartLegend}>
         <span><i className={styles.legendTracked} />Tracked activity</span>
         <span><i className={styles.legendCore} />Core actions: {stats.headline.latestCoreMau}</span>
-        <span><i className={styles.legendPlayers} />Game players: {stats.headline.latestGamePlayers}</span>
+        <span>
+          <i className={styles.legendPlayers} />
+          July: {formatNumber(latest?.games ?? 0)} games · {latest?.gamePlayers ?? 0} unique player wallets
+        </span>
       </div>
     </div>
   );
@@ -302,9 +306,9 @@ export default function StatsPage() {
               <small>game, economy, quest, social, creator</small>
             </div>
             <div>
-              <span>JULY GAME PLAYERS</span>
-              <strong>{stats.acquisition.latestGamePlayers}</strong>
-              <small>wallets present in game records</small>
+              <span>JULY GAMES</span>
+              <strong>{formatNumber(july?.games ?? 0)}</strong>
+              <small>{july?.gamePlayers} unique player wallets</small>
             </div>
             <div>
               <span>JUNE → JULY RETURN</span>
@@ -321,7 +325,7 @@ export default function StatsPage() {
                 <th>New wallets</th>
                 <th>Tracked MAU</th>
                 <th>Core MAU</th>
-                <th>Game players</th>
+                <th>Unique player wallets</th>
                 <th>Games</th>
                 <th>Completion</th>
               </tr>
