@@ -1277,6 +1277,8 @@ export default function ShopPage() {
     });
   };
 
+  const pieceUnit = (quantity: number) =>
+    lang === "ru" ? "ШТ." : quantity === 1 ? "PC" : "PCS";
   const buyBtnLabel = buying
     ? approvePending
       ? tr.shop_bomb_approve
@@ -1285,7 +1287,9 @@ export default function ShopPage() {
         : bombTargetQtyRef.current > 1
           ? `${tr.shop_bomb_buying} ${bombBoughtQty}/${bombTargetQtyRef.current}`
           : tr.shop_bomb_buying
-    : tr.shop_bomb_buy;
+    : lang === "ru"
+      ? `КУПИТЬ ${bombQuantity} ${pieceUnit(bombQuantity)}`
+      : `BUY ${bombQuantity} ${pieceUnit(bombQuantity)}`;
   const currentSeasonLevel = Math.min(season?.level ?? 0, SEASON_MAX_LEVEL);
   const currentSeasonXp = season?.xp ?? 0;
   const nextSeasonXp = season?.nextLevelXp ?? null;
@@ -1508,14 +1512,14 @@ export default function ShopPage() {
                         }`}
                       >
                         <span className={styles.itemQty}>
-                          <StarIcon size={12} />
-                          {tr.shop_owned} {ownedQty}
+                          <span>{lang === "ru" ? "ИНВЕНТАРЬ" : "INVENTORY"}</span>
+                          <b>{ownedQty} {pieceUnit(ownedQty)}</b>
                         </span>
 
                         <div className={styles.itemActions}>
                           {item.enabled && allowMany && (
                             <label className={styles.quantityControl}>
-                              <span>{lang === "ru" ? "К-во" : "Qty"}</span>
+                              <span>{lang === "ru" ? "ШТ." : "PCS"}</span>
                               <input
                                 type="number"
                                 min={1}
@@ -1580,7 +1584,7 @@ export default function ShopPage() {
                   <TrophyIcon size={24} />
                 </span>
                 <div className={styles.cardInfo}>
-                  <h2 className={styles.cardTitle}>{tr.shop_season} S1</h2>
+                  <h2 className={styles.cardTitle}>{tr.shop_season} {season?.seasonKey ?? "S2"}</h2>
                   <p className={styles.cardDesc}>{tr.shop_season_desc}</p>
                 </div>
                 <span className={styles.price}>{tr.shop_level} {currentSeasonLevel}/{SEASON_MAX_LEVEL}</span>
@@ -1911,12 +1915,11 @@ export default function ShopPage() {
 
               <div className={styles.inventoryRow}>
                 <div className={styles.inventoryInfo}>
-                  <span className={styles.inventoryLabel}>{tr.shop_bomb_inventory}</span>
+                  <span className={styles.inventoryLabel}>
+                    {lang === "ru" ? "ИНВЕНТАРЬ" : "INVENTORY"}
+                  </span>
                   <span className={styles.inventoryValue}>
-                    {available}
-                    <span className={styles.inventoryUnit}>
-                      {" "}{available === 1 ? tr.bomb_unit_one : tr.bomb_unit_many}
-                    </span>
+                    {available} {pieceUnit(available)}
                   </span>
                 </div>
                 <div className={styles.bombStepper}>
@@ -1928,7 +1931,8 @@ export default function ShopPage() {
                     aria-label="Decrease quantity"
                   >-</button>
                   <span className={styles.stepperValue}>
-                    {lang === "ru" ? "К-ВО:" : "QTY:"} <b>{bombQuantity}</b>
+                    <small>{lang === "ru" ? "КУПИТЬ" : "BUY"}</small>
+                    <b>{bombQuantity} {pieceUnit(bombQuantity)}</b>
                   </span>
                   <button 
                     className={styles.stepperBtn} 

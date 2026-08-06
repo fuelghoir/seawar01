@@ -299,7 +299,7 @@
 }
 
 .tableHeaderSeason,
-.rowSeason {
+.row.rowSeason {
   grid-template-columns: 34px minmax(0, 1fr) minmax(82px, 96px);
 }
 
@@ -556,6 +556,52 @@
 .airdropPoolBlock > * {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Desktop leaderboard reuses the exact compact miner plate from Home's left rail. */
+@media (min-width: 721px) {
+  .airdropMinerBlock {
+    width: min(252px, 100%);
+  }
+
+  .airdropMinerBlock :global([class*="summaryStack"]) {
+    gap: 6px !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerCard"]) {
+    min-height: 128px !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerGlow"]) {
+    width: 90px !important;
+    height: 90px !important;
+    top: -10px !important;
+    right: -10px !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerShip"]) {
+    width: 58% !important;
+    right: -5px !important;
+    top: 12px !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerCopy"]) h2 {
+    margin: 2px 0 1px !important;
+    font-size: 11px !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerCopy"]) p {
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+  }
+
+  .airdropMinerBlock :global([class*="minerCard"]) button {
+    min-height: 26px !important;
+    margin-top: 6px !important;
+    font-size: 8px !important;
+  }
 }
 
 @media (max-width: 720px) {

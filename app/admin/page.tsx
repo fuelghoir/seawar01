@@ -218,7 +218,7 @@ export default function AdminPage() {
 
   // Drops tokens state
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([]);
-  const [seasonEndDate, setSeasonEndDate] = useState("2026-07-18T00:00");
+  const [seasonEndDate, setSeasonEndDate] = useState("2026-08-26T00:00");
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
   const [seasonKey, setSeasonKey] = useState("S1");
   const [bpSeasonKey, setBpSeasonKey] = useState("S1");
@@ -308,7 +308,7 @@ export default function AdminPage() {
           const localVal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
           setSeasonEndDate(localVal);
         } catch {
-          setSeasonEndDate("2026-07-18T00:00");
+          setSeasonEndDate("2026-08-26T00:00");
         }
         setSeasonIsEnded(!!seasonConfigData.isEnded);
         setSeasonKey(seasonConfigData.seasonKey || "S1");

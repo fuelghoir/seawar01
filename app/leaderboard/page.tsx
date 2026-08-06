@@ -72,7 +72,7 @@ export default function LeaderboardPage() {
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [page, setPage] = useState(1);
-  const [mode, setMode] = useState<"allTime" | "season">("allTime");
+  const [mode, setMode] = useState<"allTime" | "season">("season");
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -144,16 +144,16 @@ export default function LeaderboardPage() {
 
         <div className={styles.tabsContainer}>
           <button
-            className={`${styles.tabBtn} ${mode === "allTime" ? styles.tabActive : ""}`}
-            onClick={() => { setMode("allTime"); setPage(1); }}
-          >
-            {tr.leaderboard_alltime || "All-Time"}
-          </button>
-          <button
             className={`${styles.tabBtn} ${mode === "season" ? styles.tabActive : ""}`}
             onClick={() => { setMode("season"); setPage(1); }}
           >
             {season?.isEnded ? (lang === "ru" ? "Скоро Сезон 2" : "Season 2 soon") : (tr.leaderboard_season || "Current Season")}
+          </button>
+          <button
+            className={`${styles.tabBtn} ${mode === "allTime" ? styles.tabActive : ""}`}
+            onClick={() => { setMode("allTime"); setPage(1); }}
+          >
+            {tr.leaderboard_alltime || "All-Time"}
           </button>
         </div>
 
@@ -290,7 +290,7 @@ export default function LeaderboardPage() {
             <small>{lang === "ru" ? "\u041f\u0443\u043b \u0438 \u043c\u0430\u0439\u043d\u0435\u0440 \u0444\u043b\u043e\u0442\u0430" : "Pool and fleet miner"}</small>
           </div>
           <div className={styles.airdropPoolBlock}>
-            <SeasonPoolCard variant="wide" address={address} showEstimate />
+            <SeasonPoolCard variant="wide" address={address} />
           </div>
           <div className={styles.airdropMinerBlock}>
             <FleetMinerSummary

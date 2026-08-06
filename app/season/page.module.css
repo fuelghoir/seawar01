@@ -8,11 +8,27 @@
 }
 
 .header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: 18px;
   margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(100deg, rgba(var(--accent-rgb), 0.09), transparent 38%),
+    rgba(4, 15, 25, 0.94);
+}
+
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #ff516d, #ffd06a 44%, #00d4ff);
 }
 
 .back {
@@ -37,15 +53,15 @@
 
 .titleBlock {
   min-width: 0;
-  max-width: 760px;
-  text-align: right;
+  max-width: 780px;
+  text-align: left;
 }
 
 .titleBlock span,
 .dropHead span,
 .connectPanel span,
 .rewardsTop span,
-.claimStrip span,
+.claimStrip > div > span,
 .status {
   color: #ffd06a;
   font-family: var(--font-orbitron), "Orbitron", monospace;
@@ -91,12 +107,12 @@
 .rewards {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 200, 80, 0.24);
-  border-radius: 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 12px;
   background:
-    radial-gradient(circle at 86% 12%, rgba(255, 200, 80, 0.14), transparent 34%),
-    radial-gradient(circle at 16% 92%, rgba(var(--accent-rgb), 0.08), transparent 40%),
-    linear-gradient(145deg, rgba(24, 17, 8, 0.94), rgba(5, 9, 18, 0.98));
+    radial-gradient(circle at 86% 12%, rgba(0, 212, 255, 0.1), transparent 34%),
+    radial-gradient(circle at 16% 92%, rgba(255, 208, 106, 0.07), transparent 40%),
+    linear-gradient(145deg, rgba(6, 24, 36, 0.96), rgba(3, 10, 18, 0.99));
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.055);
 }
 
@@ -159,7 +175,6 @@
 }
 
 .dropButton:disabled,
-.claimAll:disabled,
 .levelClaim:disabled {
   cursor: not-allowed;
   opacity: 1;
@@ -169,7 +184,6 @@
 }
 
 .dropButton:disabled svg,
-.claimAll:disabled svg,
 .levelClaim:disabled svg {
   color: #241601;
   opacity: 0.92;
@@ -239,7 +253,19 @@
 }
 
 .rewards {
-  padding: 16px;
+  padding: 18px;
+  border-color: rgba(var(--accent-rgb), 0.28);
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.075), transparent 34%),
+    linear-gradient(180deg, rgba(6, 24, 36, 0.98), rgba(3, 10, 18, 0.995));
+}
+
+.rewards::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #ffd06a 58%, transparent);
 }
 
 .rewardsTop,
@@ -249,6 +275,15 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.rewardsTop {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.14);
+}
+
+.passIdentity {
+  min-width: 0;
 }
 
 .rewardsTop h2 {
@@ -262,21 +297,49 @@
 
 .levelPill {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 200, 80, 0.2);
-  border-radius: 999px;
-  padding: 8px 10px;
-  color: #ffd06a;
-  background: rgba(255, 200, 80, 0.08);
-  font-size: 12px;
+  min-width: 138px;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: end;
+  justify-content: end;
+  gap: 0 5px;
+  border-left: 2px solid #ffd06a;
+  padding: 6px 0 6px 14px;
+  background: linear-gradient(90deg, rgba(255, 208, 106, 0.08), transparent);
+  text-align: right;
+}
+
+.levelPill span {
+  grid-column: 1 / -1;
+  color: rgba(226, 242, 255, 0.54);
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.levelPill strong {
+  color: #fff2bf;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.levelPill small {
+  align-self: end;
+  padding-bottom: 2px;
+  color: rgba(226, 242, 255, 0.48);
+  font-size: 11px;
   font-weight: 900;
 }
 
 .progressPanel {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px solid rgba(var(--accent-rgb), 0.16);
-  border-radius: 8px;
-  background: rgba(var(--accent-rgb), 0.05);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.045);
 }
 
 .progressTop {
@@ -308,9 +371,11 @@
 .claimStrip {
   margin-bottom: 12px;
   padding: 12px;
-  border: 1px solid rgba(255, 200, 80, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 200, 80, 0.055);
+  border: 1px solid rgba(255, 208, 106, 0.22);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(255, 208, 106, 0.09), transparent 54%),
+    rgba(0, 0, 0, 0.18);
 }
 
 .claimStrip strong {
@@ -322,9 +387,30 @@
 }
 
 .claimAll {
-  min-height: 38px;
-  min-width: 138px;
-  padding: 0 14px;
+  min-height: 44px;
+  min-width: 178px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 242, 181, 0.78);
+  color: #160f03;
+  box-shadow: 0 0 18px rgba(255, 200, 80, 0.16);
+}
+
+.claimAll > span {
+  color: inherit;
+}
+
+.claimAll:disabled {
+  border-color: rgba(139, 169, 184, 0.22);
+  background: #081824;
+  color: #8ba9b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.claimAll:disabled svg {
+  color: #8ba9b8;
+  opacity: 0.8;
 }
 
 .status {
@@ -336,7 +422,77 @@
   color: #ff6b81;
 }
 
+.trackHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+
+.trackHead > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.trackHead > div > span {
+  color: #63e5ff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.trackHead strong {
+  color: rgba(234, 246, 255, 0.82);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.trackToggle {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 6px;
+  padding: 0 12px;
+  background: rgba(var(--accent-rgb), 0.07);
+  color: #83eaff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.trackToggle:hover {
+  border-color: rgba(var(--accent-rgb), 0.62);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.trackToggle:focus-visible,
+.claimAll:focus-visible,
+.levelClaim:focus-visible {
+  outline: 2px solid #83eaff;
+  outline-offset: 2px;
+}
+
+.trackToggleIcon,
+.trackToggleIconOpen {
+  transition: transform 180ms ease;
+}
+
+.trackToggleIconOpen {
+  transform: rotate(90deg);
+}
+
 .levels {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 9px;
@@ -345,7 +501,7 @@
 .level {
   position: relative;
   min-width: 0;
-  min-height: 152px;
+  min-height: 158px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -353,20 +509,20 @@
   overflow: hidden;
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 6px;
   background:
-    radial-gradient(circle at 50% 42%, rgba(var(--accent-rgb), 0.09), transparent 42%),
-    rgba(255, 255, 255, 0.026);
+    radial-gradient(circle at 50% 42%, rgba(var(--accent-rgb), 0.075), transparent 42%),
+    rgba(3, 14, 23, 0.82);
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.18);
 }
 
 .level::before {
   content: "";
   position: absolute;
-  inset: 1px 1px auto;
-  height: 34px;
-  border-radius: 7px 7px 14px 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent);
+  inset: 0 0 auto;
+  height: 3px;
+  border-radius: 0;
+  background: rgba(139, 169, 184, 0.22);
   pointer-events: none;
 }
 
@@ -375,9 +531,33 @@
   background: rgba(255, 200, 80, 0.09);
 }
 
+.ready::before {
+  background: #ffd06a;
+  box-shadow: 0 0 12px rgba(255, 208, 106, 0.3);
+}
+
 .claimed {
   border-color: rgba(74, 222, 128, 0.3);
   background: rgba(74, 222, 128, 0.055);
+}
+
+.claimed::before {
+  background: #3df2b1;
+}
+
+.current {
+  border-color: rgba(0, 212, 255, 0.68);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(0, 212, 255, 0.16), transparent 46%),
+    rgba(3, 20, 31, 0.94);
+  box-shadow:
+    inset 0 0 22px rgba(0, 212, 255, 0.07),
+    0 0 18px rgba(0, 212, 255, 0.11);
+}
+
+.current::before {
+  background: #00d4ff;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.4);
 }
 
 .levelMeta {
@@ -391,6 +571,7 @@
 
 .levelMeta b {
   color: #fff;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
   font-size: 12px;
   font-weight: 900;
 }
@@ -447,6 +628,7 @@
   line-height: 1.18;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  margin: 0;
 }
 
 .levelStatus {
@@ -487,18 +669,25 @@
     padding: 16px 0 calc(96px + env(safe-area-inset-bottom));
   }
 
-  .header,
   .connectPanel,
-  .rewardsTop,
-  .claimStrip,
-  .progressTop {
+  .claimStrip {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .header {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .back {
+    justify-self: start;
+  }
+
   .titleBlock {
     max-width: none;
-    text-align: center;
+    text-align: left;
   }
 
   .titleBlock h1 {
@@ -550,15 +739,13 @@
 
   .rewardsTop {
     align-items: center;
-    text-align: center;
+    flex-direction: row;
+    text-align: left;
   }
 
   .levelPill {
-    width: 100%;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    width: auto;
+    min-height: 58px;
   }
 
   .progressPanel,
@@ -566,13 +753,13 @@
     padding: 14px;
   }
 
-  .progressTop,
   .claimStrip {
     align-items: center;
     text-align: center;
   }
 
   .progressTop {
+    flex-wrap: wrap;
     gap: 5px;
   }
 
@@ -590,17 +777,40 @@
 
   .levels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 }
 
 @media (max-width: 520px) {
-  .levels {
-    grid-template-columns: 1fr;
+  .rewards {
+    padding: 12px;
   }
 
   .level {
-    min-height: 190px;
-    padding: 14px;
+    min-height: 158px;
+    padding: 10px 8px;
+  }
+
+  .rewardsTop h2 {
+    font-size: 18px;
+  }
+
+  .levelPill {
+    min-width: 104px;
+    padding-left: 10px;
+  }
+
+  .levelPill strong {
+    font-size: 24px;
+  }
+
+  .trackHead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trackToggle {
+    width: 100%;
   }
 
   .levelClaim {

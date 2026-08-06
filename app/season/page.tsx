@@ -57,6 +57,7 @@ export default function SeasonPage() {
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [seasonError, setSeasonError] = useState("");
   const [seasonMsg, setSeasonMsg] = useState("");
+  const [rewardsExpanded, setRewardsExpanded] = useState(false);
   const [claimingSeasonLevels, setClaimingSeasonLevels] = useState<number[]>([]);
   const [seasonClaimFallbackMined, setSeasonClaimFallbackMined] = useState(false);
   const seasonClaimLevelsRef = useRef<number[]>([]);
@@ -69,7 +70,7 @@ export default function SeasonPage() {
         // ignore
       }
     }
-    return Date.UTC(2026, 6, 18, 0, 0, 0);
+    return Date.UTC(2026, 7, 26, 0, 0, 0);
   }, [season?.endDate]);
 
   const countdown = useCountdown(targetMs);
@@ -311,14 +312,30 @@ export default function SeasonPage() {
   const seasonClaimBusy = claimingSeasonLevels.length > 0 || seasonClaimPending;
   const dropReady = countdown.remainingMs <= 0;
   const connectPending = connectStatus === "pending";
+  const activeSeasonKey = season?.seasonKey ?? "S2";
+  const focusedRewardIndex = Math.max(0, Math.min(seasonLevels.length - 1, nextSeasonLevel - 1));
+  const rewardWindowSize = 10;
+  const rewardWindowStart = Math.min(
+    Math.max(0, focusedRewardIndex - 2),
+    Math.max(0, seasonLevels.length - rewardWindowSize)
+  );
+  const visibleSeasonLevels = rewardsExpanded
+    ? seasonLevels
+    : seasonLevels.slice(rewardWindowStart, rewardWindowStart + rewardWindowSize);
+  const visibleRewardStart = visibleSeasonLevels[0]?.level ?? 0;
+  const visibleRewardEnd = visibleSeasonLevels[visibleSeasonLevels.length - 1]?.level ?? 0;
 
   const claimAllLabel = seasonClaimBusy
     ? seasonClaimPending
       ? tr.shop_bomb_pending
       : tr.shop_claiming
-    : ru
-      ? "Получить все"
-      : "Claim all";
+    : !isConnected
+      ? ru ? "Подключить кошелек" : "Connect wallet"
+      : readySeasonRewards === 0
+        ? ru ? "Нет готовых наград" : "No rewards ready"
+        : ru
+          ? `Получить все · ${readySeasonRewards}`
+          : `Claim all · ${readySeasonRewards}`;
   const dropButtonLabel = dropReady
     ? ru
       ? "Клейм USDC дропа открыт"
@@ -336,7 +353,7 @@ export default function SeasonPage() {
           <span>{tr.back}</span>
         </Link>
         <div className={styles.titleBlock}>
-          <span>{ru ? "Battle Pass S1" : "Battle Pass S1"}</span>
+          <span>{`Battle Pass · ${activeSeasonKey}`}</span>
           <h1>{ru ? "Награды сезона" : "Season Rewards"}</h1>
           <p>
             {season?.isEnded 
@@ -351,7 +368,6 @@ export default function SeasonPage() {
           <SeasonPoolCard
             variant="wide"
             address={address}
-            showEstimate={!!address}
             clickable={false}
             endDate={season?.endDate}
           />
@@ -379,7 +395,7 @@ export default function SeasonPage() {
             <section className={styles.dropGate}>
               <div className={styles.dropHead}>
                 <span>{ru ? "USDC дроп" : "USDC drop"}</span>
-                <b>Jul 18, 2026 · 00:00 UTC</b>
+                <b>Aug 26, 2026 · 00:00 UTC</b>
               </div>
               <button className={styles.dropButton} type="button" disabled={true}>
                 <TrophyIcon size={16} />
@@ -425,12 +441,14 @@ export default function SeasonPage() {
 
       <section className={styles.rewards}>
         <div className={styles.rewardsTop}>
-          <div>
-            <span>{ru ? "Battle Pass" : "Battle Pass"}</span>
+          <div className={styles.passIdentity}>
+            <span>{`Battle Pass · ${activeSeasonKey}`}</span>
             <h2>{ru ? "Награды за уровни" : "Level rewards"}</h2>
           </div>
           <div className={styles.levelPill}>
-            {tr.shop_level} {currentSeasonLevel}/{SEASON_MAX_LEVEL}
+            <span>{ru ? "Текущий уровень" : "Current level"}</span>
+            <strong>{currentSeasonLevel}</strong>
+            <small>/ {SEASON_MAX_LEVEL}</small>
           </div>
         </div>
 
@@ -444,7 +462,13 @@ export default function SeasonPage() {
             <span>
               {nextSeasonXp
                 ? `${seasonXpToNext.toLocaleString()} ${tr.shop_xp_to_level} ${nextSeasonLevel}`
-                : ru ? "Сезон закрыт" : "Season complete"}
+                : currentSeasonLevel >= SEASON_MAX_LEVEL
+                  ? ru ? "Сезон закрыт" : "Season complete"
+                  : seasonLoading
+                    ? ru ? "Загружаем прогресс" : "Loading progress"
+                    : !isConnected
+                      ? ru ? "Подключите кошелек" : "Connect wallet to sync"
+                      : ru ? "Прогресс недоступен" : "Progress unavailable"}
             </span>
           </div>
           <div className={styles.progressBar}>
@@ -475,17 +499,48 @@ export default function SeasonPage() {
         {seasonError && <p className={`${styles.status} ${styles.error}`}>{seasonError}</p>}
         {seasonMsg && <p className={styles.status}>{seasonMsg}</p>}
 
-        <div className={styles.levels}>
-          {seasonLevels.map((level) => {
+        <div className={styles.trackHead}>
+          <div>
+            <span>{ru ? "Линия наград" : "Reward track"}</span>
+            <strong>
+              {rewardsExpanded
+                ? ru ? `Все ${SEASON_MAX_LEVEL} уровней` : `All ${SEASON_MAX_LEVEL} levels`
+                : ru
+                  ? `Уровни ${visibleRewardStart}–${visibleRewardEnd}`
+                  : `Levels ${visibleRewardStart}–${visibleRewardEnd}`}
+            </strong>
+          </div>
+          <button
+            className={styles.trackToggle}
+            type="button"
+            onClick={() => setRewardsExpanded((current) => !current)}
+            aria-expanded={rewardsExpanded}
+            aria-controls="season-reward-track"
+          >
+            <span>
+              {rewardsExpanded
+                ? ru ? "К текущему" : "Current window"
+                : ru ? "Все награды" : "All rewards"}
+            </span>
+            <ChevronRightIcon
+              className={rewardsExpanded ? styles.trackToggleIconOpen : styles.trackToggleIcon}
+              size={14}
+            />
+          </button>
+        </div>
+
+        <div className={styles.levels} id="season-reward-track">
+          {visibleSeasonLevels.map((level) => {
             const rewardKind: ItemArtKind =
               level.reward.kind === "item" ? level.reward.slug : "points";
             const active = claimingLevel === level.level;
+            const current = level.level === nextSeasonLevel;
             return (
               <article
                 key={level.level}
                 className={`${styles.level} ${
                   level.claimed ? styles.claimed : level.claimable ? styles.ready : ""
-                }`}
+                } ${current ? styles.current : ""}`}
               >
                 <div className={styles.levelMeta}>
                   <b>{tr.shop_level} {level.level}</b>

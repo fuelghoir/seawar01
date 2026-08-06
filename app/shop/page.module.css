@@ -3249,6 +3249,23 @@
   flex: 0 0 auto;
 }
 
+.seasonClaimAll span {
+  color: inherit;
+}
+
+.seasonClaimAll:disabled {
+  border-color: rgba(139, 169, 184, 0.24);
+  background: #081824;
+  color: #8ba9b8;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.seasonClaimAll:disabled svg {
+  color: #8ba9b8;
+  opacity: 0.8;
+}
+
 .seasonRewardsToggleIcon,
 .seasonRewardsToggleIconOpen {
   flex: 0 0 auto;
@@ -3773,5 +3790,159 @@
 
   .featuredItem[data-shop-item="double_points_1h"] .activateButton {
     grid-column: 1 / -1 !important;
+  }
+}
+
+/* Final inventory/card rhythm: keep art centered and counts unambiguous. */
+.itemQty {
+  gap: 7px;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+}
+
+.itemQty > span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.itemQty > b {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.inventoryValue {
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.stepperValue {
+  min-width: 94px;
+  display: grid;
+  gap: 2px;
+  place-items: center;
+}
+
+.stepperValue small {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+
+.stepperValue b {
+  margin-left: 0;
+  color: #fff2bf;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 1041px) {
+  .featuredItem .itemQty,
+  .featuredItemHero .itemQty {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    justify-items: start;
+    line-height: 1.05;
+  }
+
+  .featuredItemHero .itemBody {
+    top: auto;
+    bottom: 154px;
+    min-height: 100px;
+  }
+}
+
+@media (max-width: 720px) {
+  .featuredItem:not(.featuredItemHero) {
+    min-height: 350px !important;
+    padding-bottom: 82px;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemTopline {
+    top: 38px;
+    height: 108px;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemArt {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .featuredItem:not(.featuredItemHero) .itemBody {
+    top: 184px;
+    min-height: 70px;
+  }
+
+  .featuredItemHero {
+    min-height: 430px !important;
+    padding-bottom: 124px;
+  }
+
+  .featuredItemHero .itemTopline {
+    top: 46px;
+    height: 130px;
+  }
+
+  .featuredItemHero .itemArt {
+    width: 126px !important;
+    height: 126px !important;
+  }
+
+  .featuredItemHero .itemBody {
+    top: 222px;
+    bottom: auto;
+    min-height: 72px;
+    transform: translateY(20px);
+  }
+
+  .featuredItem .itemFooter,
+  .featuredItemHero .itemFooter {
+    bottom: 12px;
+  }
+
+  .itemQty,
+  .featuredItem .itemFooterStacked .itemQty,
+  .featuredItemHero .itemFooterStacked .itemQty {
+    justify-self: center;
+    min-height: 18px;
+  }
+
+  .bombCard .inventoryRow {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .bombCard .inventoryInfo {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 4px 10px;
+    border-bottom: 1px solid rgba(255, 208, 106, 0.16);
+  }
+
+  .bombCard .inventoryValue {
+    font-size: 18px;
+  }
+
+  .bombCard .bombStepper {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .bombCard .stepperValue {
+    flex: 1;
+  }
+
+  .bombCard .btnBuy {
+    width: 100%;
+    min-height: 48px;
   }
 }

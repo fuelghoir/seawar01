@@ -57,34 +57,23 @@ function formatSeasonEndDate(dateStr: string, isRu: boolean) {
       return `${monthText} ${d.getUTCDate()}, ${year} · ${hours}:${minutes} UTC`;
     }
   } catch {
-    return isRu ? "18.07.2026 · 00:00 UTC" : "Jul 18, 2026 · 00:00 UTC";
+    return isRu ? "26.08.2026 · 00:00 UTC" : "Aug 26, 2026 · 00:00 UTC";
   }
 }
 
 export function SeasonPoolCard({
   variant = "default",
   address,
-  showEstimate = false,
   clickable = true,
   endDate,
 }: {
   variant?: "default" | "wide" | "sidebar";
   address?: `0x${string}`;
-  showEstimate?: boolean;
   clickable?: boolean;
   endDate?: string;
 }) {
   const { lang } = useSettings();
   const ru = lang === "ru";
-  const [estimate, setEstimate] = useState<{
-    walletPoints: number;
-    walletTransactions: number;
-    eligible: boolean;
-    minPoints: number;
-    minTransactions: number;
-    totalPoints: number;
-    rank: number | null;
-  } | null>(null);
   const [seasonState, setSeasonState] = useState<{ isEnded: boolean; seasonKey: string; virtualPoolUsdc: number; endDate: string } | null>(null);
 
   useEffect(() => {
@@ -111,58 +100,18 @@ export function SeasonPoolCard({
     },
   });
 
-  useEffect(() => {
-    if (!showEstimate || !address) {
-      setEstimate(null);
-      return;
-    }
-
-    let cancelled = false;
-    fetch(`/api/season-reward-estimate?wallet=${encodeURIComponent(address)}`, {
-      cache: "no-store",
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled || data?.error) return;
-        setEstimate({
-          walletPoints: Number(data.walletPoints ?? 0),
-          walletTransactions: Number(data.walletTransactions ?? 0),
-          eligible: Boolean(data.eligible),
-          minPoints: Number(data.minPoints ?? 3000),
-          minTransactions: Number(data.minTransactions ?? 10),
-          totalPoints: Number(data.totalPoints ?? 0),
-          rank: data.rank == null ? null : Number(data.rank),
-        });
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [address, showEstimate]);
-
   const virtualPoolRaw = BigInt(Math.floor((seasonState?.virtualPoolUsdc || 0) * 1_000_000));
   const totalVaultBalance = vaultBalance !== undefined ? vaultBalance + virtualPoolRaw : undefined;
-
-  const estimatedReward =
-    totalVaultBalance !== undefined && estimate?.eligible && estimate.totalPoints
-      ? (totalVaultBalance * BigInt(Math.max(0, estimate.walletPoints))) /
-        BigInt(Math.max(1, estimate.totalPoints))
-      : null;
-  const sharePct =
-    estimate?.eligible && estimate.totalPoints && estimate.walletPoints > 0
-      ? Math.max(0.01, (estimate.walletPoints / estimate.totalPoints) * 100)
-      : 0;
   const className = `${styles.poolCard} ${clickable ? styles.poolCardLink : ""} ${
     variant === "wide" ? styles.poolCardWide : ""
   } ${variant === "sidebar" ? styles.poolCardSidebar : ""}`;
 
   const dateLabel = useMemo(() => {
-    return formatSeasonEndDate(seasonState?.endDate || endDate || "2026-07-18T00:00:00.000Z", ru);
+    return formatSeasonEndDate(seasonState?.endDate || endDate || "2026-08-26T00:00:00.000Z", ru);
   }, [seasonState?.endDate, endDate, ru]);
 
   const isEnded = seasonState?.isEnded ?? false;
-  const activeSeasonKey = seasonState?.seasonKey ?? "S1";
+  const activeSeasonKey = seasonState?.seasonKey ?? "S2";
 
   const content = isEnded ? (
     <>
@@ -201,43 +150,19 @@ export function SeasonPoolCard({
         <small>{ru ? "ТЕКУЩИЙ ПУЛ" : "CURRENT POOL"}</small>
         <strong>{totalVaultBalance === undefined ? "-- USDC" : formatUsdc(totalVaultBalance)}</strong>
       </div>
-      {showEstimate && (
-        <div className={styles.poolEstimate}>
-          <span>{ru ? "ТВОЯ ПРЕДПОЛАГАЕМАЯ НАГРАДА" : "YOUR EST. REWARD"}</span>
-          <b>
-            {!estimate
-              ? "-- USDC"
-              : !estimate.eligible
-                ? ru ? "НЕ ПРОХОДИТЕ" : "NOT ELIGIBLE"
-                : estimatedReward === null
-                  ? "-- USDC"
-                  : `~ ${formatUsdc(estimatedReward)}`}
-          </b>
+      <div className={styles.poolSeal}>
+        <span className={styles.poolSealMark} aria-hidden="true">
+          <i />
+        </span>
+        <span className={styles.poolSealCopy}>
+          <b>{ru ? "ДОЛЯ В ДРОПЕ СКРЫТА" : "DROP SHARE SEALED"}</b>
           <small>
-            {estimate
-              ? estimate.eligible
-                ? `${estimate.walletPoints.toLocaleString()} pts • ${estimate.walletTransactions}/${
-                    estimate.minTransactions
-                  } tx • ${sharePct > 0 ? `~${sharePct.toFixed(2)}%` : "0%"}${
-                    estimate.rank ? ` • #${estimate.rank}` : ""
-                  }`
-                : ru
-                  ? `Нужно ${estimate.minPoints.toLocaleString()} pts и ${
-                      estimate.minTransactions
-                    } tx • У вас ${estimate.walletPoints.toLocaleString()} pts / ${
-                      estimate.walletTransactions
-                    } tx`
-                  : `Need ${estimate.minPoints.toLocaleString()} pts and ${
-                      estimate.minTransactions
-                    } tx • you have ${estimate.walletPoints.toLocaleString()} pts / ${
-                      estimate.walletTransactions
-                    } tx`
-              : ru
-                ? "Расчет доли..."
-                : "Calculating share..."}
+            {ru
+              ? "РАСПРЕДЕЛЕНИЕ ОТКРОЕТСЯ ПОСЛЕ СНАПШОТА"
+              : "YOUR ALLOCATION REVEALS AFTER THE SNAPSHOT"}
           </small>
-        </div>
-      )}
+        </span>
+      </div>
       <div className={styles.poolMeta}>
         <span>{ru ? "80% чистой прибыли в пул" : "80% net revenue to pool"}</span>
         <span>{dateLabel}</span>
@@ -281,18 +206,18 @@ export function SeasonRewardsIntro({
 
   const dateKicker = useMemo(() => {
     try {
-      const d = new Date(endDate || "2026-07-18T00:00:00.000Z");
+      const d = new Date(endDate || "2026-08-26T00:00:00.000Z");
       const day = String(d.getUTCDate()).padStart(2, "0");
       const month = String(d.getUTCMonth() + 1).padStart(2, "0");
       return `${day}.${month}`;
     } catch {
-      return "18.07";
+      return "26.08";
     }
   }, [endDate]);
 
   const dateTime = useMemo(() => {
     try {
-      const d = new Date(endDate || "2026-07-18T00:00:00.000Z");
+      const d = new Date(endDate || "2026-08-26T00:00:00.000Z");
       const hours = String(d.getUTCHours()).padStart(2, "0");
       const minutes = String(d.getUTCMinutes()).padStart(2, "0");
       return `${hours}:${minutes} UTC`;
@@ -391,7 +316,7 @@ export function FleetMinerSummary({
         </button>
       </section>
       {USDC_SEASON_REWARDS_ENABLED && !hidePoolCard && (
-        <SeasonPoolCard address={address} showEstimate={!!address} />
+        <SeasonPoolCard address={address} />
       )}
     </div>
   );

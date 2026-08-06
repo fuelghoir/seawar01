@@ -2951,14 +2951,6 @@
   font-size: 18px !important;
 }
 
-.leftCol :global([class*="poolEstimate"]) b {
-  font-size: 11px !important;
-}
-
-.leftCol :global([class*="poolEstimate"]) small {
-  font-size: 9px !important;
-}
-
 .leftCol :global([class*="poolMeta"]) {
   margin-top: 2px !important;
 }

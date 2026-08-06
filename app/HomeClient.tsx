@@ -575,6 +575,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           open={showSeasonIntro}
           onClose={closeSeasonIntro}
           onOpenProfile={() => setOpenSection("profile")}
+          endDate={season?.endDate}
         />
       )}
 
@@ -666,7 +667,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                   </div>
                   {USDC_SEASON_REWARDS_ENABLED && (
                     <div className={styles.mobileSeasonRewardBlock}>
-                      <SeasonPoolCard variant="wide" address={address} showEstimate />
+                      <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
                     </div>
                   )}
                   {SEASON_UI_ENABLED && (
@@ -862,6 +863,16 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
                   {renderMobileCheckinButton()}
 
+                  {USDC_SEASON_REWARDS_ENABLED && (
+                    <div className={styles.mobileSeasonRewardBlock}>
+                      <SeasonPoolCard
+                        variant="wide"
+                        address={address}
+                        endDate={season?.endDate}
+                      />
+                    </div>
+                  )}
+
                   <SecretSbtCard
                     wins={profileView.totalWins}
                     winsLeft={sbtWinsLeft}
@@ -869,14 +880,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     lang={lang}
                     onOpen={openCaptainSbt}
                   />
-
-                  {SEASON_UI_ENABLED && (
-                    <SeasonRoadmap
-                      season={season}
-                      compact
-                      onOpen={() => router.push("/shop")}
-                    />
-                  )}
                 </section>
 
                 <section className={styles.recentSection}>
@@ -1054,7 +1057,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
               )}
               {address && <CreatorRewardsSummary address={address} />}
               {USDC_SEASON_REWARDS_ENABLED && (
-                <SeasonPoolCard variant="wide" address={address} showEstimate />
+                <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
               )}
               {address && <DropClaimPanel address={address} />}
             </div>
@@ -1648,7 +1651,7 @@ function ShopPreview({
 
           {previewTab === "usdc" && USDC_SEASON_REWARDS_ENABLED ? (
             <button className={styles.previewCardButton} onClick={onOpenLeaderboard} type="button">
-              <SeasonPoolCard variant="sidebar" address={address} showEstimate />
+              <SeasonPoolCard variant="sidebar" address={address} clickable={false} />
             </button>
           ) : (
             <SeasonRoadmap season={season} onOpen={onOpenShop} />
