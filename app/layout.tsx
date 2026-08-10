@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk, Orbitron, Rajdhani } from "next/f
 import { SafeArea } from "./components/SafeArea";
 import { farcasterConfig } from "../farcaster.config";
 import { Providers } from "./providers";
+import { OnboardingProvider } from "./providers/OnboardingProvider";
 import { SettingsProvider } from "./lib/settings";
 import {
   absoluteUrl,
@@ -127,14 +128,16 @@ export default function RootLayout({
       >
         <Providers>
           <SettingsProvider>
-            <div className="aurora" aria-hidden="true">
-              <span className="aurora-blob aurora-blob--1" />
-              <span className="aurora-blob aurora-blob--2" />
-              <span className="aurora-blob aurora-blob--3" />
-              <span className="aurora-blob aurora-blob--4" />
-              <span className="aurora-blob aurora-blob--5" />
-            </div>
-            <SafeArea>{children}</SafeArea>
+            <OnboardingProvider>
+              <div className="aurora" aria-hidden="true">
+                <span className="aurora-blob aurora-blob--1" />
+                <span className="aurora-blob aurora-blob--2" />
+                <span className="aurora-blob aurora-blob--3" />
+                <span className="aurora-blob aurora-blob--4" />
+                <span className="aurora-blob aurora-blob--5" />
+              </div>
+              <SafeArea>{children}</SafeArea>
+            </OnboardingProvider>
           </SettingsProvider>
         </Providers>
       </body>

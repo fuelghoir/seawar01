@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { base } from "wagmi/chains";
@@ -29,7 +29,9 @@ import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import { gameSounds } from "../lib/sounds";
 import { Board } from "../components/Board";
 import { CellState } from "../components/Cell";
+import { MissionGuide } from "../components/MissionGuide";
 import { ShipPlacement } from "../components/ShipPlacement";
+import { useOnboarding } from "../providers/OnboardingProvider";
 import { GameTopBar } from "./components/GameTopBar";
 import { GameResult } from "./components/GameResult";
 import { useSettings, TR } from "../lib/settings";
@@ -40,6 +42,90 @@ type GamePhase = "placing" | "playing" | "finished";
 type TacticalDirection = "up" | "right" | "down" | "left";
 const BOT_OPPONENT = "0x0000000000000000000000000000000000000001" as const;
 const BOT_RESULT_SAVE_KEY = "sbt_bot_result_saved";
+const TUTORIAL_SAVE_VERSION = 2;
+const TUTORIAL_RADAR_TARGET = 9;
+const TUTORIAL_TORPEDO_TARGET = 0;
+
+type TutorialStep =
+  | "autoplace"
+  | "confirm"
+  | "radar"
+  | "radar_target"
+  | "radar_fire"
+  | "torpedo"
+  | "torpedo_direction"
+  | "torpedo_aim"
+  | "torpedo_fire"
+  | "hunt";
+
+const TUTORIAL_STEPS: TutorialStep[] = [
+  "autoplace",
+  "confirm",
+  "radar",
+  "radar_target",
+  "radar_fire",
+  "torpedo",
+  "torpedo_direction",
+  "torpedo_aim",
+  "torpedo_fire",
+  "hunt",
+];
+
+const TUTORIAL_SHIPS = [
+  [0, 1, 2, 3],
+  [9],
+  [20, 21, 22],
+  [25, 26],
+  [40, 41, 42],
+  [45],
+  [60, 61],
+  [67],
+  [80, 81],
+  [89],
+] as const;
+
+const TUTORIAL_BOT_BOARD = (() => {
+  const board = new Array<number>(100).fill(0);
+  for (const ship of TUTORIAL_SHIPS) {
+    for (const index of ship) board[index] = 1;
+  }
+  return board;
+})();
+
+const TUTORIAL_COPY = {
+  ru: {
+    eyebrow: "учебный бой · безопасный режим",
+    skip: "пропустить обучение",
+    autoplace: ["собери флот", "нажми random — корабли встанут по правилам автоматически"],
+    confirm: ["флот готов", "проверь поле и подтверди расстановку"],
+    radar: ["запусти радар", "радар покажет настоящую клетку корабля и не потратит предмет"],
+    radar_target: ["выбери сигнал", "нажми на подсвеченную клетку J1 — там точно есть цель"],
+    radar_fire: ["подтверди выстрел", "цель выбрана — теперь нажми fire"],
+    torpedo: ["подготовь торпеду", "она накроет сразу три клетки и не потратится в обучении"],
+    torpedo_direction: ["задай направление", "выбери вправо — линия пойдёт от A1 к C1"],
+    torpedo_aim: ["наведи торпеду", "выбери A1 как начало линии"],
+    torpedo_fire: ["огонь", "один запуск поразит три реальные клетки корабля"],
+    hunt: ["добей флот", "выбирай подсвеченные клетки и жми fire — этот бой ты точно выиграешь"],
+    victory: "обучение пройдено — весь флот бота потоплен",
+    finish: "завершить обучение",
+  },
+  en: {
+    eyebrow: "training battle · safe mode",
+    skip: "skip tutorial",
+    autoplace: ["build your fleet", "tap random to place every ship correctly"],
+    confirm: ["fleet ready", "check the board and confirm your deployment"],
+    radar: ["launch radar", "radar reveals a real ship cell without consuming the item"],
+    radar_target: ["select the signal", "tap highlighted J1 — a target is definitely there"],
+    radar_fire: ["confirm the shot", "target locked — now tap fire"],
+    torpedo: ["arm the torpedo", "it hits three cells and is not consumed during training"],
+    torpedo_direction: ["set direction", "choose right so the line runs from A1 to C1"],
+    torpedo_aim: ["aim the torpedo", "select A1 as the start of the line"],
+    torpedo_fire: ["fire", "one launch will hit three real ship cells"],
+    hunt: ["finish the fleet", "select highlighted cells and tap fire — this battle is guaranteed"],
+    victory: "training complete — the bot fleet is down",
+    finish: "finish training",
+  },
+} as const;
 
 const TORPEDO_LENGTH = 3;
 const TACTICAL_DIRS: Record<TacticalDirection, { dx: number; dy: number; label: string }> = {
@@ -75,6 +161,12 @@ interface SavedBotGame {
   myShotsEntries: [number, boolean][];
   botShotsEntries: [number, boolean][];
   botStateData: SerializedBotState;
+  tutorialVersion?: number;
+  tutorialStep?: TutorialStep;
+  tutorialRadarHints?: number[];
+  tutorialTorpedoActive?: boolean;
+  tutorialTorpedoDir?: TacticalDirection;
+  tutorialSelectedCell?: { x: number; y: number } | null;
 }
 
 function serializeBotState(bs: BotState): SerializedBotState {
@@ -101,20 +193,27 @@ function deserializeBotState(d: SerializedBotState): BotState {
   };
 }
 
-function loadSave(): SavedBotGame | null {
+function tutorialSaveKey(wallet: string) {
+  return `sbt_training:v${TUTORIAL_SAVE_VERSION}:${wallet.toLowerCase()}`;
+}
+
+function loadSave(key: string | null = SAVE_KEY): SavedBotGame | null {
+  if (!key) return null;
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as SavedBotGame) : null;
   } catch {
     return null;
   }
 }
 
-function deleteSave() {
+function deleteSave(key = SAVE_KEY, clearResult = true) {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(SAVE_KEY);
-    localStorage.removeItem(BOT_RESULT_SAVE_KEY);
+    try {
+      localStorage.removeItem(key);
+      if (clearResult) localStorage.removeItem(BOT_RESULT_SAVE_KEY);
+    } catch {}
   }
 }
 
@@ -141,15 +240,25 @@ function buildTorpedoLine(
 
 // ─── Component ───
 
-export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string }) {
+export function BotGameContent({
+  gameIdStr: _gameIdStr,
+  tutorial = false,
+}: {
+  gameIdStr: string;
+  tutorial?: boolean;
+}) {
   void _gameIdStr;
   const router = useRouter();
   const { address } = useAccount();
-  const { lang } = useSettings();
+  const { lang, effects } = useSettings();
   const tr = TR[lang];
+  const tutorialCopy = TUTORIAL_COPY[lang];
+  const { status: onboardingStatus, loaded: onboardingLoaded, progress, dismiss } = useOnboarding();
 
   // Load saved game once on mount
-  const [save] = useState(loadSave);
+  const [save] = useState(() => loadSave(
+    tutorial ? (address ? tutorialSaveKey(address) : null) : SAVE_KEY
+  ));
 
   // Restore state from save (or start fresh)
   const [phase, setPhase] = useState<GamePhase>(() => save?.phase || "placing");
@@ -167,16 +276,32 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     () => save ? new Map(save.botShotsEntries) : new Map()
   );
   const [botProcessing, setBotProcessing] = useState(false);
-  const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(
+    () => tutorial ? save?.tutorialSelectedCell ?? null : null
+  );
   const [radarQty, setRadarQty] = useState(0);
   const [torpedoQty, setTorpedoQty] = useState(0);
-  const [radarHints, setRadarHints] = useState<Set<number>>(() => new Set());
-  const [torpedoActive, setTorpedoActive] = useState(false);
-  const [torpedoDir, setTorpedoDir] = useState<TacticalDirection>("right");
+  const [radarHints, setRadarHints] = useState<Set<number>>(
+    () => new Set(tutorial ? save?.tutorialRadarHints ?? [] : [])
+  );
+  const [torpedoActive, setTorpedoActive] = useState(
+    () => tutorial ? save?.tutorialTorpedoActive ?? false : false
+  );
+  const [torpedoDir, setTorpedoDir] = useState<TacticalDirection>(
+    () => tutorial ? save?.tutorialTorpedoDir ?? "right" : "right"
+  );
   const [itemBusy, setItemBusy] = useState(false);
   const [itemHint, setItemHint] = useState("");
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>(
+    () => tutorial ? save?.tutorialStep ?? "autoplace" : "autoplace"
+  );
+  const [tutorialBusy, setTutorialBusy] = useState(false);
+  const [tutorialError, setTutorialError] = useState("");
+  const [tutorialHydratedWallet, setTutorialHydratedWallet] = useState<string | null>(
+    () => tutorial ? address?.toLowerCase() ?? null : "normal"
+  );
   const [resultSaved, setResultSaved] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(BOT_RESULT_SAVE_KEY) === "1"
+    () => !tutorial && typeof window !== "undefined" && localStorage.getItem(BOT_RESULT_SAVE_KEY) === "1"
   );
 
   // Restore bot AI state from save
@@ -198,18 +323,66 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   const statsGameCreateRef = useRef<Promise<number | null> | null>(null);
 
   useEffect(() => {
+    if (!tutorial || !address) return;
+    const wallet = address.toLowerCase();
+    if (tutorialHydratedWallet === wallet) return;
+
+    const restored = loadSave(tutorialSaveKey(wallet));
+    if (restored?.tutorialVersion === TUTORIAL_SAVE_VERSION) {
+      setPhase(restored.phase);
+      setMyBoard(restored.myBoard);
+      setBotBoard(restored.botBoard);
+      setStatsGameId(null);
+      setIsMyTurn(restored.isMyTurn);
+      setMyHits(restored.myHits);
+      setBotHits(restored.botHits);
+      setWinner(restored.winner);
+      setMyShotsMap(new Map(restored.myShotsEntries));
+      setBotShotsMap(new Map(restored.botShotsEntries));
+      setSelectedCell(restored.tutorialSelectedCell ?? null);
+      setRadarHints(new Set(restored.tutorialRadarHints ?? []));
+      setTorpedoActive(restored.tutorialTorpedoActive ?? false);
+      setTorpedoDir(restored.tutorialTorpedoDir ?? "right");
+      setTutorialStep(restored.tutorialStep ?? "autoplace");
+      botState.current = restored.botStateData
+        ? deserializeBotState(restored.botStateData)
+        : createBotState();
+    } else {
+      setPhase("placing");
+      setMyBoard([]);
+      setBotBoard([]);
+      setStatsGameId(null);
+      setIsMyTurn(true);
+      setMyHits(0);
+      setBotHits(0);
+      setWinner(null);
+      setMyShotsMap(new Map());
+      setBotShotsMap(new Map());
+      setSelectedCell(null);
+      setRadarHints(new Set());
+      setTorpedoActive(false);
+      setTorpedoDir("right");
+      setTutorialStep("autoplace");
+      botState.current = createBotState();
+    }
+    statsGameIdRef.current = null;
+    setTutorialHydratedWallet(wallet);
+  }, [address, tutorial, tutorialHydratedWallet]);
+
+  useEffect(() => {
     statsGameIdRef.current = statsGameId;
   }, [statsGameId]);
 
   // ─── Save state to localStorage after every meaningful change ───
   useEffect(() => {
-    if (phase === "placing") return; // nothing to save yet
+    if (phase === "placing" && (!tutorial || myBoard.length !== 100)) return;
+    if (tutorial && (!address || tutorialHydratedWallet !== address.toLowerCase())) return;
     try {
       const data: SavedBotGame = {
         phase,
         myBoard,
         botBoard,
-        statsGameId,
+        statsGameId: tutorial ? null : statsGameId,
         isMyTurn,
         myHits,
         botHits,
@@ -217,10 +390,20 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         myShotsEntries: [...myShotsMap.entries()],
         botShotsEntries: [...botShotsMap.entries()],
         botStateData: serializeBotState(botState.current),
+        ...(tutorial ? {
+          tutorialVersion: TUTORIAL_SAVE_VERSION,
+          tutorialStep,
+          tutorialRadarHints: [...radarHints],
+          tutorialTorpedoActive: torpedoActive,
+          tutorialTorpedoDir: torpedoDir,
+          tutorialSelectedCell: selectedCell,
+        } : {}),
       };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      const key = tutorial ? tutorialSaveKey(address!) : SAVE_KEY;
+      localStorage.setItem(key, JSON.stringify(data));
     } catch { /* storage full or unavailable */ }
   }, [
+    address,
     phase,
     myBoard,
     botBoard,
@@ -231,6 +414,13 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     winner,
     myShotsMap,
     botShotsMap,
+    radarHints,
+    selectedCell,
+    torpedoActive,
+    torpedoDir,
+    tutorial,
+    tutorialHydratedWallet,
+    tutorialStep,
   ]);
 
   // ─── If restored mid-game on bot's turn, auto-trigger bot ───
@@ -246,6 +436,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
   // ─── Onchain save result ───
   const ensureStatsGame = useCallback(async () => {
+    if (tutorial) return null;
     if (!address) return null;
     if (statsGameIdRef.current) return statsGameIdRef.current;
 
@@ -271,7 +462,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     }
 
     return statsGameCreateRef.current;
-  }, [address, myShotsMap]);
+  }, [address, myShotsMap, tutorial]);
 
   const recordBotShots = useCallback(async (
     shots: Array<{ x: number; y: number; isHit?: boolean }>
@@ -290,6 +481,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   const resultConfirmed = resultReceipt?.status === "success";
 
   const handleSaveResult = useCallback(() => {
+    if (tutorial) return;
     if (!winner || !address) return;
     writeContract({
       address: SEABATTLE_CONTRACT_ADDRESS,
@@ -299,18 +491,20 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       chainId: base.id,
       dataSuffix: BUILDER_CODE_SUFFIX,
     });
-  }, [winner, address, writeContract]);
+  }, [winner, address, writeContract, tutorial]);
 
   useEffect(() => {
+    if (tutorial) return;
     if (!resultConfirmed) return;
     setResultSaved(true);
     if (typeof window !== "undefined") {
       localStorage.setItem(BOT_RESULT_SAVE_KEY, "1");
     }
-  }, [resultConfirmed]);
+  }, [resultConfirmed, tutorial]);
 
   // Award local points and close the bot stats game when the match ends.
   useEffect(() => {
+    if (tutorial) return;
     if (!winner || !address) return;
 
     const didWin = winner === "me";
@@ -337,9 +531,14 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           statsFinishedRecorded.current = false;
         });
     }
-  }, [winner, address, myHits, botHits, ensureStatsGame]);
+  }, [winner, address, myHits, botHits, ensureStatsGame, tutorial]);
 
   const refreshTacticalItems = useCallback(async () => {
+    if (tutorial) {
+      setRadarQty(1);
+      setTorpedoQty(1);
+      return;
+    }
     if (!address) {
       setRadarQty(0);
       setTorpedoQty(0);
@@ -351,16 +550,56 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     ]);
     setRadarQty(radar);
     setTorpedoQty(torpedo);
-  }, [address]);
+  }, [address, tutorial]);
 
   useEffect(() => {
     if (phase !== "playing") return;
     refreshTacticalItems().catch(() => {});
   }, [phase, refreshTacticalItems]);
 
+  useEffect(() => {
+    if (!tutorial || !onboardingLoaded || !onboardingStatus || phase === "finished") return;
+    if (onboardingStatus.status === "unavailable") return;
+    if (onboardingStatus.step !== "battle") router.replace("/");
+  }, [onboardingLoaded, onboardingStatus, phase, router, tutorial]);
+
+  const handleTutorialSkip = useCallback(async () => {
+    if (!tutorial || !address || tutorialBusy) return;
+    setTutorialBusy(true);
+    setTutorialError("");
+    try {
+      await dismiss();
+      deleteSave(tutorialSaveKey(address), false);
+      router.replace("/");
+    } catch (cause) {
+      setTutorialError(cause instanceof Error ? cause.message : "Could not skip training");
+      setTutorialBusy(false);
+    }
+  }, [address, dismiss, router, tutorial, tutorialBusy]);
+
+  const handleTutorialFinish = useCallback(async () => {
+    if (!tutorial || !address || tutorialBusy) return;
+    setTutorialBusy(true);
+    setTutorialError("");
+    try {
+      await progress("debrief");
+      deleteSave(tutorialSaveKey(address), false);
+      router.replace("/");
+    } catch (cause) {
+      setTutorialError(cause instanceof Error ? cause.message : "Could not finish training");
+      setTutorialBusy(false);
+    }
+  }, [address, progress, router, tutorial, tutorialBusy]);
+
+  const handleTutorialAutoPlace = useCallback((boardLayout: number[]) => {
+    if (!tutorial) return;
+    setMyBoard(boardLayout);
+    setTutorialStep("confirm");
+  }, [tutorial]);
+
   // ─── Ship placement ───
   const handleConfirmBoard = useCallback((boardLayout: number[]) => {
-    if (typeof window !== "undefined") {
+    if (!tutorial && typeof window !== "undefined") {
       localStorage.removeItem(BOT_RESULT_SAVE_KEY);
     }
     setResultSaved(false);
@@ -368,11 +607,12 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     statsGameCreateRef.current = null;
     setStatsGameId(null);
     setMyBoard(boardLayout);
-    const botBoardLayout = generateRandomBoard();
+    const botBoardLayout = tutorial ? [...TUTORIAL_BOT_BOARD] : generateRandomBoard();
     setBotBoard(botBoardLayout);
     setPhase("playing");
     setIsMyTurn(true);
-  }, []);
+    if (tutorial) setTutorialStep("radar");
+  }, [tutorial]);
 
   // ─── Player shoots ───
   const handleShoot = useCallback(() => {
@@ -382,7 +622,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     const { x, y } = selectedCell;
     const idx = y * 10 + x;
     const isHit = botBoard[idx] === 1;
-    recordBotShots([{ x, y, isHit }]).catch(() => {});
+    if (!tutorial) recordBotShots([{ x, y, isHit }]).catch(() => {});
 
     setMyShotsMap((prev) => {
       const next = new Map(prev);
@@ -410,6 +650,9 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         setSelectedCell(null);
         return;
       }
+      if (tutorial && tutorialStep === "radar_fire") {
+        setTutorialStep("torpedo");
+      }
       setSelectedCell(null);
     } else {
       setTimeout(() => gameSounds.playMiss(), 200);
@@ -418,7 +661,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       setBotProcessing(true);
       setTimeout(() => doBotTurnRef.current(), BOT_DELAY);
     }
-  }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap, recordBotShots]);
+  }, [selectedCell, isMyTurn, phase, botBoard, myHits, myShotsMap, recordBotShots, tutorial, tutorialStep]);
 
   const handleUseRadar = useCallback(async () => {
     if (!address) {
@@ -426,6 +669,17 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       return;
     }
     if (!isMyTurn || phase !== "playing" || botProcessing || itemBusy) return;
+    if (tutorial) {
+      if (tutorialStep !== "radar") return;
+      setRadarHints(new Set([TUTORIAL_RADAR_TARGET]));
+      setItemHint(
+        lang === "ru"
+          ? `Радар подсветил ${formatCellLabel({ x: 9, y: 0 }, lang)}`
+          : `Radar ping: ${formatCellLabel({ x: 9, y: 0 }, lang)}`
+      );
+      setTutorialStep("radar_target");
+      return;
+    }
     if (radarQty <= 0) {
       setItemHint(lang === "ru" ? "Радара нет в инвентаре" : "No radar scans in inventory");
       return;
@@ -473,6 +727,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     radarHints,
     radarQty,
     refreshTacticalItems,
+    tutorial,
+    tutorialStep,
   ]);
 
   const handleUseTorpedo = useCallback(async () => {
@@ -481,6 +737,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       return;
     }
     if (!selectedCell || !isMyTurn || phase !== "playing" || botProcessing || itemBusy) return;
+    if (tutorial && tutorialStep !== "torpedo_fire") return;
     if (torpedoQty <= 0) {
       setItemHint(lang === "ru" ? "Торпеды нет в инвентаре" : "No torpedoes in inventory");
       return;
@@ -495,8 +752,10 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
 
     setItemBusy(true);
     try {
-      await consumeItem(address, "torpedo", 1);
-      setTorpedoQty((qty) => Math.max(0, qty - 1));
+      if (!tutorial) {
+        await consumeItem(address, "torpedo", 1);
+        setTorpedoQty((qty) => Math.max(0, qty - 1));
+      }
       setTorpedoActive(false);
       gameSounds.playShot();
 
@@ -513,7 +772,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         });
         if (isHit) hitsAdded += 1;
       }
-      recordBotShots(statsShots).catch(() => {});
+      if (!tutorial) recordBotShots(statsShots).catch(() => {});
 
       setMyShotsMap(nextShots);
       setSelectedCell(null);
@@ -536,6 +795,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         if (newHits >= 20) {
           setWinner("me");
           setPhase("finished");
+        } else if (tutorial) {
+          setTutorialStep("hunt");
         }
       } else {
         setTimeout(() => gameSounds.playMiss(), 180);
@@ -570,11 +831,52 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     selectedCell,
     torpedoDir,
     torpedoQty,
+    tutorial,
+    tutorialStep,
   ]);
 
   // ─── Bot turn ───
+  const handleToggleTorpedo = useCallback(() => {
+    if (!tutorial) {
+      setTorpedoActive((active) => !active);
+      return;
+    }
+    if (tutorialStep !== "torpedo") return;
+    setTorpedoActive(true);
+    setSelectedCell(null);
+    setTutorialStep("torpedo_direction");
+  }, [tutorial, tutorialStep]);
+
+  const handleTorpedoDirection = useCallback((direction: TacticalDirection) => {
+    if (!tutorial) {
+      setTorpedoDir(direction);
+      return;
+    }
+    if (tutorialStep !== "torpedo_direction" || direction !== "right") return;
+    setTorpedoDir(direction);
+    setTutorialStep("torpedo_aim");
+  }, [tutorial, tutorialStep]);
+
   doBotTurnRef.current = useCallback(() => {
     if (phaseRef.current !== "playing") return;
+
+    if (tutorial) {
+      const safeIndex = myBoardRef.current.findIndex(
+        (value, index) => value === 0 && !botState.current.shotsMade.has(index)
+      );
+      if (safeIndex >= 0) {
+        botState.current.shotsMade.add(safeIndex);
+        setBotShotsMap((prev) => {
+          const next = new Map(prev);
+          next.set(safeIndex, false);
+          return next;
+        });
+        setTimeout(() => gameSounds.playMiss(), 120);
+      }
+      setIsMyTurn(true);
+      setBotProcessing(false);
+      return;
+    }
 
     const { x, y } = botChooseTarget(botState.current);
     const idx = y * 10 + x;
@@ -620,7 +922,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
       setIsMyTurn(true);
       setBotProcessing(false);
     }
-  }, []);
+  }, [tutorial]);
 
   // ─── Board rendering ───
 
@@ -709,15 +1011,101 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
     enemyBoardCells[selectedCell.y][selectedCell.x] = "pending";
   }
 
+  const remainingTutorialCells = useMemo(
+    () => TUTORIAL_BOT_BOARD.flatMap((value, index) =>
+      value === 1 && !myShotsMap.has(index) ? [index] : []
+    ),
+    [myShotsMap]
+  );
+  const nextTutorialTarget = remainingTutorialCells[0] ?? null;
+  const tutorialCellTarget = useMemo(() => {
+    if (!tutorial) return null;
+    if (tutorialStep === "radar_target") {
+      return { x: 9, y: 0, name: "radar-cell" };
+    }
+    if (tutorialStep === "torpedo_aim") {
+      return { x: 0, y: 0, name: "torpedo-cell" };
+    }
+    if (tutorialStep === "hunt" && !selectedCell && nextTutorialTarget !== null) {
+      return {
+        x: nextTutorialTarget % 10,
+        y: Math.floor(nextTutorialTarget / 10),
+        name: "hunt-cell",
+      };
+    }
+    return null;
+  }, [nextTutorialTarget, selectedCell, tutorial, tutorialStep]);
+
+  const isTutorialCellInteractive = useCallback((x: number, y: number) => {
+    if (!tutorial) return true;
+    const index = y * 10 + x;
+    if (tutorialStep === "radar_target") return index === TUTORIAL_RADAR_TARGET;
+    if (tutorialStep === "torpedo_aim") return index === TUTORIAL_TORPEDO_TARGET;
+    return tutorialStep === "hunt" && TUTORIAL_BOT_BOARD[index] === 1 && !myShotsMap.has(index);
+  }, [myShotsMap, tutorial, tutorialStep]);
+
   const handleEnemyCellClick = (x: number, y: number) => {
     if (!isMyTurn || phase !== "playing" || botProcessing) return;
+    if (tutorial && !isTutorialCellInteractive(x, y)) return;
     if (
       enemyBoardCells[y][x] !== "empty" &&
       enemyBoardCells[y][x] !== "pending" &&
       enemyBoardCells[y][x] !== "radar"
     ) return;
     setSelectedCell({ x, y });
+    if (tutorial && tutorialStep === "radar_target") setTutorialStep("radar_fire");
+    if (tutorial && tutorialStep === "torpedo_aim") setTutorialStep("torpedo_fire");
   };
+
+  const tutorialGuide = useMemo(() => {
+    if (!tutorial || !address || tutorialHydratedWallet !== address.toLowerCase()) return null;
+    const [title, baseBody] = tutorialCopy[tutorialStep];
+    let target = `[data-training-target="${tutorialStep}"]`;
+    if (tutorialStep === "radar_target") target = '[data-training-target="radar-cell"]';
+    if (tutorialStep === "radar_fire" || tutorialStep === "torpedo_fire") {
+      target = '[data-training-target="fire"]';
+    }
+    if (tutorialStep === "torpedo_direction") {
+      target = '[data-training-target="torpedo-direction"]';
+    }
+    if (tutorialStep === "torpedo_aim") target = '[data-training-target="torpedo-cell"]';
+    if (tutorialStep === "hunt") {
+      target = selectedCell
+        ? '[data-training-target="fire"]'
+        : '[data-training-target="hunt-cell"]';
+    }
+    const body = tutorialStep === "hunt"
+      ? `${baseBody}\n${lang === "ru" ? "осталось" : "remaining"}: ${remainingTutorialCells.length}`
+      : baseBody;
+    return (
+      <MissionGuide
+        target={target}
+        eyebrow={tutorialCopy.eyebrow}
+        title={title}
+        body={body}
+        step={TUTORIAL_STEPS.indexOf(tutorialStep) + 1}
+        total={TUTORIAL_STEPS.length}
+        skipLabel={tutorialCopy.skip}
+        onSkip={() => void handleTutorialSkip()}
+        busy={tutorialBusy}
+        error={tutorialError}
+        reducedMotion={effects === "reduced"}
+      />
+    );
+  }, [
+    address,
+    effects,
+    handleTutorialSkip,
+    lang,
+    remainingTutorialCells.length,
+    selectedCell,
+    tutorial,
+    tutorialBusy,
+    tutorialCopy,
+    tutorialError,
+    tutorialHydratedWallet,
+    tutorialStep,
+  ]);
 
   // ─── Render ───
 
@@ -727,9 +1115,18 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         <GameTopBar mode="bot" phase="placement" />
         <div className={styles.container}>
           <div className={styles.scrollContent}>
-            <ShipPlacement onConfirm={handleConfirmBoard} isPending={false} isConfirming={false} />
+            <ShipPlacement
+              key={tutorial ? `${tutorialHydratedWallet}:${tutorialStep}` : "standard-bot"}
+              onConfirm={handleConfirmBoard}
+              isPending={false}
+              isConfirming={false}
+              onAutoPlace={tutorial ? handleTutorialAutoPlace : undefined}
+              initialBoardLayout={tutorial && myBoard.length === 100 ? myBoard : undefined}
+              trainingTarget={tutorial ? (tutorialStep === "confirm" ? "confirm" : "autoplace") : null}
+            />
           </div>
         </div>
+        {tutorialGuide}
       </>
     );
   }
@@ -769,16 +1166,18 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           if (myBoard[y * 10 + x] === 1) myBoardFinal[y][x] = "sunk";
     }
 
-    const message = didWin
-      ? resultSaved
-        ? tr.bot_msg_saved
-        : resultSaving
-          ? tr.confirming
-        : tr.bot_msg_win
-      : tr.bot_msg_lose;
+    const message = tutorial
+      ? tutorialError || tutorialCopy.victory
+      : didWin
+        ? resultSaved
+          ? tr.bot_msg_saved
+          : resultSaving
+            ? tr.confirming
+          : tr.bot_msg_win
+        : tr.bot_msg_lose;
 
     const secondaryHandler =
-      !resultSaved && !resultSaving && address ? handleSaveResult : undefined;
+      !tutorial && !resultSaved && !resultSaving && address ? handleSaveResult : undefined;
     const secondaryLabel = secondaryHandler
       ? resultPending
         ? tr.confirming
@@ -794,15 +1193,20 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           myHits={myHits}
           enemyHits={botHits}
           message={message}
-          onPrimary={() => {
-            deleteSave();
-            router.push("/");
-          }}
-          primaryLabel={`← ${tr.main_menu}`}
+          onPrimary={tutorial
+            ? () => void handleTutorialFinish()
+            : () => {
+                deleteSave();
+                router.push("/");
+              }}
+          primaryLabel={tutorial
+            ? tutorialBusy ? tr.confirming : tutorialCopy.finish
+            : `← ${tr.main_menu}`}
           onSecondary={secondaryHandler}
           secondaryLabel={secondaryLabel}
+          primaryDisabled={tutorial && tutorialBusy}
           shareReward={
-            address
+            !tutorial && address
               ? {
                   kind: "game",
                   wallet: address,
@@ -827,8 +1231,10 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
   }
 
   const canUseTactical = isMyTurn && !botProcessing && phase === "playing" && !itemBusy;
-  const canFire = canUseTactical && !!selectedCell && !torpedoActive;
-  const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0;
+  const tutorialRegularFireReady = !tutorial || tutorialStep === "radar_fire" || tutorialStep === "hunt";
+  const canFire = canUseTactical && !!selectedCell && !torpedoActive && tutorialRegularFireReady;
+  const canFireTorpedo = canUseTactical && !!selectedCell && torpedoQty > 0 &&
+    (!tutorial || tutorialStep === "torpedo_fire");
   const turnLabel = botProcessing
     ? tr.turn_bot_thinking
     : isMyTurn
@@ -854,6 +1260,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
               cells={enemyBoardCells}
               onCellClick={handleEnemyCellClick}
               isInteractive={isMyTurn && !botProcessing}
+              isCellInteractive={tutorial ? isTutorialCellInteractive : undefined}
+              trainingTarget={tutorial ? tutorialCellTarget : null}
               label={tr.bot_waters}
               variant="target"
             />
@@ -880,7 +1288,8 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
             type="button"
             className={`${styles.tacticalBtn} ${styles.radarBtn}`}
             onClick={handleUseRadar}
-            disabled={!canUseTactical || radarQty <= 0}
+            disabled={!canUseTactical || radarQty <= 0 || (tutorial && tutorialStep !== "radar")}
+            data-training-target={tutorial && tutorialStep === "radar" ? "radar" : undefined}
           >
             🛰 Radar · {radarQty}
           </button>
@@ -888,6 +1297,13 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
             className={styles.fireButton}
             onClick={torpedoActive ? handleUseTorpedo : handleShoot}
             disabled={torpedoActive ? !canFireTorpedo : !canFire}
+            data-training-target={
+              tutorial && (
+                tutorialStep === "radar_fire" ||
+                tutorialStep === "torpedo_fire" ||
+                (tutorialStep === "hunt" && selectedCell)
+              ) ? "fire" : undefined
+            }
           >
             {torpedoActive
               ? selectedCell
@@ -904,8 +1320,9 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
           <button
             type="button"
             className={`${styles.tacticalBtn} ${styles.torpedoBtn} ${torpedoActive ? styles.tacticalActive : ""}`}
-            onClick={() => setTorpedoActive((active) => !active)}
-            disabled={!canUseTactical || torpedoQty <= 0}
+            onClick={handleToggleTorpedo}
+            disabled={!canUseTactical || torpedoQty <= 0 || (tutorial && tutorialStep !== "torpedo")}
+            data-training-target={tutorial && tutorialStep === "torpedo" ? "torpedo" : undefined}
           >
             💣 Torpedo · {torpedoQty}
           </button>
@@ -917,8 +1334,13 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
                 type="button"
                 key={direction}
                 className={`${styles.directionBtn} ${torpedoDir === direction ? styles.directionActive : ""}`}
-                onClick={() => setTorpedoDir(direction)}
-                disabled={!canUseTactical}
+                onClick={() => handleTorpedoDirection(direction)}
+                disabled={!canUseTactical || (tutorial && (tutorialStep !== "torpedo_direction" || direction !== "right"))}
+                data-training-target={
+                  tutorial && tutorialStep === "torpedo_direction" && direction === "right"
+                    ? "torpedo-direction"
+                    : undefined
+                }
               >
                 {TACTICAL_DIRS[direction].label}
               </button>
@@ -927,6 +1349,7 @@ export function BotGameContent({ gameIdStr: _gameIdStr }: { gameIdStr: string })
         )}
         {itemHint && <div className={styles.itemHint}>{itemHint}</div>}
       </div>
+      {tutorialGuide}
     </div>
   );
 }

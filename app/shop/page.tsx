@@ -73,6 +73,7 @@ import { MobileDock } from "../components/MobileDock";
 import FleetNftPanel from "../components/FleetNftPanel";
 import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
+import { MissionGuide } from "../components/MissionGuide";
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -92,6 +93,13 @@ import {
   clearWalletRequest,
   markWalletRequestStarted,
 } from "../lib/walletRequestRecovery";
+import {
+  claimStarterPackItem,
+  getStarterPackStatus,
+  type StarterPackItemSlug,
+  type StarterPackStatus,
+} from "../lib/onboardingStarterPack";
+import { useOnboarding } from "../providers/OnboardingProvider";
 import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -155,8 +163,14 @@ const ITEM_META: Record<
 export default function ShopPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
+  const {
+    status: onboardingStatus,
+    loaded: onboardingLoaded,
+    progress: progressOnboarding,
+    dismiss: dismissOnboarding,
+  } = useOnboarding();
   const wagmiConfig = useConfig();
-  const { lang } = useSettings();
+  const { lang, effects } = useSettings();
   const tr = TR[lang];
   const tierLabel = (tier: ShopTier) =>
     ({
@@ -237,6 +251,11 @@ export default function ShopPage() {
   const [sbtMsg, setSbtMsg] = useState("");
   const [shopMsg, setShopMsg] = useState("");
   const [shopBusy, setShopBusy] = useState<string | null>(null);
+  const [starterLoadout, setStarterLoadout] = useState<StarterPackStatus | null>(null);
+  const [starterItemBusy, setStarterItemBusy] = useState<StarterPackItemSlug | null>(null);
+  const [starterSkipBusy, setStarterSkipBusy] = useState(false);
+  const [starterLoadoutError, setStarterLoadoutError] = useState("");
+  const [starterAdvanceFailed, setStarterAdvanceFailed] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoMsg, setPromoMsg] = useState("");
@@ -285,6 +304,20 @@ export default function ShopPage() {
     }
   }, [address, tr.shop_items_load_failed]);
 
+  const showRecruitLoadout = Boolean(
+    address &&
+    onboardingLoaded &&
+    onboardingStatus?.required &&
+    onboardingStatus.step === "loadout"
+  );
+  const starterTarget: StarterPackItemSlug | null = showRecruitLoadout
+    ? starterLoadout?.complete && starterAdvanceFailed
+      ? "torpedo"
+      : starterLoadout
+        ? starterLoadout.nextItem
+        : "radar_scan"
+    : null;
+
   useEffect(() => {
     if (address) refreshSeasonShop();
   }, [address, refreshSeasonShop]);
@@ -295,10 +328,106 @@ export default function ShopPage() {
   }, [refreshSeasonShop]);
 
   useEffect(() => {
+    if (!address || !showRecruitLoadout) {
+      setStarterLoadout(null);
+      setStarterLoadoutError("");
+      setStarterAdvanceFailed(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setStarterLoadoutError("");
+    void getStarterPackStatus(address, controller.signal)
+      .then(async (next) => {
+        if (controller.signal.aborted) return;
+        setStarterLoadout(next);
+        if (next.complete) {
+          setStarterAdvanceFailed(false);
+          try {
+            await progressOnboarding("battle");
+            router.replace("/game?mode=bot&tutorial=1");
+          } catch (error) {
+            setStarterAdvanceFailed(true);
+            throw error;
+          }
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setStarterLoadoutError(error instanceof Error ? error.message : tr.shop_items_load_failed);
+      });
+    return () => controller.abort();
+  }, [address, progressOnboarding, router, showRecruitLoadout, tr.shop_items_load_failed]);
+
+  useEffect(() => {
+    if (!starterTarget) return;
+    const timer = window.setTimeout(() => {
+      document.querySelector<HTMLElement>('[data-tour="loadout"]')?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "center",
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [starterTarget]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const value = params.get("code") || params.get("promo");
     if (value) setPromoCode(value);
   }, []);
+
+  const handleClaimStarterItem = useCallback(async (itemSlug: StarterPackItemSlug) => {
+    if (!address || starterItemBusy || shopBusy || starterTarget !== itemSlug) return;
+    setStarterItemBusy(itemSlug);
+    setStarterLoadoutError("");
+    try {
+      const next = await claimStarterPackItem(address, itemSlug);
+      setStarterLoadout(next);
+      setInventory((current) => ({
+        ...EMPTY_INVENTORY,
+        ...current,
+        radar_scan: next.quantities.radar_scan,
+        torpedo: next.quantities.torpedo,
+      }));
+      notifyPlayerDataRefresh();
+      void refreshSeasonShop();
+      if (next.complete) {
+        setStarterAdvanceFailed(false);
+        try {
+          await progressOnboarding("battle");
+          router.push("/game?mode=bot&tutorial=1");
+        } catch (error) {
+          setStarterAdvanceFailed(true);
+          throw error;
+        }
+      }
+    } catch (error) {
+      setStarterLoadoutError(error instanceof Error ? error.message : tr.shop_purchase_failed);
+    } finally {
+      setStarterItemBusy(null);
+    }
+  }, [
+    address,
+    progressOnboarding,
+    refreshSeasonShop,
+    router,
+    shopBusy,
+    starterItemBusy,
+    starterTarget,
+    tr.shop_purchase_failed,
+  ]);
+
+  const handleSkipRecruitTraining = useCallback(() => {
+    if (starterItemBusy || starterSkipBusy) return;
+    setStarterSkipBusy(true);
+    setStarterLoadoutError("");
+    void dismissOnboarding()
+      .then(() => router.push("/"))
+      .catch((error) => {
+        setStarterLoadoutError(error instanceof Error ? error.message : tr.shop_purchase_failed);
+      })
+      .finally(() => setStarterSkipBusy(false));
+  }, [dismissOnboarding, router, starterItemBusy, starterSkipBusy, tr.shop_purchase_failed]);
 
   const getItemPurchaseQty = (slug: ShopItemSlug, allowMany = true) => {
     const qty = normalizeShopPurchaseQuantity(itemPurchaseQuantities[slug] ?? 1);
@@ -1452,9 +1581,11 @@ export default function ShopPage() {
                   const isHero = isDouble;
                   const canActivateDouble = isDouble && ownedQty > 0;
                   const useUsdcPrice = item.slug === "quest_reroll" && questRerollPointUsed;
+                  const isStarterTarget = starterTarget === item.slug;
                   const allowMany = item.slug !== "quest_reroll" || useUsdcPrice;
                   const purchaseQty = getItemPurchaseQty(item.slug, allowMany);
                   const buyBusy =
+                    (isStarterTarget && starterItemBusy === item.slug) ||
                     shopBusy === item.slug ||
                     (useUsdcPrice && shopBusy === "quest_reroll_usdc");
                   const activateBusy = isDouble && shopBusy === "activate_double";
@@ -1470,7 +1601,9 @@ export default function ShopPage() {
                         : meta.tier === "rare"
                           ? styles.tierRare
                           : styles.tierLocked;
-                  const label = !item.enabled
+                  const label = isStarterTarget
+                    ? `0 ${tr.shop_pts}`
+                    : !item.enabled
                     ? copy.status
                     : useUsdcPrice
                         ? formatUsdcMicro(QUEST_REROLL_USDC_PRICE * purchaseQty)
@@ -1535,8 +1668,11 @@ export default function ShopPage() {
                           )}
                           <button
                             className={`${styles.btn} ${styles.btnCompact} ${styles.shopBuyButton}`}
+                            data-tour={isStarterTarget ? "loadout" : undefined}
                             onClick={() =>
-                              useUsdcPrice
+                              isStarterTarget
+                                ? handleClaimStarterItem(item.slug as StarterPackItemSlug)
+                                : useUsdcPrice
                                 ? handleBuyQuestRerollUsdc(purchaseQty)
                                 : handleBuyPointItem(item.slug, purchaseQty)
                             }
@@ -1544,6 +1680,7 @@ export default function ShopPage() {
                               !isConnected ||
                               !item.enabled ||
                               shopBusy !== null ||
+                              starterItemBusy !== null ||
                               paidQuestRerollPending ||
                               pointPurchasePending
                             }
@@ -1985,6 +2122,30 @@ export default function ShopPage() {
                   {promoMsg && <p className={styles.msg}>{promoMsg}</p>}
                 </section>
       </main>
+      {showRecruitLoadout && starterTarget && (
+        <MissionGuide
+          key={starterTarget}
+          target='[data-tour="loadout"]'
+          eyebrow={lang === "ru" ? "снаряжение" : "loadout"}
+          title={starterTarget === "radar_scan"
+            ? lang === "ru" ? "забери радар" : "claim Radar Scan"
+            : lang === "ru" ? "теперь забери торпеду" : "now claim Torpedo"}
+          body={starterTarget === "radar_scan"
+            ? lang === "ru"
+              ? "подсвечена обычная кнопка на карточке Radar Scan\nнажми 0 PTS"
+              : "the regular button on the Radar Scan card is highlighted\ntap 0 PTS"
+            : lang === "ru"
+              ? "радар уже в инвентаре. теперь нажми 0 PTS на настоящей карточке Torpedo"
+              : "Radar is secured. Tap 0 PTS on the real Torpedo card."}
+          step={3}
+          total={5}
+          skipLabel={lang === "ru" ? "пропустить обучение" : "skip tutorial"}
+          onSkip={handleSkipRecruitTraining}
+          busy={starterItemBusy !== null || starterSkipBusy}
+          error={starterLoadoutError}
+          reducedMotion={effects === "reduced"}
+        />
+      )}
       <MobileDock active="shop" />
     </div>
   );

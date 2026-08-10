@@ -9,14 +9,25 @@ interface BoardProps {
   cells: CellState[][];
   onCellClick?: (x: number, y: number) => void;
   isInteractive: boolean;
+  isCellInteractive?: (x: number, y: number, state: CellState) => boolean;
   label: string;
   variant?: "target" | "fleet" | "placement";
   cellSize?: string;
+  trainingTarget?: { x: number; y: number; name: string } | null;
 }
 
 const COL_LABELS_EN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-export function Board({ cells, onCellClick, isInteractive, label, variant, cellSize }: BoardProps) {
+export function Board({
+  cells,
+  onCellClick,
+  isInteractive,
+  isCellInteractive,
+  label,
+  variant,
+  cellSize,
+  trainingTarget = null,
+}: BoardProps) {
   const { lang } = useSettings();
   const rowCount = cells.length;
   const colCount = cells.reduce((max, row) => Math.max(max, row.length), 0);
@@ -64,8 +75,16 @@ export function Board({ cells, onCellClick, isInteractive, label, variant, cellS
                     key={`${x}-${y}`}
                     state={cellState}
                     onClick={() => onCellClick?.(x, y)}
-                    isInteractive={isInteractive}
+                    isInteractive={
+                      isInteractive &&
+                      (isCellInteractive?.(x, y, cellState) ?? true)
+                    }
                     label={`${COL_LABELS[x] ?? x + 1}${y + 1}`}
+                    trainingTarget={
+                      trainingTarget?.x === x && trainingTarget.y === y
+                        ? trainingTarget.name
+                        : undefined
+                    }
                   />
                 ))}
               </div>

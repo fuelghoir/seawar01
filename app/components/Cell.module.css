@@ -208,6 +208,31 @@
   }
 }
 
+.trainingTarget {
+  z-index: 6;
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 14px rgba(var(--accent-rgb), 0.42),
+    0 0 14px rgba(var(--accent-rgb), 0.72);
+  animation: trainingCellPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes trainingCellPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trainingTarget {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cell,
   .hit,

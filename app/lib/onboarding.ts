@@ -1,14 +1,13 @@
 import type { Lang } from "./settings";
 
-export const ONBOARDING_TOUR_VERSION = 1;
+export const ONBOARDING_TOUR_VERSION = 2;
 
 export const ONBOARDING_STEPS = [
   "language",
-  "briefing",
-  "deployment",
-  "targeting",
-  "result",
   "checkin",
+  "loadout",
+  "battle",
+  "debrief",
   "complete",
 ] as const;
 
@@ -31,6 +30,7 @@ export type OnboardingStatus = {
 };
 
 const LOCAL_STORAGE_PREFIX = "sea-battle-onboarding";
+const REQUEST_TIMEOUT_MS = 4_500;
 
 const FALLBACK_STATUS: OnboardingStatus = {
   required: false,
@@ -47,14 +47,14 @@ export async function getOnboardingStatus(wallet: string): Promise<OnboardingSta
       `/api/onboarding?wallet=${encodeURIComponent(wallet)}`,
       { method: "GET" },
     );
-    if (remote.persistence === "local") {
-      const saved = readLocalStatus(wallet);
-      if (saved) return saved;
-      return persistLocalStatus(wallet, remote);
-    }
-    return remote;
+    if (remote.persistence !== "local") return remote;
+
+    const saved = readLocalStatus(wallet);
+    if (saved) return saved;
+    return persistLocalStatus(wallet, remote);
   } catch {
-    // A missing migration must never lock an existing player out of the app.
+    // Onboarding is an enhancement. A cold function or missing migration must
+    // never prevent the player from reaching the game.
     return readLocalStatus(wallet) ?? FALLBACK_STATUS;
   }
 }
@@ -63,15 +63,18 @@ export async function saveOnboardingProgress(
   wallet: string,
   step: OnboardingStep,
   language?: Lang,
-) {
+): Promise<OnboardingStatus> {
+  const saved = readLocalStatus(wallet);
+  if (saved?.persistence === "local") assertLocalTransition(saved, step);
+
   try {
     return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
       method: "POST",
       body: JSON.stringify({ action: "progress", wallet, step, language }),
     }));
   } catch (error) {
-    const saved = readLocalStatus(wallet);
     if (!saved || saved.persistence !== "local") throw error;
+
     return persistLocalStatus(wallet, {
       ...saved,
       required: true,
@@ -82,30 +85,53 @@ export async function saveOnboardingProgress(
   }
 }
 
-export async function skipOnboardingGameplay(wallet: string, language?: Lang) {
-  return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
-    method: "POST",
-    body: JSON.stringify({ action: "skip", wallet, language }),
-  }));
+export async function completeOnboarding(wallet: string): Promise<OnboardingStatus> {
+  const saved = readLocalStatus(wallet);
+  if (saved?.persistence === "local" && saved.step !== "debrief" && saved.step !== "complete") {
+    throw new Error("Finish the training battle first");
+  }
+
+  try {
+    return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
+      method: "POST",
+      body: JSON.stringify({ action: "complete", wallet }),
+    }));
+  } catch (error) {
+    if (!saved || saved.persistence !== "local" || saved.step !== "debrief") throw error;
+    return persistLocalStatus(wallet, {
+      ...saved,
+      required: false,
+      status: "completed",
+      step: "complete",
+    });
+  }
 }
 
-export async function completeOnboarding(wallet: string) {
-  return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
-    method: "POST",
-    body: JSON.stringify({ action: "complete", wallet }),
-  }));
+export async function dismissOnboarding(wallet: string): Promise<OnboardingStatus> {
+  const saved = readLocalStatus(wallet);
+  try {
+    return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
+      method: "POST",
+      body: JSON.stringify({ action: "dismiss", wallet }),
+    }));
+  } catch (error) {
+    if (!saved || saved.persistence !== "local") throw error;
+    return persistLocalStatus(wallet, {
+      ...saved,
+      required: false,
+      status: "completed",
+      step: "complete",
+      skippedGameplay: true,
+    });
+  }
 }
 
-export async function dismissOnboarding(wallet: string) {
-  return persistLocalStatus(wallet, await onboardingRequest("/api/onboarding", {
-    method: "POST",
-    body: JSON.stringify({ action: "dismiss", wallet }),
-  }));
-}
+/** @deprecated Use dismissOnboarding. Kept for older page bundles during rollout. */
+export const skipOnboardingGameplay = dismissOnboarding;
 
-async function onboardingRequest(url: string, init: RequestInit) {
+async function onboardingRequest(url: string, init: RequestInit): Promise<OnboardingStatus> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 3_500);
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       ...init,
@@ -120,9 +146,44 @@ async function onboardingRequest(url: string, init: RequestInit) {
     if (!response.ok) {
       throw new Error(payload?.error || "Could not save training progress");
     }
-    return payload as OnboardingStatus;
+    return normalizeStatus(payload);
   } finally {
     window.clearTimeout(timeout);
+  }
+}
+
+function normalizeStatus(value: unknown): OnboardingStatus {
+  if (!value || typeof value !== "object") throw new Error("Invalid training status");
+  const candidate = value as Partial<OnboardingStatus>;
+  const step = candidate.step as OnboardingStep;
+  const status = candidate.status as OnboardingStatusKind;
+  if (
+    candidate.version !== ONBOARDING_TOUR_VERSION ||
+    !ONBOARDING_STEPS.includes(step) ||
+    !["pending", "in_progress", "completed", "grandfathered", "unavailable"].includes(status)
+  ) {
+    throw new Error("Unsupported training status");
+  }
+
+  return {
+    required: Boolean(candidate.required),
+    version: ONBOARDING_TOUR_VERSION,
+    status,
+    step,
+    language: candidate.language === "ru" || candidate.language === "en"
+      ? candidate.language
+      : null,
+    skippedGameplay: Boolean(candidate.skippedGameplay),
+    persistence: candidate.persistence === "local" ? "local" : "server",
+  };
+}
+
+function assertLocalTransition(current: OnboardingStatus, next: OnboardingStep) {
+  const currentIndex = ONBOARDING_STEPS.indexOf(current.step);
+  const nextIndex = ONBOARDING_STEPS.indexOf(next);
+  if (nextIndex < currentIndex) return;
+  if (nextIndex > currentIndex + 1) {
+    throw new Error("Training objectives must be completed in order");
   }
 }
 
@@ -139,9 +200,9 @@ function readLocalStatus(wallet: string): OnboardingStatus | null {
     if (
       parsed.version !== ONBOARDING_TOUR_VERSION ||
       !ONBOARDING_STEPS.includes(parsed.step as OnboardingStep) ||
-      (parsed.status !== "pending" && parsed.status !== "in_progress" && parsed.status !== "completed")
+      !["pending", "in_progress", "completed", "grandfathered"].includes(String(parsed.status))
     ) return null;
-    return parsed as OnboardingStatus;
+    return normalizeStatus(parsed);
   } catch {
     return null;
   }
@@ -152,7 +213,7 @@ function persistLocalStatus(wallet: string, status: OnboardingStatus) {
   try {
     window.localStorage.setItem(localStorageKey(wallet), JSON.stringify(status));
   } catch {
-    // Private browsing or a full storage quota should not break the tutorial session.
+    // Private browsing or a full storage quota should not break the session.
   }
   return status;
 }

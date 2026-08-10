@@ -69,12 +69,7 @@ import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
 import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
 import { useTransactionWarmup } from "./lib/useTransactionWarmup";
-import {
-  completeOnboarding,
-  getOnboardingStatus,
-  saveOnboardingProgress,
-  type OnboardingStatus,
-} from "./lib/onboarding";
+import { useOnboarding } from "./providers/OnboardingProvider";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
@@ -82,7 +77,6 @@ const YT_URL = "https://www.youtube.com/@hermcrypto0x";
 const REFERRAL_STORAGE_KEY = "sea-battle-referrer";
 const BOOT_MIN_MS = 950;
 const BOOT_MAX_MS = 3600;
-const ONBOARDING_RETRY_DELAYS_MS = [1200, 3000] as const;
 
 type HomeClientProps = {
   initialIsNarrowScreen: boolean;
@@ -104,6 +98,12 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const { switchChain } = useSwitchChain();
   const { signMessageAsync } = useSignMessage();
   const { lang, effects, setLang } = useSettings();
+  const {
+    status: onboarding,
+    loaded: onboardingLoaded,
+    progress: progressOnboarding,
+    refresh: refreshOnboarding,
+  } = useOnboarding();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
 
@@ -120,8 +120,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
   const [showSeasonEndedIntro, setShowSeasonEndedIntro] = useState(false);
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -320,42 +318,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   }, [address]);
 
   useEffect(() => {
-    let cancelled = false;
-    let retryTimer: number | undefined;
-    if (!address) {
-      setOnboarding(null);
-      setOnboardingLoaded(true);
-      return;
-    }
-
-    setOnboarding(null);
-    setOnboardingLoaded(false);
-    const loadOnboarding = async (attempt = 0) => {
-      const status = await getOnboardingStatus(address);
-      if (cancelled) return;
-
-      setOnboarding(status);
-      setOnboardingLoaded(true);
-      if (status.language && status.language !== lang) setLang(status.language);
-
-      const retryDelay = ONBOARDING_RETRY_DELAYS_MS[attempt];
-      if (status.status === "unavailable" && retryDelay !== undefined) {
-        retryTimer = window.setTimeout(() => {
-          void loadOnboarding(attempt + 1);
-        }, retryDelay);
-      }
-    };
-    void loadOnboarding();
-
-    return () => {
-      cancelled = true;
-      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-    };
-    // The settings callbacks are intentionally excluded: the status is keyed by wallet.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
-
-  useEffect(() => {
     if (!address) return;
     const refresh = () => {
       void loadProfile();
@@ -414,16 +376,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     router.push("/season");
   }, [address, router]);
 
-  const finishOnboarding = useCallback(async () => {
-    if (!address) return;
-    const updated = await completeOnboarding(address);
-    setOnboarding(updated);
-    await Promise.all([
-      loadProfile(),
-      getCheckinStatus(address).then(setCheckin).catch(() => {}),
-    ]);
-  }, [address, loadProfile]);
-
   useEffect(() => {
     if (!onboarding?.required) return;
     setOpenSection(null);
@@ -434,36 +386,33 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     if (
       !address ||
       !onboarding?.required ||
-      onboarding.step !== "briefing" ||
+      onboarding.step !== "checkin" ||
       checkin?.canCheckin !== false
     ) return;
 
-    const recoveryKey = `${address.toLowerCase()}:briefing`;
+    const recoveryKey = `${address.toLowerCase()}:checkin:v2`;
     if (recoveredOnboardingCheckinKey.current === recoveryKey) return;
     recoveredOnboardingCheckinKey.current = recoveryKey;
 
-    void saveOnboardingProgress(address, "deployment", onboarding.language ?? lang)
-      .then(setOnboarding)
+    void progressOnboarding("loadout", onboarding.language ?? lang)
       .catch(() => {
         recoveredOnboardingCheckinKey.current = null;
       });
-  }, [address, checkin?.canCheckin, lang, onboarding?.language, onboarding?.required, onboarding?.step]);
+  }, [address, checkin?.canCheckin, lang, onboarding?.language, onboarding?.required, onboarding?.step, progressOnboarding]);
 
   const handleCheckedIn = useCallback(() => {
     void loadProfile();
     if (!address || !onboarding?.required) return;
-    void saveOnboardingProgress(address, "deployment", onboarding.language ?? lang)
-      .then((updated) => {
-        setOnboarding(updated);
+    void progressOnboarding("loadout", onboarding.language ?? lang)
+      .then(() => {
         setShowWelcome(false);
       })
       .catch(() => {
-        void getOnboardingStatus(address).then((updated) => {
-          setOnboarding(updated);
+        void refreshOnboarding().then(() => {
           setShowWelcome(false);
         });
       });
-  }, [address, lang, loadProfile, onboarding?.language, onboarding?.required]);
+  }, [address, lang, loadProfile, onboarding?.language, onboarding?.required, progressOnboarding, refreshOnboarding]);
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
@@ -671,14 +620,10 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
       {address && onboarding?.required && !showWelcome && (
         <CaptainOnboarding
-          address={address}
-          status={onboarding}
           lang={lang}
           reducedMotion={reducedFx}
           onLanguageChange={setLang}
-          onStatusChange={setOnboarding}
           onOpenCheckin={() => setShowWelcome(true)}
-          onFinish={finishOnboarding}
         />
       )}
 
@@ -1259,7 +1204,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         <aside className={styles.rightCol}>
           <div className={styles.shopHeader}>
             <button
-              data-tour="battlepass"
+              data-tour="shop"
               className={styles.shopTab}
               onClick={() => router.push("/shop")}
               type="button"

@@ -10,9 +10,10 @@ function GameContent() {
   const gameIdStr = searchParams.get("id") || "0";
   const mode = searchParams.get("mode") || "friend";
   const onchainGameId = searchParams.get("oid") || undefined;
+  const tutorial = searchParams.get("tutorial") === "1";
 
   if (mode === "bot") {
-    return <BotGameContent gameIdStr={gameIdStr} />;
+    return <BotGameContent gameIdStr={gameIdStr} tutorial={tutorial} />;
   }
 
   if (mode === "wager") {

@@ -1,0 +1,392 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 9200;
+  color: #eaf7ff;
+  font-family: var(--font-inter), var(--font-sans), sans-serif;
+  pointer-events: none;
+}
+
+.shade {
+  position: fixed;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 50% 20%, rgb(12 38 55 / 18%), transparent 46%),
+    rgb(1 6 12 / 66%);
+  pointer-events: auto;
+  animation: shadeIn 180ms ease-out both;
+}
+
+.fullShade {
+  inset: 0;
+}
+
+.focus {
+  position: fixed;
+  z-index: 1;
+  overflow: visible;
+  border: 1px solid rgb(69 230 208 / 72%);
+  border-radius: 13px;
+  box-shadow:
+    0 0 0 3px rgb(69 230 208 / 9%),
+    inset 0 0 24px rgb(69 230 208 / 7%),
+    0 0 34px rgb(38 205 208 / 28%);
+  pointer-events: none;
+  animation: focusAcquire 300ms cubic-bezier(.2, .85, .25, 1) both;
+}
+
+.focus::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(180deg, transparent 0 42%, rgb(102 239 224 / 17%) 50%, transparent 58%);
+  background-size: 100% 230%;
+  animation: targetScan 2.3s linear infinite;
+}
+
+.cornerA,
+.cornerB {
+  position: absolute;
+  width: 17px;
+  height: 17px;
+  border-color: #f3bc62;
+  filter: drop-shadow(0 0 5px rgb(243 188 98 / 54%));
+}
+
+.cornerA {
+  top: -4px;
+  left: -4px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.cornerB {
+  right: -4px;
+  bottom: -4px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+.beacon {
+  position: absolute;
+  top: -13px;
+  right: -13px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(243 188 98 / 76%);
+  border-radius: 50%;
+  background: #071521;
+  box-shadow: 0 0 0 5px rgb(243 188 98 / 9%), 0 0 20px rgb(243 188 98 / 38%);
+  animation: beaconPing 1.7s ease-out infinite;
+}
+
+.beacon::before,
+.beacon::after {
+  content: "";
+  position: absolute;
+  background: rgb(243 188 98 / 52%);
+}
+
+.beacon::before { width: 33px; height: 1px; }
+.beacon::after { width: 1px; height: 33px; }
+
+.beacon i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f3bc62;
+  box-shadow: 0 0 9px #f3bc62;
+}
+
+.panel {
+  position: fixed;
+  z-index: 4;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(calc(100vw - 26px), 500px);
+  overflow: hidden;
+  padding: 16px 17px 15px;
+  border: 1px solid rgb(102 164 186 / 29%);
+  border-radius: 4px 16px 4px 16px;
+  background:
+    linear-gradient(rgb(95 172 190 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(95 172 190 / 5%) 1px, transparent 1px),
+    linear-gradient(145deg, rgb(10 30 44 / 98%), rgb(4 15 25 / 98%));
+  background-size: 22px 22px, 22px 22px, auto;
+  box-shadow: 0 22px 70px rgb(0 0 0 / 62%), inset 0 1px rgb(255 255 255 / 4%);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  animation: panelIn 260ms cubic-bezier(.2, .82, .25, 1) both;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #45e6d0, rgb(69 230 208 / 8%) 68%, #f3bc62);
+}
+
+.panelTop {
+  top: max(14px, env(safe-area-inset-top));
+  bottom: auto;
+}
+
+.chartMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -3px 0 11px;
+  color: rgb(130 181 198 / 50%);
+  font-family: var(--font-mono), monospace;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .17em;
+}
+
+.chartMeta span:last-child {
+  color: #55d9c7;
+}
+
+.headingRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.missionMark {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(69 230 208 / 40%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(69 230 208 / 15%) 0 16%, transparent 17% 44%, rgb(69 230 208 / 12%) 45% 47%, transparent 48%);
+}
+
+.missionMark::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 1px;
+  background: #45e6d0;
+  transform: rotate(-38deg);
+  transform-origin: right center;
+}
+
+.missionMark i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #f3bc62;
+  box-shadow: 0 0 8px #f3bc62;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: #45e6d0;
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.panel h2 {
+  margin: 0;
+  color: #f2f9fb;
+  font-family: var(--font-display), var(--font-inter), sans-serif;
+  font-size: clamp(19px, 5vw, 25px);
+  font-weight: 750;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+}
+
+.stepCount {
+  align-self: start;
+  color: #f3bc62;
+  font-family: var(--font-mono), monospace;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stepCount small {
+  color: rgb(168 197 207 / 44%);
+  font-size: 9px;
+}
+
+.panel p {
+  max-width: 42ch;
+  margin: 13px 0 14px 45px;
+  color: rgb(204 224 231 / 72%);
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.progressTrack {
+  height: 2px;
+  margin: 0 0 13px 45px;
+  overflow: hidden;
+  background: rgb(117 166 182 / 13%);
+}
+
+.progressTrack span {
+  display: block;
+  width: var(--mission-progress);
+  height: 100%;
+  background: linear-gradient(90deg, #45e6d0, #f3bc62);
+  box-shadow: 0 0 8px rgb(69 230 208 / 45%);
+  transition: width 260ms ease;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: 45px;
+}
+
+.primary,
+.skip {
+  min-height: 43px;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid rgb(69 230 208 / 48%);
+  border-radius: 3px 10px 3px 10px;
+  background: linear-gradient(105deg, #43ddc8, #62cfbf);
+  color: #031418;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-align: left;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px rgb(36 205 185 / 18%);
+}
+
+.primary svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 150ms ease;
+}
+
+.primary:hover svg { transform: translateX(3px); }
+
+.skip {
+  flex: 0 0 auto;
+  padding: 0 9px;
+  background: transparent;
+  color: rgb(179 204 213 / 48%);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.primary:disabled,
+.skip:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.primary:focus-visible,
+.skip:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.error {
+  margin: 10px 0 0 45px;
+  color: #ff8996;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@keyframes shadeIn {
+  from { opacity: 0; }
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translate(-50%, 12px) scale(.985); }
+}
+
+@keyframes focusAcquire {
+  from { opacity: 0; transform: scale(1.07); }
+}
+
+@keyframes targetScan {
+  from { background-position: 0 -120%; }
+  to { background-position: 0 120%; }
+}
+
+@keyframes beaconPing {
+  50% { box-shadow: 0 0 0 9px rgb(243 188 98 / 4%), 0 0 25px rgb(243 188 98 / 52%); }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    width: calc(100vw - 20px);
+    padding: 14px 14px 13px;
+  }
+
+  .panel p,
+  .progressTrack,
+  .actions,
+  .error {
+    margin-left: 0;
+  }
+
+  .panel p { margin-top: 12px; }
+  .headingRow { grid-template-columns: 31px minmax(0, 1fr) auto; gap: 9px; }
+  .missionMark { width: 29px; height: 29px; }
+  .actions { align-items: stretch; flex-direction: column; gap: 2px; }
+  .skip { min-height: 35px; }
+}
+
+.reducedMotion .focus,
+.reducedMotion .focus::before,
+.reducedMotion .beacon,
+.reducedMotion .panel,
+.reducedMotion .shade,
+.reducedMotion .progressTrack span,
+.reducedMotion .primary svg {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus,
+  .focus::before,
+  .beacon,
+  .panel,
+  .shade,
+  .progressTrack span,
+  .primary svg {
+    animation: none;
+    transition: none;
+  }
+}

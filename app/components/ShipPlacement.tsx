@@ -34,6 +34,9 @@ interface ShipPlacementProps {
   onConfirm: (boardLayout: number[]) => void;
   isPending: boolean;
   isConfirming: boolean;
+  trainingTarget?: "autoplace" | "confirm" | null;
+  onAutoPlace?: (boardLayout: number[]) => void;
+  initialBoardLayout?: number[];
 }
 
 function getShipCells(ship: PlacedShip): [number, number][] {
@@ -89,6 +92,61 @@ function boardFromPlaced(placed: PlacedShip[]): number[] {
   return board;
 }
 
+function placedFromBoard(board: number[]): PlacedShip[] {
+  if (board.length !== 100) return [];
+  const occupied = new Set(
+    board.flatMap((value, index) => value === 1 ? [index] : [])
+  );
+  const visited = new Set<number>();
+  const components: number[][] = [];
+
+  for (const start of occupied) {
+    if (visited.has(start)) continue;
+    const component: number[] = [];
+    const queue = [start];
+    visited.add(start);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      component.push(current);
+      const x = current % 10;
+      const y = Math.floor(current / 10);
+      const neighbors = [
+        x > 0 ? current - 1 : -1,
+        x < 9 ? current + 1 : -1,
+        y > 0 ? current - 10 : -1,
+        y < 9 ? current + 10 : -1,
+      ];
+      for (const next of neighbors) {
+        if (next >= 0 && occupied.has(next) && !visited.has(next)) {
+          visited.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    components.push(component.sort((a, b) => a - b));
+  }
+
+  const remainingShips = [...ALL_SHIPS];
+  const placed: PlacedShip[] = [];
+  for (const component of components.sort((a, b) => b.length - a.length)) {
+    const shipIndex = remainingShips.findIndex((ship) => ship.size === component.length);
+    if (shipIndex < 0) return [];
+    const [ship] = remainingShips.splice(shipIndex, 1);
+    const xs = component.map((index) => index % 10);
+    const ys = component.map((index) => Math.floor(index / 10));
+    const orientation: "h" | "v" = new Set(ys).size === 1 ? "h" : "v";
+    placed.push({
+      ...ship,
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      orientation,
+    });
+  }
+
+  return placed.length === ALL_SHIPS.length ? placed : [];
+}
+
 function randomPlacement(): PlacedShip[] {
   const placed: PlacedShip[] = [];
   for (const ship of ALL_SHIPS) {
@@ -109,8 +167,17 @@ function randomPlacement(): PlacedShip[] {
   return placed;
 }
 
-export function ShipPlacement({ onConfirm, isPending, isConfirming }: ShipPlacementProps) {
-  const [placedShips, setPlacedShips] = useState<PlacedShip[]>([]);
+export function ShipPlacement({
+  onConfirm,
+  isPending,
+  isConfirming,
+  trainingTarget = null,
+  onAutoPlace,
+  initialBoardLayout,
+}: ShipPlacementProps) {
+  const [placedShips, setPlacedShips] = useState<PlacedShip[]>(() =>
+    initialBoardLayout ? placedFromBoard(initialBoardLayout) : []
+  );
   const [selectedShipId, setSelectedShipId] = useState<string | null>(null);
   const [orientation, setOrientation] = useState<"h" | "v">("h");
 
@@ -145,6 +212,7 @@ export function ShipPlacement({ onConfirm, isPending, isConfirming }: ShipPlacem
     if (placed.length === ALL_SHIPS.length) {
       setPlacedShips(placed);
       setSelectedShipId(null);
+      onAutoPlace?.(boardFromPlaced(placed));
     }
   };
 
@@ -196,7 +264,12 @@ export function ShipPlacement({ onConfirm, isPending, isConfirming }: ShipPlacem
         >
           Rotate ({orientation === "h" ? "horiz" : "vert"})
         </button>
-        <button className={styles.controlButton} onClick={handleAutoPlace}>
+        <button
+          className={styles.controlButton}
+          onClick={handleAutoPlace}
+          type="button"
+          data-training-target={trainingTarget === "autoplace" ? "autoplace" : undefined}
+        >
           Random
         </button>
         <button className={styles.controlButton} onClick={handleClear}>
@@ -216,6 +289,8 @@ export function ShipPlacement({ onConfirm, isPending, isConfirming }: ShipPlacem
         className={styles.confirmButton}
         disabled={!allPlaced || isPending || isConfirming}
         onClick={() => onConfirm(boardFromPlaced(placedShips))}
+        type="button"
+        data-training-target={trainingTarget === "confirm" ? "confirm" : undefined}
       >
         {isPending
           ? "Confirm in wallet..."

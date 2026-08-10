@@ -49,7 +49,7 @@ export function MobileDock({ active, onSelect }: MobileDockProps) {
     <nav className={styles.dock} aria-label={lang === "ru" ? "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u043d\u0430\u0432\u0438\u0433\u0430\u0446\u0438\u044f" : "Primary navigation"}>
       {items.map(({ id, label, ariaLabel, Icon, ...item }) => (
         <button
-          data-tour={id === "quests" ? "quests" : id === "shop" ? "battlepass" : undefined}
+          data-tour={id === "quests" ? "quests" : id === "shop" ? "shop" : undefined}
           key={id}
           className={`${styles.item} ${active === id ? styles.active : ""}`}
           onClick={() => select({ id, label, ariaLabel, Icon, ...item })}
