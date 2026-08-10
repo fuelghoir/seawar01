@@ -296,6 +296,8 @@ async function main() {
     else bucket.waiting += 1;
   }
 
+  const now = new Date();
+  const currentMonth = monthKey(now);
   const months = [...new Set([
     ...monthlyActivity.keys(),
     ...gamesByMonth.keys(),
@@ -317,15 +319,19 @@ async function main() {
     const newWallets = newWalletsByMonth.get(month) ?? 0;
     cumulativeWallets += newWallets;
     const previousMau = index > 0 ? (monthlyActivity.get(months[index - 1])?.size ?? 0) : 0;
+    const isMonthToDate = month === currentMonth;
 
     return {
       month,
+      period: isMonthToDate ? "month_to_date" : "full_month",
       newWallets,
       cumulativeWallets,
       activeWallets: activeWallets.size,
       coreActiveWallets: monthlyCoreActivity.get(month)?.size ?? 0,
       gamePlayers: monthlyGamePlayers.get(month)?.size ?? 0,
-      activeGrowthPct: previousMau ? round(((activeWallets.size - previousMau) / previousMau) * 100) : null,
+      activeGrowthPct: !isMonthToDate && previousMau
+        ? round(((activeWallets.size - previousMau) / previousMau) * 100)
+        : null,
       retainedFromPreviousMonth: retained,
       monthToMonthRetentionPct: previousWallets.size ? pct(retained, previousWallets.size) : null,
       games: games.total,
@@ -334,7 +340,6 @@ async function main() {
     };
   });
 
-  const now = new Date();
   const activeInWindow = (events, days) => {
     const threshold = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     return new Set(events.filter((event) => event.at >= threshold).map((event) => event.wallet)).size;

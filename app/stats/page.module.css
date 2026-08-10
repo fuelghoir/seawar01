@@ -936,6 +936,85 @@
   padding-bottom: 90px;
 }
 
+.registrySection {
+  border-top: 1px solid var(--stats-line);
+}
+
+.contractRegistry {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+}
+
+.contractCard {
+  grid-column: span 4;
+  min-width: 0;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid var(--stats-line);
+  background: linear-gradient(145deg, rgba(8, 27, 45, 0.84), rgba(3, 12, 24, 0.72));
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+
+.contractCard:first-child {
+  grid-column: span 8;
+  background:
+    linear-gradient(110deg, rgba(0, 215, 255, 0.12), transparent 62%),
+    rgba(5, 20, 36, 0.82);
+}
+
+.contractCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 215, 255, 0.55);
+}
+
+.contractCard:focus-visible {
+  outline: 2px solid var(--stats-aqua);
+  outline-offset: 3px;
+}
+
+.contractCard > span,
+.contractCard small {
+  color: #7192a8;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.contractCard strong {
+  margin-top: 13px;
+  color: #dff6ff;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.contractCard code {
+  overflow: hidden;
+  margin-top: 18px;
+  color: #8eb2c6;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contractCard small {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 22px;
+  border-top: 1px solid rgba(106, 197, 240, 0.1);
+}
+
+.contractCard small b {
+  color: var(--stats-cyan);
+}
+
 .methodGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1034,6 +1113,10 @@
 }
 
 @media (max-width: 980px) {
+  .contractCard,
+  .contractCard:first-child {
+    grid-column: span 6;
+  }
   .nav {
     grid-template-columns: 1fr auto;
   }
@@ -1067,6 +1150,11 @@
 }
 
 @media (max-width: 720px) {
+  .contractCard,
+  .contractCard:first-child {
+    grid-column: 1 / -1;
+    min-height: 174px;
+  }
   .nav,
   .hero,
   .metricGrid,
@@ -1194,6 +1282,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .contractCard {
+    transition: none;
+  }
+
+  .contractCard:hover {
+    transform: none;
+  }
   .sonarSweep {
     animation: none;
   }

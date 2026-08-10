@@ -1,11 +1,30 @@
 import Link from "next/link";
 import stats from "./grant-stats.json";
 import styles from "./page.module.css";
+import {
+  CAPTAIN_SBT_CONTRACT_ADDRESS,
+  SEABATTLE_CONTRACT_ADDRESS,
+  USDC_ADDRESS,
+} from "../contracts/seaBattleAbi";
+import { CHALLENGE_CONTRACT_ADDRESS } from "../contracts/challengeAbi";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../contracts/dropClaimAbi";
+import { FLEET_NFT_CONTRACT_ADDRESS } from "../contracts/fleetPassAbi";
+import { FLEET_MINER_SLOTS_CONTRACT_ADDRESS } from "../contracts/fleetMinerSlotsAbi";
 
 type MonthlyPoint = (typeof stats.acquisition.monthly)[number];
 
 const BASESCAN_CONTRACT = `https://basescan.org/address/${stats.project.primaryContract}`;
 const BASE_GRANT_GUIDE = "https://docs.base.org/get-started/get-funded";
+
+const CONTRACTS = [
+  { name: "Sea Battle v7", role: "Core matches + wagers", address: SEABATTLE_CONTRACT_ADDRESS },
+  { name: "Challenge", role: "Async player challenges", address: CHALLENGE_CONTRACT_ADDRESS },
+  { name: "Fleet Pass", role: "Fleet NFT utility", address: FLEET_NFT_CONTRACT_ADDRESS },
+  { name: "Fleet Miner", role: "Mining slots + rewards", address: FLEET_MINER_SLOTS_CONTRACT_ADDRESS },
+  { name: "Captain SBT", role: "Onchain captain identity", address: CAPTAIN_SBT_CONTRACT_ADDRESS },
+  { name: "Drop Claim", role: "Season reward claims", address: DROP_CLAIM_CONTRACT_ADDRESS },
+  { name: "USDC", role: "Base settlement asset", address: USDC_ADDRESS },
+] as const;
 
 function formatNumber(value: number, maximumFractionDigits = 0) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
@@ -37,7 +56,7 @@ function modeLabel(mode: string) {
   }[mode] ?? mode;
 }
 
-function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
+function GrowthChart({ points, latestIsMonthToDate }: { points: readonly MonthlyPoint[]; latestIsMonthToDate: boolean }) {
   const width = 760;
   const height = 230;
   const insetX = 54;
@@ -55,6 +74,11 @@ function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
     ? `${path} L ${coordinates.at(-1)?.x} ${height - insetY} L ${coordinates[0].x} ${height - insetY} Z`
     : "";
   const latest = points.at(-1);
+  const first = points[0];
+  const rangeLabel = first && latest
+    ? `${monthLabel(first.month)} through ${monthLabel(latest.month)} 2026`
+    : "the tracked period";
+  const latestLabel = latest ? `${monthLabel(latest.month)}${latestIsMonthToDate ? " MTD" : ""}` : "Latest";
 
   return (
     <div className={styles.chartShell}>
@@ -62,7 +86,7 @@ function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
         className={styles.growthChart}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Tracked monthly active wallets from April through July 2026"
+        aria-label={`Tracked monthly active wallets from ${rangeLabel}`}
       >
         <defs>
           <linearGradient id="growth-fill" x1="0" y1="0" x2="0" y2="1">
@@ -111,8 +135,9 @@ function GrowthChart({ points }: { points: readonly MonthlyPoint[] }) {
         <span><i className={styles.legendCore} />Core actions: {stats.headline.latestCoreMau}</span>
         <span>
           <i className={styles.legendPlayers} />
-          July: {formatNumber(latest?.games ?? 0)} games · {latest?.gamePlayers ?? 0} unique player wallets
+          {latestLabel}: {formatNumber(latest?.games ?? 0)} games · {latest?.gamePlayers ?? 0} unique player wallets
         </span>
+        {latestIsMonthToDate && <span>* current month to date</span>}
       </div>
     </div>
   );
@@ -191,8 +216,16 @@ function Donut({
 export default function StatsPage() {
   const modes = Object.entries(stats.gameplay.byMode);
   const maxMode = Math.max(...modes.map(([, value]) => value));
-  const july = stats.acquisition.monthly.at(-1);
-  const june = stats.acquisition.monthly.at(-2);
+  const latest = stats.acquisition.monthly.at(-1);
+  const previous = stats.acquisition.monthly.at(-2);
+  const generatedMonth = stats.project.generatedAt.slice(0, 7);
+  const latestIsMonthToDate = latest?.month === generatedMonth;
+  const latestMonthLabel = latest ? monthLabel(latest.month).toUpperCase() : "LATEST";
+  const previousMonthLabel = previous ? monthLabel(previous.month).toUpperCase() : "PREVIOUS";
+  const latestPeriodLabel = `${latestMonthLabel}${latestIsMonthToDate ? " MTD" : ""}`;
+  const growthLabel = latestIsMonthToDate || stats.headline.latestMauGrowthPct === null
+    ? `${formatNumber(latest?.activeWallets ?? 0)} ${latestPeriodLabel}`
+    : `${stats.headline.latestMauGrowthPct > 0 ? "+" : ""}${stats.headline.latestMauGrowthPct}% MoM`;
 
   return (
     <main className={styles.page}>
@@ -206,7 +239,7 @@ export default function StatsPage() {
         </Link>
         <div className={styles.navStatus}>
           <span className={styles.liveDot} />
-          Production snapshot
+          Daily production snapshot
           <b>{formatDate(stats.project.coverageEnd)}</b>
         </div>
         <div className={styles.navLinks}>
@@ -238,7 +271,7 @@ export default function StatsPage() {
         <div className={styles.sonarCard} aria-label="Sea Battle growth summary">
           <div className={styles.sonarTop}>
             <span>ACTIVITY SIGNAL</span>
-            <b>+{stats.headline.latestMauGrowthPct}% MoM</b>
+            <b>{growthLabel}</b>
           </div>
           <div className={styles.sonarField}>
             <span className={styles.sonarSweep} />
@@ -252,9 +285,9 @@ export default function StatsPage() {
             </div>
           </div>
           <div className={styles.sonarBottom}>
-            <span>APR {stats.acquisition.monthly[0].activeWallets}</span>
+            <span>{monthLabel(stats.acquisition.monthly[0].month).toUpperCase()} {stats.acquisition.monthly[0].activeWallets}</span>
             <i />
-            <span>JUL {stats.headline.latestMau}</span>
+            <span>{latestPeriodLabel} {stats.headline.latestMau}</span>
           </div>
         </div>
       </section>
@@ -289,14 +322,14 @@ export default function StatsPage() {
         <SectionTitle
           index="01"
           eyebrow="ADOPTION"
-          title="The signal accelerated in July."
-          copy="Tracked activity and direct gameplay are shown separately. The broad metric captures the full product loop; the strict metrics capture actions and players."
+          title="Monthly activity, updated every day."
+          copy="Tracked activity and direct gameplay are shown separately. The current month is marked MTD so a partial period is never presented as month-over-month decline."
         />
         <div className={styles.growthLayout}>
-          <GrowthChart points={stats.acquisition.monthly} />
+          <GrowthChart points={stats.acquisition.monthly} latestIsMonthToDate={latestIsMonthToDate} />
           <aside className={styles.growthNotes}>
             <div>
-              <span>JULY TRACKED MAU</span>
+              <span>{latestPeriodLabel} TRACKED WALLETS</span>
               <strong>{stats.acquisition.latestMau}</strong>
               <small>all attributable product events</small>
             </div>
@@ -306,14 +339,14 @@ export default function StatsPage() {
               <small>game, economy, quest, social, creator</small>
             </div>
             <div>
-              <span>JULY GAMES</span>
-              <strong>{formatNumber(july?.games ?? 0)}</strong>
-              <small>{july?.gamePlayers} unique player wallets</small>
+              <span>{latestPeriodLabel} GAMES</span>
+              <strong>{formatNumber(latest?.games ?? 0)}</strong>
+              <small>{latest?.gamePlayers} unique player wallets</small>
             </div>
             <div>
-              <span>JUNE → JULY RETURN</span>
-              <strong>{july?.monthToMonthRetentionPct}%</strong>
-              <small>{july?.retainedFromPreviousMonth} of {june?.activeWallets} prior-month wallets</small>
+              <span>{previousMonthLabel} → {latestPeriodLabel} RETURN</span>
+              <strong>{latest?.monthToMonthRetentionPct}%</strong>
+              <small>{latest?.retainedFromPreviousMonth} of {previous?.activeWallets} prior-month wallets</small>
             </div>
           </aside>
         </div>
@@ -506,9 +539,35 @@ export default function StatsPage() {
         </div>
       </section>
 
-      <section id="methodology" className={`${styles.section} ${styles.methodSection}`}>
+      <section className={`${styles.section} ${styles.registrySection}`}>
         <SectionTitle
           index="05"
+          eyebrow="VERIFIABLE INFRASTRUCTURE"
+          title="Every live contract, in one registry."
+          copy="The production surface is split by responsibility. Each address below opens directly on BaseScan for independent verification."
+        />
+        <div className={styles.contractRegistry}>
+          {CONTRACTS.map((contract) => (
+            <a
+              key={contract.address}
+              className={styles.contractCard}
+              href={`https://basescan.org/address/${contract.address}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Verify ${contract.name} on BaseScan`}
+            >
+              <span>{contract.role}</span>
+              <strong>{contract.name}</strong>
+              <code>{contract.address}</code>
+              <small>BASE MAINNET <b>VERIFY ↗</b></small>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section id="methodology" className={`${styles.section} ${styles.methodSection}`}>
+        <SectionTitle
+          index="06"
           eyebrow="AUDIT NOTES"
           title="Every number has a definition."
           copy="The dashboard is generated from a read-only production export. It does not expose full wallet addresses, credentials, or player-level private data."
