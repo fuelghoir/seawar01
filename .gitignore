@@ -35,6 +35,7 @@ yarn-error.log*
 
 # local tools / generated caches
 .tools/
+/.codex-*.png
 __pycache__/
 *.pyc
 promo-screenshots/

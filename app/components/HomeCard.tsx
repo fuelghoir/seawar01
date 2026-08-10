@@ -15,6 +15,7 @@ interface HomeCardProps {
   onClick?: () => void;
   children?: ReactNode;
   compact?: boolean;
+  tourId?: string;
 }
 
 export function HomeCard({
@@ -28,9 +29,11 @@ export function HomeCard({
   onClick,
   children,
   compact = false,
+  tourId,
 }: HomeCardProps) {
   return (
     <div
+      data-tour={tourId}
       onClick={onClick}
       className={[
         styles.card,

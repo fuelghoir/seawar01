@@ -1,0 +1,180 @@
+.backdrop,
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  font-family: var(--font-inter), Arial, sans-serif;
+}
+
+.backdrop {
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(1, 7, 14, 0.68);
+}
+
+.tour {
+  pointer-events: none;
+}
+
+.languageCard,
+.tip {
+  border: 1px solid rgba(0, 212, 255, 0.38);
+  background: #061522;
+  color: #eaf9ff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.languageCard {
+  width: min(92vw, 520px);
+  padding: 32px;
+  text-align: center;
+}
+
+.languageCard > span,
+.tip > small {
+  color: #00d4ff;
+  font: 700 10px var(--font-mono);
+  letter-spacing: 0.16em;
+}
+
+.languageCard h2,
+.tip h2 {
+  margin: 10px 0 18px;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 6vw, 38px);
+}
+
+.languageCard > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.languageCard button,
+.primary {
+  min-height: 54px;
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  background: rgba(0, 212, 255, 0.1);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.languageCard button {
+  font-size: 22px;
+}
+
+.languageCard button small {
+  display: block;
+  margin-top: 4px;
+  color: #89a9b8;
+  font-size: 11px;
+}
+
+.shade {
+  position: fixed;
+  pointer-events: auto;
+  background: rgba(1, 6, 12, 0.74);
+}
+
+.fullShade {
+  inset: 0;
+}
+
+.focus {
+  position: fixed;
+  pointer-events: none;
+  border: 2px solid #00d4ff;
+  border-radius: 14px;
+  box-shadow: 0 0 0 4px rgba(0, 212, 255, 0.16), 0 0 30px rgba(0, 212, 255, 0.45);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.focusReduced {
+  animation: none;
+}
+
+.tip {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  bottom: max(22px, env(safe-area-inset-bottom));
+  width: min(calc(100vw - 28px), 470px);
+  padding: 22px;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.tipTop {
+  top: max(22px, env(safe-area-inset-top));
+  bottom: auto;
+}
+
+.tip h2 {
+  margin: 7px 0 9px;
+  font-size: 24px;
+}
+
+.tip p {
+  margin: 0 0 18px;
+  color: #a9c1cd;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.primary {
+  width: 100%;
+  background: linear-gradient(135deg, #00d4ff, #00dcb4);
+  color: #021016;
+}
+
+.tip em {
+  display: block;
+  margin-top: 8px;
+  color: #ff7184;
+  font-size: 11px;
+}
+
+.textButton {
+  margin-top: 16px;
+  border: 0 !important;
+  background: transparent !important;
+  color: #7896a4 !important;
+}
+
+.tour button:focus-visible,
+.backdrop button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 212, 255, 0.08), 0 0 42px rgba(0, 212, 255, 0.6);
+  }
+}
+
+@media (max-width: 560px) {
+  .languageCard {
+    padding: 24px 18px;
+  }
+
+  .tip {
+    padding: 18px;
+  }
+
+  .tip h2 {
+    font-size: 21px;
+  }
+
+  .languageCard > div {
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus {
+    animation: none;
+  }
+}

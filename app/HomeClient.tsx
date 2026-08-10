@@ -44,6 +44,7 @@ import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
+import { CaptainOnboarding } from "./components/CaptainOnboarding";
 import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro, SeasonEndedClaimIntro } from "./components/FleetMinerWidgets";
 import { DropClaimPanel } from "./components/DropClaimPanel";
 import { AppHeader } from "./components/AppHeader";
@@ -68,6 +69,12 @@ import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
 import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
 import { useTransactionWarmup } from "./lib/useTransactionWarmup";
+import {
+  completeOnboarding,
+  getOnboardingStatus,
+  saveOnboardingProgress,
+  type OnboardingStatus,
+} from "./lib/onboarding";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
@@ -95,7 +102,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   } = useConnect();
   const { switchChain } = useSwitchChain();
   const { signMessageAsync } = useSignMessage();
-  const { lang, effects } = useSettings();
+  const { lang, effects, setLang } = useSettings();
   const tr = TR[lang];
   const txWarmReady = useTransactionWarmup(isConnected, address);
 
@@ -112,6 +119,8 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
   const [showSeasonEndedIntro, setShowSeasonEndedIntro] = useState(false);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -309,6 +318,30 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   }, [address]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!address) {
+      setOnboarding(null);
+      setOnboardingLoaded(true);
+      return;
+    }
+
+    setOnboarding(null);
+    setOnboardingLoaded(false);
+    getOnboardingStatus(address).then((status) => {
+      if (cancelled) return;
+      setOnboarding(status);
+      setOnboardingLoaded(true);
+      if (status.language && status.language !== lang) setLang(status.language);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // The settings callbacks are intentionally excluded: the status is keyed by wallet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
+
+  useEffect(() => {
     if (!address) return;
     const refresh = () => {
       void loadProfile();
@@ -321,9 +354,16 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   }, [address, loadProfile]);
 
   useEffect(() => {
-    if (!isConnected || !address || !profile) {
+    if (!isConnected || !address || !profile || !onboardingLoaded) {
       setShowSeasonIntro(false);
       setShowSeasonEndedIntro(false);
+      return;
+    }
+
+    if (isInMiniApp && onboarding?.required) {
+      setShowSeasonIntro(false);
+      setShowSeasonEndedIntro(false);
+      if (onboarding?.step !== "checkin") setShowWelcome(false);
       return;
     }
 
@@ -342,7 +382,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     }
 
     setShowWelcome(true);
-  }, [isConnected, address, profile, season]);
+  }, [isConnected, address, profile, season, onboarding, onboardingLoaded, isInMiniApp]);
 
   const closeSeasonIntro = useCallback(() => {
     if (address) {
@@ -359,6 +399,38 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     }
     router.push("/season");
   }, [address, router]);
+
+  const finishOnboarding = useCallback(async () => {
+    if (!address) return;
+    const updated = await completeOnboarding(address);
+    setOnboarding(updated);
+    await Promise.all([
+      loadProfile(),
+      getCheckinStatus(address).then(setCheckin).catch(() => {}),
+    ]);
+  }, [address, loadProfile]);
+
+  useEffect(() => {
+    if (!isInMiniApp || !onboarding?.required) return;
+    setOpenSection(null);
+    setMobileShowcasePage("battle");
+  }, [isInMiniApp, onboarding?.required, onboarding?.step]);
+
+  const handleCheckedIn = useCallback(() => {
+    void loadProfile();
+    if (!address || !onboarding?.required) return;
+    void saveOnboardingProgress(address, "deployment", onboarding.language ?? lang)
+      .then((updated) => {
+        setOnboarding(updated);
+        setShowWelcome(false);
+      })
+      .catch(() => {
+        void getOnboardingStatus(address).then((updated) => {
+          setOnboarding(updated);
+          setShowWelcome(false);
+        });
+      });
+  }, [address, lang, loadProfile, onboarding?.language, onboarding?.required]);
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
@@ -395,9 +467,11 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const miniAppBootSettled = isReady || bootMaxDone;
   const bootReady =
     miniAppBootSettled &&
-    (!isConnected || txWarmReady) &&
+    (!isConnected || (txWarmReady && onboardingLoaded)) &&
     (bootMaxDone ||
       (accountBootSettled && walletBootSettled));
+
+  const canShowCheckin = !isInMiniApp || !address || (onboardingLoaded && Boolean(onboarding));
 
   if (!bootMinDone || !bootReady) {
     return <InitialLoader />;
@@ -405,6 +479,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
   const renderMobileCheckinButton = (extraClassName = "") => (
     <button
+      data-tour="checkin"
       className={`${styles.mobileCheckinButton} ${
         !checkin
           ? styles.mobileCheckinButtonLoading
@@ -561,6 +636,19 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         </div>
       )}
 
+      {isInMiniApp && address && onboarding?.required && !showWelcome && (
+        <CaptainOnboarding
+          address={address}
+          status={onboarding}
+          lang={lang}
+          reducedMotion={reducedFx}
+          onLanguageChange={setLang}
+          onStatusChange={setOnboarding}
+          onOpenCheckin={() => setShowWelcome(true)}
+          onFinish={finishOnboarding}
+        />
+      )}
+
       <SeasonEndedClaimIntro
         open={showSeasonEndedIntro}
         onClose={() => {
@@ -586,7 +674,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             setShowWelcome(false);
             getCheckinStatus(address).then(setCheckin).catch(() => {});
           }}
-          onCheckedIn={loadProfile}
+          onCheckedIn={handleCheckedIn}
         />
       )}
 
@@ -662,9 +750,11 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 </div>
 
                 <div className={styles.mobileRewardsStack}>
-                  <div className={styles.mobileCheckinBlock}>
-                    {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
-                  </div>
+                  {canShowCheckin && (
+                    <div className={styles.mobileCheckinBlock}>
+                      {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
+                    </div>
+                  )}
                   {USDC_SEASON_REWARDS_ENABLED && (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
@@ -851,6 +941,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 <section className={styles.mobileActionStack}>
                   <button
                     className={`${styles.playNow} ${styles.mobilePlayNow}`}
+                    data-tour="play"
                     onClick={() => setShowPlay(true)}
                     type="button"
                   >
@@ -861,7 +952,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                     <span className={styles.playNowShimmer} aria-hidden="true" />
                   </button>
 
-                  {renderMobileCheckinButton()}
+                  {canShowCheckin && renderMobileCheckinButton()}
 
                   {USDC_SEASON_REWARDS_ENABLED && (
                     <div className={styles.mobileSeasonRewardBlock}>
@@ -932,7 +1023,9 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             onOpen={() => router.push("/shop#fleet-nft")}
           />
 
+          {canShowCheckin && (
           <HomeCard
+            tourId="checkin"
             Icon={CheckIcon}
             title={tr.home_checkin_title}
             subtitle={
@@ -952,8 +1045,10 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           >
             <CheckinDots streak={checkin?.streak ?? 0} />
           </HomeCard>
+          )}
 
           <HomeCard
+            tourId="quests"
             Icon={ShieldIcon}
             title={tr.home_quests}
             subtitle={tr.home_quests_sub}
@@ -1103,6 +1198,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           <HeroBattleGrid reducedFx={reducedFx} />
 
           <button
+            data-tour="play"
             className={styles.playNow}
             onClick={() => setShowPlay(true)}
             type="button"
@@ -1130,6 +1226,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         <aside className={styles.rightCol}>
           <div className={styles.shopHeader}>
             <button
+              data-tour="battlepass"
               className={styles.shopTab}
               onClick={() => router.push("/shop")}
               type="button"

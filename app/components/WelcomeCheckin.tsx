@@ -40,7 +40,6 @@ export function WelcomeCheckin({
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [txFallbackMined, setTxFallbackMined] = useState(false);
-  const [callsFallbackSuccess, setCallsFallbackSuccess] = useState(false);
   const recordedRef = useRef(false);
 
   const { data: capabilities } = useCapabilities({ chainId: base.id });
@@ -83,15 +82,8 @@ export function WelcomeCheckin({
     };
   }, [txHash, wagmiConfig]);
 
-  useEffect(() => {
-    setCallsFallbackSuccess(false);
-    if (!callsData?.id || !loading) return;
-    const timer = window.setTimeout(() => setCallsFallbackSuccess(true), 12_000);
-    return () => window.clearTimeout(timer);
-  }, [callsData?.id, loading]);
-
   const txSuccess = txReceipt?.status === "success" || txFallbackMined;
-  const success = txSuccess || callsSuccess || callsFallbackSuccess;
+  const success = txSuccess || callsSuccess;
   const pending = txPending || callsPending;
 
   useEffect(() => {
@@ -105,6 +97,10 @@ export function WelcomeCheckin({
       cancelled = true;
     };
   }, [address]);
+
+  useEffect(() => {
+    if (checkin && !checkin.canCheckin) onClose();
+  }, [checkin, onClose]);
 
   useEffect(() => {
     if (!success || recordedRef.current) return;
