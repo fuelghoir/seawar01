@@ -312,7 +312,7 @@ export default function SeasonPage() {
   const seasonClaimBusy = claimingSeasonLevels.length > 0 || seasonClaimPending;
   const dropReady = countdown.remainingMs <= 0;
   const connectPending = connectStatus === "pending";
-  const activeSeasonKey = season?.seasonKey ?? "S2";
+  const activeSeasonKey = season?.bpSeasonKey ?? "S1";
   const focusedRewardIndex = Math.max(0, Math.min(seasonLevels.length - 1, nextSeasonLevel - 1));
   const rewardWindowSize = 10;
   const rewardWindowStart = Math.min(

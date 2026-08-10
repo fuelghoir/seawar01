@@ -61,7 +61,7 @@ type DropCampaign = {
   allocatedRaw?: string;
 };
 
-type Tab = "submissions" | "creators" | "referrals" | "drops" | "promos" | "easter_egg" | "season";
+type Tab = "submissions" | "creators" | "referrals" | "drops" | "promos" | "quests" | "easter_egg" | "season";
 type RewardMode = "game" | "token";
 type TokenKind = "usdc" | "base" | "token";
 
@@ -103,6 +103,17 @@ type ReferralCodeEntry = {
   created_by?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type AdminQuest = {
+  quest_key: string;
+  kind: "baseApp" | "twitter" | "telegram";
+  target_url: string;
+  points: number;
+  title_ru: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  enabled: boolean;
 };
 
 const EASTER_USDC_ADMIN_ENABLED = false;
@@ -194,6 +205,13 @@ export default function AdminPage() {
   const [referralCodes, setReferralCodes] = useState<ReferralCodeEntry[]>([]);
   const [referralCodeForm, setReferralCodeForm] = useState({ wallet: "", code: "" });
   const [referralCodeBusy, setReferralCodeBusy] = useState(false);
+  const [quests, setQuests] = useState<AdminQuest[]>([]);
+  const [questBusy, setQuestBusy] = useState(false);
+  const [questForm, setQuestForm] = useState({
+    questKey: "", kind: "twitter", targetUrl: "", appUrl: "", points: "1000",
+    titleRu: "", titleEn: "", subtitleRu: "", subtitleEn: "",
+    actionRu: "Открыть", actionEn: "Open", startsAt: "", endsAt: "",
+  });
 
   // Easter Egg states
   const [easterEggStats, setEasterEggStats] = useState<{
@@ -246,19 +264,21 @@ export default function AdminPage() {
     setLoading(true);
     setError("");
     try {
-      const [creatorRes, dropsRes, easterEggRes, tokensRes, seasonConfigRes, referralCodesRes] = await Promise.all([
+      const [creatorRes, dropsRes, easterEggRes, tokensRes, seasonConfigRes, referralCodesRes, questsRes] = await Promise.all([
         fetch("/api/admin/creator"),
         fetch("/api/admin/drops"),
         fetch("/api/admin/easter-egg"),
         fetch("/api/admin/drops?action=tokens"),
         fetch("/api/admin/season"),
         fetch("/api/admin/referral-codes", { cache: "no-store" }),
+        fetch("/api/admin/quests", { cache: "no-store" }),
       ]);
       const creatorData = await creatorRes.json().catch(() => null);
       const dropsData = await dropsRes.json().catch(() => null);
       const easterEggData = await easterEggRes.json().catch(() => null);
       const tokensData = await tokensRes.json().catch(() => null);
       const seasonConfigData = await seasonConfigRes.json().catch(() => null);
+      const questsData = await questsRes.json().catch(() => null);
       const referralCodesData = await referralCodesRes.json().catch(() => null);
 
       if (!creatorRes.ok) throw new Error(creatorData?.error || (isRu ? "Не удалось загрузить креаторов" : "Failed to load creators"));
@@ -316,6 +336,7 @@ export default function AdminPage() {
         setVirtualPoolUsdc(String(seasonConfigData.virtualPoolUsdc || 0));
         setMinTxCount(String(seasonConfigData.minTxCount ?? 10));
       }
+      if (questsRes.ok) setQuests(questsData?.quests ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : (isRu ? "Не удалось загрузить админку" : "Failed to load admin panel"));
     } finally {
@@ -801,12 +822,48 @@ export default function AdminPage() {
     }
   };
 
+  const createQuest = async () => {
+    setError(""); setMessage(""); setQuestBusy(true);
+    try {
+      const res = await fetch("/api/admin/quests", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...questForm,
+          points: Number(questForm.points),
+          startsAt: questForm.startsAt ? new Date(questForm.startsAt).toISOString() : "",
+          endsAt: questForm.endsAt ? new Date(questForm.endsAt).toISOString() : "",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Не удалось создать квест");
+      setMessage(isRu ? "Квест создан" : "Quest created");
+      setQuestForm({ questKey: "", kind: "twitter", targetUrl: "", appUrl: "", points: "1000", titleRu: "", titleEn: "", subtitleRu: "", subtitleEn: "", actionRu: "Открыть", actionEn: "Open", startsAt: "", endsAt: "" });
+      await loadData();
+    } catch (err) { setError(err instanceof Error ? err.message : "Не удалось создать квест"); }
+    finally { setQuestBusy(false); }
+  };
+
+  const toggleQuest = async (quest: AdminQuest) => {
+    setError(""); setQuestBusy(true);
+    try {
+      const res = await fetch("/api/admin/quests", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questKey: quest.quest_key, enabled: !quest.enabled }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Не удалось изменить квест");
+      await loadData();
+    } catch (err) { setError(err instanceof Error ? err.message : "Не удалось изменить квест"); }
+    finally { setQuestBusy(false); }
+  };
+
   const tabLabels = {
     submissions: isRu ? "Заявки" : "Submissions",
     creators: isRu ? "Креаторы" : "Creators",
     referrals: isRu ? "Рефки" : "Referrals",
     drops: isRu ? "Дропы" : "Drops",
     promos: isRu ? "Промо" : "Promos",
+    quests: isRu ? "Квесты" : "Quests",
     easter_egg: isRu ? "Пасхалка" : "Easter Egg",
     season: isRu ? "Сезон" : "Season Settings",
   };
@@ -857,7 +914,7 @@ export default function AdminPage() {
           </section>
 
           <nav className={styles.tabs}>
-            {(["submissions", "creators", "referrals", "drops", "promos", "easter_egg", "season"] as Tab[]).map((entry) => (
+            {(["submissions", "creators", "referrals", "drops", "promos", "quests", "easter_egg", "season"] as Tab[]).map((entry) => (
               <button
                 key={entry}
                 className={tab === entry ? styles.activeTab : ""}
@@ -1740,6 +1797,37 @@ export default function AdminPage() {
                 >
                   {seasonConfigBusy ? (isRu ? "Сохраняем..." : "Saving...") : (isRu ? "Сохранить настройки" : "Save Settings")}
                 </button>
+              </div>
+            </section>
+          )}
+
+          {tab === "quests" && (
+            <section className={styles.panel}>
+              <h2>{isRu ? "Глобальные квесты" : "Global Quests"}</h2>
+              <p className={styles.panelLead}>{isRu ? "Квест появится у всех игроков после сохранения" : "The quest becomes available to all players after saving"}</p>
+              <div className={styles.formGrid}>
+                <input value={questForm.questKey} onChange={(e) => setQuestForm((v) => ({ ...v, questKey: e.target.value }))} placeholder="stonfi-x-post-2026-08" />
+                <select value={questForm.kind} onChange={(e) => setQuestForm((v) => ({ ...v, kind: e.target.value }))}>
+                  <option value="twitter">X / Twitter</option><option value="telegram">Telegram</option><option value="baseApp">Сайт / Base App</option>
+                </select>
+                <input value={questForm.titleRu} onChange={(e) => setQuestForm((v) => ({ ...v, titleRu: e.target.value }))} placeholder="Название на русском" />
+                <input value={questForm.titleEn} onChange={(e) => setQuestForm((v) => ({ ...v, titleEn: e.target.value }))} placeholder="English title" />
+                <input value={questForm.targetUrl} onChange={(e) => setQuestForm((v) => ({ ...v, targetUrl: e.target.value }))} placeholder="https://x.com/ston_fi/status/..." />
+                <input type="number" min="1" max="1000000" value={questForm.points} onChange={(e) => setQuestForm((v) => ({ ...v, points: e.target.value }))} placeholder="1000" />
+                <textarea value={questForm.subtitleRu} onChange={(e) => setQuestForm((v) => ({ ...v, subtitleRu: e.target.value }))} placeholder="Что нужно сделать" />
+                <textarea value={questForm.subtitleEn} onChange={(e) => setQuestForm((v) => ({ ...v, subtitleEn: e.target.value }))} placeholder="What the player needs to do" />
+                <label><span>{isRu ? "Начало" : "Starts"}</span><input type="datetime-local" value={questForm.startsAt} onChange={(e) => setQuestForm((v) => ({ ...v, startsAt: e.target.value }))} /></label>
+                <label><span>{isRu ? "Окончание" : "Ends"}</span><input type="datetime-local" value={questForm.endsAt} onChange={(e) => setQuestForm((v) => ({ ...v, endsAt: e.target.value }))} /></label>
+              </div>
+              <button className={styles.primaryBtn} type="button" onClick={createQuest} disabled={questBusy}>{questBusy ? (isRu ? "Сохраняем..." : "Saving...") : (isRu ? "Создать квест" : "Create quest")}</button>
+              <div className={styles.gridTable} style={{ marginTop: 24 }}>
+                {quests.map((quest) => (
+                  <article key={quest.quest_key}>
+                    <div><b>{quest.title_ru}</b><small>{quest.quest_key} · {quest.points} PTS</small></div>
+                    <a href={quest.target_url} target="_blank" rel="noreferrer">{quest.kind}</a>
+                    <button className={styles.inlineBtn} type="button" disabled={questBusy} onClick={() => toggleQuest(quest)}>{quest.enabled ? (isRu ? "Выключить" : "Disable") : (isRu ? "Включить" : "Enable")}</button>
+                  </article>
+                ))}
               </div>
             </section>
           )}

@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase } from "../../../lib/adminSupabase";
 import { isBaseAppUserAgent } from "../../../lib/baseApp";
-import {
-  GLOBAL_EXTERNAL_QUESTS,
-  isExternalQuestActive,
-} from "../../../lib/externalQuests";
+import { GLOBAL_EXTERNAL_QUESTS } from "../../../lib/externalQuests";
 import {
   getSocialConnection,
-  type SocialConnection,
 } from "../../../lib/socialConnectionsServer";
 
-const DEFAULT_X_POST_ID = "2058535046332510539";
 const TELEGRAM_MEMBER_STATUSES = new Set(["creator", "administrator", "member"]);
 
 
@@ -24,15 +19,6 @@ function normalizeWallet(value: unknown) {
 
 
 
-
-async function verifyXLikeAndRepostWithConnection(
-  _admin: AdminClient,
-  _connection: SocialConnection,
-  _tweetId: string,
-) {
-  // Bypass X API check because the user ran out of credits
-  return;
-}
 
 async function verifyTelegramMembership(userId: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -80,24 +66,21 @@ async function verifiedTelegramUserId(admin: AdminClient, wallet: string) {
   return connection.provider_user_id;
 }
 
-async function verifyQuest(admin: AdminClient, wallet: string, questKey: string) {
-  if (questKey === "x-follow-0xherm-2026-05") {
-    // Bypass X API check
+async function verifyQuest(admin: AdminClient, wallet: string, kind: string) {
+  if (kind === "twitter") {
+    // X action endpoints are not available on the project's current API plan.
+    // Requiring the connected X account still prevents one social account from
+    // farming the same campaign across many wallets.
+    await verifiedXConnection(admin, wallet);
     return;
   }
 
-  if (questKey === "x-like-repost-2058535046332510539") {
-    await verifyXLikeAndRepostWithConnection(
-      admin,
-      await verifiedXConnection(admin, wallet),
-      process.env.X_REPOST_TWEET_ID || DEFAULT_X_POST_ID,
-    );
-    return;
-  }
-
-  if (questKey === "telegram-subscribe-0xherm-2026-05") {
+  if (kind === "telegram") {
     await verifyTelegramMembership(await verifiedTelegramUserId(admin, wallet));
+    return;
   }
+
+  if (kind !== "baseApp") throw new Error("Unsupported quest verification type");
 }
 
 async function claimQuest(admin: AdminClient, wallet: string, questKey: string, isBaseApp: boolean) {
@@ -121,21 +104,39 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const wallet = normalizeWallet(body?.wallet);
-  const questKey = String(body?.questKey ?? body?.quest_key ?? "").trim();
+  const questKey = String(body?.questKey ?? body?.quest_key ?? "").trim().toLowerCase();
   if (!wallet) return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
 
-  const quest = GLOBAL_EXTERNAL_QUESTS.find((entry) => entry.key === questKey);
-  if (!quest) return NextResponse.json({ error: "Unknown quest" }, { status: 404 });
-  if (!isExternalQuestActive(quest)) {
-    return NextResponse.json({ error: "Quest is not available" }, { status: 400 });
-  }
-
   try {
+    const { data: campaign, error: questError } = await admin
+      .from("external_quest_campaigns")
+      .select("quest_key,kind,points,starts_at,ends_at,enabled")
+      .eq("quest_key", questKey)
+      .maybeSingle();
+    const staticQuest = GLOBAL_EXTERNAL_QUESTS.find((entry) => entry.key === questKey);
+    const legacyQuest = staticQuest && (
+      !campaign && !questError ||
+      Boolean(questError && /external_quest_campaigns|schema cache|does not exist/i.test(questError.message))
+    ) ? staticQuest : null;
+    if (questError && !legacyQuest) throw new Error(questError.message);
+    const quest = campaign ?? (legacyQuest ? {
+      quest_key: legacyQuest.key,
+      kind: legacyQuest.kind,
+      points: legacyQuest.reward,
+      starts_at: legacyQuest.startsAt ?? null,
+      ends_at: legacyQuest.endsAt ?? null,
+      enabled: true,
+    } : null);
+    if (!quest || !quest.enabled) return NextResponse.json({ error: "Unknown quest" }, { status: 404 });
+    const now = Date.now();
+    if ((quest.starts_at && now < new Date(quest.starts_at).getTime()) || (quest.ends_at && now >= new Date(quest.ends_at).getTime())) {
+      return NextResponse.json({ error: "Quest is not available" }, { status: 400 });
+    }
     const isBaseApp = isBaseAppUserAgent(req.headers.get("user-agent"));
-    await verifyQuest(admin, wallet, quest.key);
+    await verifyQuest(admin, wallet, quest.kind);
 
-    const awarded = await claimQuest(admin, wallet, quest.key, isBaseApp);
-    const finalReward = isBaseApp ? quest.reward * 2 : quest.reward;
+    const awarded = await claimQuest(admin, wallet, quest.quest_key, isBaseApp);
+    const finalReward = isBaseApp ? quest.points * 2 : quest.points;
     return NextResponse.json({
       reward: awarded ? finalReward : 0,
       alreadyClaimed: !awarded,
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: missingDb
-          ? "External quest database is missing. Run scripts/supabase-external-quests.sql in Supabase."
+          ? "External quest database is missing. Run scripts/supabase-admin-external-quests.sql in Supabase."
           : message,
       },
       { status: missingDb ? 500 : 400 },

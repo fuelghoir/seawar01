@@ -169,6 +169,38 @@ export const GLOBAL_EXTERNAL_QUESTS = [
   },
 ] as const satisfies readonly ExternalQuestDefinition[];
 
+type QuestCampaignRow = {
+  quest_key: string; kind: ExternalQuestKind; target_url: string; app_url: string | null;
+  points: number; title_en: string; title_ru: string; subtitle_en: string; subtitle_ru: string;
+  action_en: string; action_ru: string; starts_at: string | null; ends_at: string | null; enabled: boolean;
+};
+
+async function getExternalQuestDefinitions(): Promise<ExternalQuestDefinition[]> {
+  const { data, error } = await supabase
+    .from("external_quest_campaigns")
+    .select("quest_key,kind,target_url,app_url,points,title_en,title_ru,subtitle_en,subtitle_ru,action_en,action_ru,starts_at,ends_at,enabled");
+  if (error) return [...GLOBAL_EXTERNAL_QUESTS];
+
+  const definitions = new Map<string, ExternalQuestDefinition>(
+    GLOBAL_EXTERNAL_QUESTS.map((quest) => [quest.key, quest]),
+  );
+  for (const row of data as QuestCampaignRow[]) {
+    if (!row.enabled) {
+      definitions.delete(row.quest_key);
+      continue;
+    }
+    definitions.set(row.quest_key, {
+      key: row.quest_key, kind: row.kind, url: row.target_url, ...(row.app_url ? { appUrl: row.app_url } : {}),
+      reward: row.points, startsAt: row.starts_at, endsAt: row.ends_at,
+      copy: {
+        en: { title: row.title_en, subtitle: row.subtitle_en, cardSubtitle: row.subtitle_en, action: row.action_en },
+        ru: { title: row.title_ru, subtitle: row.subtitle_ru, cardSubtitle: row.subtitle_ru, action: row.action_ru },
+      },
+    });
+  }
+  return Array.from(definitions.values());
+}
+
 export interface TurboGumQuestStatus {
   active: boolean;
   claimed: boolean;
@@ -205,7 +237,8 @@ export async function getExternalQuestStatuses(
   const addr = normalizeWallet(wallet);
   if (!addr) throw new Error("Invalid wallet");
 
-  const keys = GLOBAL_EXTERNAL_QUESTS.map((quest) => quest.key);
+  const definitions = await getExternalQuestDefinitions();
+  const keys = definitions.map((quest) => quest.key);
   const { data, error } = await supabase
     .from("external_quest_claims")
     .select("quest_key, claimed_at")
@@ -219,7 +252,7 @@ export async function getExternalQuestStatuses(
     }
   }
 
-  return GLOBAL_EXTERNAL_QUESTS.map((quest) =>
+  return definitions.map((quest) =>
     buildExternalQuestStatus(quest, claimed.get(quest.key) ?? null, error?.message),
   );
 }
@@ -257,7 +290,7 @@ export async function claimExternalQuest(
   const addr = normalizeWallet(wallet);
   if (!addr) throw new Error("Invalid wallet");
 
-  const quest = GLOBAL_EXTERNAL_QUESTS.find((entry) => entry.key === questKey);
+  const quest = (await getExternalQuestDefinitions()).find((entry) => entry.key === questKey);
   if (!quest) throw new Error("Unknown quest");
   if (!isExternalQuestActive(quest)) throw new Error("Quest expired");
 
