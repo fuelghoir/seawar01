@@ -4,7 +4,7 @@
     "network": "Base Mainnet",
     "website": "https://seabattle.top",
     "primaryContract": "0x8de75fbc38b1e47e53fb2e85791c935f5f653aa6",
-    "generatedAt": "2026-08-10T21:01:53.242Z",
+    "generatedAt": "2026-08-10T21:17:41.949Z",
     "coverageStart": "2026-04-14T12:40:37.738Z",
     "coverageEnd": "2026-08-10T20:25:00.661Z",
     "methodology": "Read-only aggregation of production Supabase tables. Human-wallet metrics exclude the zero address and the internal bot sentinel. Tracked MAU includes profile, season, economy, social, creator, inventory, booster, referral, and game records; core activity excludes profile, season, inventory, and booster update timestamps. Game players are reported separately."
@@ -27,7 +27,7 @@
     "latestMau": 170,
     "latestCoreMau": 107,
     "latestGamePlayers": 84,
-    "activeLast7Days": 79,
+    "activeLast7Days": 78,
     "activeLast30Days": 156,
     "trackedActiveLast30Days": 386,
     "peakCoreDau": 29,
