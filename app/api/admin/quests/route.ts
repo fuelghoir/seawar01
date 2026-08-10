@@ -92,4 +92,9 @@ function dateOrNull(value: unknown) {
   if (Number.isNaN(date.getTime())) throw new Error("Invalid quest date");
   return date.toISOString();
 }
-function message(err: unknown) { return err instanceof Error ? err.message : "Quest request failed"; }
+function message(err: unknown) {
+  const raw = err instanceof Error ? err.message : "Quest request failed";
+  return /external_quest_campaigns|schema cache|does not exist/i.test(raw)
+    ? "Quest database is not installed. Run scripts/supabase-admin-external-quests.sql in Supabase."
+    : raw;
+}
