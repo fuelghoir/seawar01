@@ -25,6 +25,8 @@ revoke all on table player_onboarding from anon, authenticated;
 grant all on table player_onboarding to service_role;
 
 -- Existing players must never be forced through a first-time tour after rollout.
+-- Referral rows are intentionally excluded: a referral may be written during a
+-- newcomer's first load, before their onboarding status is requested.
 insert into player_onboarding (
   wallet,
   tour_version,
@@ -35,17 +37,20 @@ insert into player_onboarding (
 )
 select wallet, 1, 'grandfathered', 'complete', now(), now()
 from (
-  select lower(trim(wallet)) as wallet from player_stats
+  select lower(trim(wallet)) as wallet
+  from player_stats
+  where updated_at < timestamptz '2026-08-10 21:12:36+00'
   union
-  select lower(trim(player1)) from games where player1 is not null
+  select lower(trim(player1)) from games
+  where player1 is not null
+    and created_at < timestamptz '2026-08-10 21:12:36+00'
   union
-  select lower(trim(player2)) from games where player2 is not null
+  select lower(trim(player2)) from games
+  where player2 is not null
+    and created_at < timestamptz '2026-08-10 21:12:36+00'
   union
   select lower(trim(wallet)) from season_progress
-  union
-  select lower(trim(referrer)) from referrals
-  union
-  select lower(trim(referee)) from referrals
+  where updated_at < timestamptz '2026-08-10 21:12:36+00'
 ) existing_players
 where wallet ~ '^0x[0-9a-f]{40}$'
 on conflict (wallet) do nothing;
@@ -65,17 +70,20 @@ where onboarding.status = 'pending'
   and onboarding.wallet in (
     select wallet
     from (
-      select lower(trim(wallet)) as wallet from player_stats
+      select lower(trim(wallet)) as wallet
+      from player_stats
+      where updated_at < timestamptz '2026-08-10 21:12:36+00'
       union
-      select lower(trim(player1)) from games where player1 is not null
+      select lower(trim(player1)) from games
+      where player1 is not null
+        and created_at < timestamptz '2026-08-10 21:12:36+00'
       union
-      select lower(trim(player2)) from games where player2 is not null
+      select lower(trim(player2)) from games
+      where player2 is not null
+        and created_at < timestamptz '2026-08-10 21:12:36+00'
       union
       select lower(trim(wallet)) from season_progress
-      union
-      select lower(trim(referrer)) from referrals
-      union
-      select lower(trim(referee)) from referrals
+      where updated_at < timestamptz '2026-08-10 21:12:36+00'
     ) legacy_players
     where wallet ~ '^0x[0-9a-f]{40}$'
   );

@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store, max-age=0" };
 const STEP_INDEX = new Map(ONBOARDING_STEPS.map((step, index) => [step, index]));
+const ONBOARDING_ROLLOUT_AT = "2026-08-10T21:12:36.000Z";
 
 type OnboardingRow = {
   wallet: string;
@@ -231,20 +232,43 @@ async function ensureOnboardingRow(admin: AdminClient, wallet: string) {
 }
 
 async function hasExistingActivity(admin: AdminClient, wallet: string) {
-  const checks = await Promise.all([
-    admin.from("player_stats").select("wallet").eq("wallet", wallet).limit(1),
-    admin.from("games").select("id").eq("player1", wallet).limit(1),
-    admin.from("games").select("id").eq("player2", wallet).limit(1),
-    admin.from("season_progress").select("wallet").eq("wallet", wallet).limit(1),
-    admin.from("referrals").select("id").eq("referrer", wallet).limit(1),
-    admin.from("referrals").select("id").eq("referee", wallet).limit(1),
+  const [stats, playerOneGames, playerTwoGames, seasonProgress] = await Promise.all([
+    admin
+      .from("player_stats")
+      .select("updated_at")
+      .eq("wallet", wallet)
+      .maybeSingle(),
+    admin
+      .from("games")
+      .select("id")
+      .eq("player1", wallet)
+      .lt("created_at", ONBOARDING_ROLLOUT_AT)
+      .limit(1),
+    admin
+      .from("games")
+      .select("id")
+      .eq("player2", wallet)
+      .lt("created_at", ONBOARDING_ROLLOUT_AT)
+      .limit(1),
+    admin
+      .from("season_progress")
+      .select("wallet")
+      .eq("wallet", wallet)
+      .lt("updated_at", ONBOARDING_ROLLOUT_AT)
+      .limit(1),
   ]);
 
-  for (const result of checks) {
+  for (const result of [stats, playerOneGames, playerTwoGames, seasonProgress]) {
     if (result.error) throw new Error(result.error.message);
-    if (result.data && result.data.length > 0) return true;
   }
-  return false;
+
+  const statsRow = stats.data as { updated_at?: string | null } | null;
+  const statsPredatesRollout = Boolean(
+    statsRow?.updated_at && new Date(statsRow.updated_at).getTime() < Date.parse(ONBOARDING_ROLLOUT_AT),
+  );
+
+  return statsPredatesRollout ||
+    Boolean(playerOneGames.data?.length || playerTwoGames.data?.length || seasonProgress.data?.length);
 }
 
 async function recoverFromExistingCheckin(admin: AdminClient, row: OnboardingRow) {

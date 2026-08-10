@@ -82,6 +82,7 @@ const YT_URL = "https://www.youtube.com/@hermcrypto0x";
 const REFERRAL_STORAGE_KEY = "sea-battle-referrer";
 const BOOT_MIN_MS = 950;
 const BOOT_MAX_MS = 3600;
+const ONBOARDING_RETRY_DELAYS_MS = [1200, 3000] as const;
 
 type HomeClientProps = {
   initialIsNarrowScreen: boolean;
@@ -129,6 +130,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [mobileShowcasePage, setMobileShowcasePage] = useState<MobileShowcasePage>("battle");
   const autoConnected = useRef(false);
   const recordedReferralKey = useRef<string | null>(null);
+  const recoveredOnboardingCheckinKey = useRef<string | null>(null);
   const mobileShowcaseTouchStart = useRef<{ x: number; y: number } | null>(null);
 
   const toggleSection = (s: NonNullable<typeof openSection>) =>
@@ -319,6 +321,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: number | undefined;
     if (!address) {
       setOnboarding(null);
       setOnboardingLoaded(true);
@@ -327,15 +330,26 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
     setOnboarding(null);
     setOnboardingLoaded(false);
-    getOnboardingStatus(address).then((status) => {
+    const loadOnboarding = async (attempt = 0) => {
+      const status = await getOnboardingStatus(address);
       if (cancelled) return;
+
       setOnboarding(status);
       setOnboardingLoaded(true);
       if (status.language && status.language !== lang) setLang(status.language);
-    });
+
+      const retryDelay = ONBOARDING_RETRY_DELAYS_MS[attempt];
+      if (status.status === "unavailable" && retryDelay !== undefined) {
+        retryTimer = window.setTimeout(() => {
+          void loadOnboarding(attempt + 1);
+        }, retryDelay);
+      }
+    };
+    void loadOnboarding();
 
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
     // The settings callbacks are intentionally excluded: the status is keyed by wallet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -360,7 +374,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       return;
     }
 
-    if (isInMiniApp && onboarding?.required) {
+    if (onboarding?.required) {
       setShowSeasonIntro(false);
       setShowSeasonEndedIntro(false);
       if (onboarding?.step !== "checkin") setShowWelcome(false);
@@ -382,7 +396,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     }
 
     setShowWelcome(true);
-  }, [isConnected, address, profile, season, onboarding, onboardingLoaded, isInMiniApp]);
+  }, [isConnected, address, profile, season, onboarding, onboardingLoaded]);
 
   const closeSeasonIntro = useCallback(() => {
     if (address) {
@@ -411,10 +425,29 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   }, [address, loadProfile]);
 
   useEffect(() => {
-    if (!isInMiniApp || !onboarding?.required) return;
+    if (!onboarding?.required) return;
     setOpenSection(null);
     setMobileShowcasePage("battle");
-  }, [isInMiniApp, onboarding?.required, onboarding?.step]);
+  }, [onboarding?.required, onboarding?.step]);
+
+  useEffect(() => {
+    if (
+      !address ||
+      !onboarding?.required ||
+      onboarding.step !== "briefing" ||
+      checkin?.canCheckin !== false
+    ) return;
+
+    const recoveryKey = `${address.toLowerCase()}:briefing`;
+    if (recoveredOnboardingCheckinKey.current === recoveryKey) return;
+    recoveredOnboardingCheckinKey.current = recoveryKey;
+
+    void saveOnboardingProgress(address, "deployment", onboarding.language ?? lang)
+      .then(setOnboarding)
+      .catch(() => {
+        recoveredOnboardingCheckinKey.current = null;
+      });
+  }, [address, checkin?.canCheckin, lang, onboarding?.language, onboarding?.required, onboarding?.step]);
 
   const handleCheckedIn = useCallback(() => {
     void loadProfile();
@@ -471,7 +504,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     (bootMaxDone ||
       (accountBootSettled && walletBootSettled));
 
-  const canShowCheckin = !isInMiniApp || !address || (onboardingLoaded && Boolean(onboarding));
+  const canShowCheckin = !address || (onboardingLoaded && Boolean(onboarding));
 
   if (!bootMinDone || !bootReady) {
     return <InitialLoader />;
@@ -636,7 +669,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         </div>
       )}
 
-      {isInMiniApp && address && onboarding?.required && !showWelcome && (
+      {address && onboarding?.required && !showWelcome && (
         <CaptainOnboarding
           address={address}
           status={onboarding}

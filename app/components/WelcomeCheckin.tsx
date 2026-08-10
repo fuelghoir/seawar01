@@ -99,8 +99,10 @@ export function WelcomeCheckin({
   }, [address]);
 
   useEffect(() => {
-    if (checkin && !checkin.canCheckin) onClose();
-  }, [checkin, onClose]);
+    if (!checkin || checkin.canCheckin) return;
+    onCheckedIn?.();
+    onClose();
+  }, [checkin, onCheckedIn, onClose]);
 
   useEffect(() => {
     if (!success || recordedRef.current) return;
