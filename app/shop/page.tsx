@@ -15,6 +15,7 @@ import {
 } from "wagmi";
 import {
   getPublicClient,
+  waitForCallsStatus,
   waitForTransactionReceipt as waitForReceipt,
 } from "@wagmi/core";
 import { base } from "wagmi/chains";
@@ -100,6 +101,15 @@ import {
   type StarterPackStatus,
 } from "../lib/onboardingStarterPack";
 import { useOnboarding } from "../providers/OnboardingProvider";
+import {
+  applyConfirmedCheckin,
+  checkinDayKey,
+  isCheckinPending,
+  markCheckinConfirmed,
+  markCheckinPending,
+  useCheckinDayRollover,
+  usePendingCheckinRecovery,
+} from "../lib/checkinClient";
 import styles from "./page.module.css";
 
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
@@ -111,6 +121,12 @@ const EMPTY_INVENTORY: InventoryMap = {
   streak_freeze: 0,
   radar_scan: 0,
   torpedo: 0,
+};
+
+type CheckinAttempt = {
+  id: number;
+  wallet: string;
+  dayKey: string;
 };
 
 function pendingPaidQrKey(wallet: string) {
@@ -1040,59 +1056,37 @@ export default function ShopPage() {
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
   const [checkinMsg, setCheckinMsg] = useState("");
   const [checkinLoading, setCheckinLoading] = useState(false);
-  const [checkinTxFallbackMined, setCheckinTxFallbackMined] = useState(false);
-  const [checkinCallsFallbackSuccess, setCheckinCallsFallbackSuccess] = useState(false);
-  const checkinRecorded = useRef(false);
+  const [checkinClaimPending, setCheckinClaimPending] = useState(false);
+  const checkinAttemptId = useRef(0);
+  const activeCheckinAttempt = useRef<CheckinAttempt | null>(null);
+  const checkinConfirmedTxKey = useRef<string | null>(null);
+  const checkinStatusGeneration = useRef(0);
+  const currentCheckinWalletRef = useRef<string | null>(address?.toLowerCase() ?? null);
+  const checkinMountedRef = useRef(false);
+  currentCheckinWalletRef.current = address?.toLowerCase() ?? null;
+
+  useEffect(() => {
+    checkinMountedRef.current = true;
+    return () => {
+      checkinMountedRef.current = false;
+    };
+  }, []);
 
   const { data: capabilities } = useCapabilities({ chainId: base.id });
   const paymasterSupported =
     !!PAYMASTER_URL && !!capabilities?.paymasterService?.supported;
 
   const {
-    sendCalls: sendCheckinCalls,
-    data: checkinCallsData,
+    sendCallsAsync: sendCheckinCalls,
     isPending: checkinCallsPending,
+    reset: resetCheckinCalls,
   } = useSendCalls();
-  const { data: checkinCallsStatus } = useCallsStatus({
-    id: checkinCallsData?.id ?? "",
-    query: {
-      enabled: !!checkinCallsData?.id,
-      refetchInterval: ({ state }) =>
-        state.data?.status === "success" ? false : 1500,
-    },
-  });
-  const checkinCallsSuccess = checkinCallsStatus?.status === "success";
 
   const {
-    data: checkinTxHash,
-    writeContract: writeCheckin,
+    writeContractAsync: writeCheckin,
     isPending: checkinTxPending,
+    reset: resetCheckinWrite,
   } = useWriteContract();
-  const { data: checkinTxReceipt } = useWaitForTransactionReceipt({
-    hash: checkinTxHash,
-  });
-
-  useEffect(() => {
-    setCheckinTxFallbackMined(false);
-    if (!checkinTxHash) return;
-    let cancelled = false;
-    waitForReceipt(wagmiConfig, { hash: checkinTxHash })
-      .then((receipt) => {
-        if (!cancelled && receipt.status === "success") setCheckinTxFallbackMined(true);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [checkinTxHash, wagmiConfig]);
-
-  useEffect(() => {
-    setCheckinCallsFallbackSuccess(false);
-    if (!checkinCallsData?.id || !checkinLoading) return;
-    const timer = window.setTimeout(() => setCheckinCallsFallbackSuccess(true), 12_000);
-    return () => window.clearTimeout(timer);
-  }, [checkinCallsData?.id, checkinLoading]);
-
-  const checkinTxSuccess = checkinTxReceipt?.status === "success" || checkinTxFallbackMined;
-  const checkinSuccess = checkinTxSuccess || checkinCallsSuccess || checkinCallsFallbackSuccess;
   const checkinPending = checkinTxPending || checkinCallsPending;
 
   // Season rewards are unlocked with a lightweight on-chain claim proof.
@@ -1151,34 +1145,77 @@ export default function ShopPage() {
     return () => { cancelled = true; };
   }, [seasonClaimTxHash, wagmiConfig]);
 
-  useEffect(() => {
-    if (address) getCheckinStatus(address).then(setCheckin).catch(() => {});
-  }, [address]);
+  const reloadShopCheckinStatus = useCallback(async (wallet: string) => {
+    const normalizedWallet = wallet.toLowerCase();
+    const generation = ++checkinStatusGeneration.current;
+    try {
+      const status = await getCheckinStatus(normalizedWallet);
+      if (
+        checkinStatusGeneration.current !== generation ||
+        currentCheckinWalletRef.current !== normalizedWallet
+      ) return;
+      setCheckin(
+        applyConfirmedCheckin(
+          normalizedWallet,
+          status,
+          checkinConfirmedTxKey.current,
+        ),
+      );
+    } catch {
+      // Keep the last known state until the next refresh.
+    }
+  }, []);
 
   useEffect(() => {
-    if (!checkinSuccess || !address || checkinRecorded.current) return;
-    checkinRecorded.current = true;
-    setCheckin((current) => current ? { ...current, canCheckin: false } : current);
-    dailyCheckin(address)
-      .then((res) => {
-        setCheckinMsg(
-          `+${res.points} ${tr.shop_pts}! ${tr.streak}: ${res.streak}d${res.usedFreeze ? ` (${tr.streak_freeze_used})` : ""}`
-        );
-        notifyPlayerDataRefresh();
-        getCheckinStatus(address).then(setCheckin).catch(() => {});
-        refreshSeasonShop();
-      })
-      .catch(() => setCheckinMsg(tr.checkin_already_done))
-      .finally(() => setCheckinLoading(false));
-  }, [
-    checkinSuccess,
-    address,
-    refreshSeasonShop,
-    tr.checkin_already_done,
-    tr.shop_pts,
-    tr.streak,
-    tr.streak_freeze_used,
-  ]);
+    checkinStatusGeneration.current += 1;
+    activeCheckinAttempt.current = null;
+    checkinConfirmedTxKey.current = null;
+    setCheckin(null);
+    setCheckinMsg("");
+    setCheckinLoading(false);
+    setCheckinClaimPending(address ? isCheckinPending(address) : false);
+    resetCheckinCalls();
+    resetCheckinWrite();
+    if (address) void reloadShopCheckinStatus(address);
+  }, [address, reloadShopCheckinStatus, resetCheckinCalls, resetCheckinWrite]);
+
+  const handleRecoveredShopCheckin = useCallback((status: CheckinStatus, wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    setCheckinClaimPending(false);
+    setCheckinLoading(false);
+    setCheckin(status);
+    setCheckinMsg(tr.checkin_already_done);
+    void refreshSeasonShop();
+  }, [refreshSeasonShop, tr.checkin_already_done]);
+
+  const handleShopCheckinRecoveryExpired = useCallback((wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    setCheckinClaimPending(false);
+    void reloadShopCheckinStatus(wallet);
+  }, [reloadShopCheckinStatus]);
+
+  usePendingCheckinRecovery({
+    wallet: address,
+    enabled: checkinClaimPending,
+    onSettled: handleRecoveredShopCheckin,
+    onExpired: handleShopCheckinRecoveryExpired,
+  });
+
+  const handleShopCheckinDayRollover = useCallback((wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    checkinStatusGeneration.current += 1;
+    checkinConfirmedTxKey.current = null;
+    setCheckinClaimPending(false);
+    setCheckinLoading(false);
+    setCheckinMsg("");
+    setCheckin(null);
+    void reloadShopCheckinStatus(wallet);
+  }, [reloadShopCheckinStatus]);
+
+  useCheckinDayRollover({
+    wallet: address,
+    onRollover: handleShopCheckinDayRollover,
+  });
 
   useEffect(() => {
     if (!seasonClaimOnchainSuccess || seasonClaimHandledRef.current || !address) return;
@@ -1370,40 +1407,125 @@ export default function ShopPage() {
     }
   };
 
-  const handleCheckin = () => {
-    if (!address || !checkin?.canCheckin) return;
+  const handleCheckin = async () => {
+    if (!address || !checkin?.canCheckin || checkinLoading) return;
     if (SEABATTLE_CONTRACT_ADDRESS === ZERO_ADDR) {
       setCheckinMsg(tr.contract_not_deployed);
       return;
     }
+    const wallet = address.toLowerCase();
+    if (activeCheckinAttempt.current?.wallet === wallet) return;
+    const attempt: CheckinAttempt = {
+      id: ++checkinAttemptId.current,
+      wallet,
+      dayKey: checkinDayKey(wallet),
+    };
+    activeCheckinAttempt.current = attempt;
     setCheckinLoading(true);
     setCheckinMsg("");
-    checkinRecorded.current = false;
 
-    if (paymasterSupported && PAYMASTER_URL) {
-      sendCheckinCalls({
-        calls: [
-          {
-            to: SEABATTLE_CONTRACT_ADDRESS,
-            data: encodeFunctionData({
-              abi: seaBattleAbi,
-              functionName: "checkin",
-            }),
-            dataSuffix: BUILDER_CODE_SUFFIX,
-          },
-        ],
-        capabilities: { paymasterService: { url: PAYMASTER_URL } },
-      });
-      return;
+    const isCurrentAttempt = () =>
+      checkinMountedRef.current &&
+      activeCheckinAttempt.current === attempt &&
+      currentCheckinWalletRef.current === wallet;
+
+    let chainConfirmed = false;
+    try {
+      if (paymasterSupported && PAYMASTER_URL) {
+        const calls = await sendCheckinCalls({
+          calls: [
+            {
+              to: SEABATTLE_CONTRACT_ADDRESS,
+              data: encodeFunctionData({
+                abi: seaBattleAbi,
+                functionName: "checkin",
+              }),
+              dataSuffix: BUILDER_CODE_SUFFIX,
+            },
+          ],
+          capabilities: { paymasterService: { url: PAYMASTER_URL } },
+        });
+        const status = await waitForCallsStatus(wagmiConfig, {
+          id: calls.id,
+          pollingInterval: 1500,
+          timeout: 300_000,
+          throwOnFailure: true,
+        });
+        if (status.status !== "success") throw new Error("Check-in transaction failed");
+      } else {
+        const hash = await writeCheckin({
+          address: SEABATTLE_CONTRACT_ADDRESS,
+          abi: seaBattleAbi,
+          functionName: "checkin",
+          chainId: base.id,
+          dataSuffix: BUILDER_CODE_SUFFIX,
+        });
+        const receipt = await waitForReceipt(wagmiConfig, { hash });
+        if (receipt.status !== "success") throw new Error("Check-in transaction failed");
+      }
+
+      chainConfirmed = true;
+      attempt.dayKey = checkinDayKey(wallet);
+      markCheckinPending(wallet);
+      if (isCurrentAttempt()) {
+        checkinConfirmedTxKey.current = attempt.dayKey;
+        setCheckin((current) => current ? { ...current, canCheckin: false } : current);
+      }
+
+      try {
+        const res = await dailyCheckin(wallet);
+        const claimDayIsCurrent = checkinDayKey(wallet) === attempt.dayKey;
+        if (claimDayIsCurrent) markCheckinConfirmed(wallet);
+        if (!isCurrentAttempt()) return;
+        if (!claimDayIsCurrent) {
+          setCheckinClaimPending(false);
+          void reloadShopCheckinStatus(wallet);
+          return;
+        }
+        setCheckinClaimPending(false);
+        setCheckinMsg(
+          `+${res.points} ${tr.shop_pts}! ${tr.streak}: ${res.streak}d${res.usedFreeze ? ` (${tr.streak_freeze_used})` : ""}`,
+        );
+        notifyPlayerDataRefresh();
+        void reloadShopCheckinStatus(wallet);
+        void refreshSeasonShop();
+      } catch (error: unknown) {
+        const alreadyCheckedIn = /already checked in/i.test(
+          error instanceof Error ? error.message : String(error ?? ""),
+        );
+        const claimDayIsCurrent = checkinDayKey(wallet) === attempt.dayKey;
+        if (alreadyCheckedIn && claimDayIsCurrent) markCheckinConfirmed(wallet);
+        if (!isCurrentAttempt()) return;
+        if (!claimDayIsCurrent) {
+          setCheckinClaimPending(false);
+          void reloadShopCheckinStatus(wallet);
+          return;
+        }
+        if (alreadyCheckedIn) {
+          setCheckinClaimPending(false);
+          setCheckinMsg(tr.checkin_already_done);
+          notifyPlayerDataRefresh();
+          void reloadShopCheckinStatus(wallet);
+        } else {
+          // Recovery starts only after this original claim has settled, so it
+          // cannot overlap the first API request.
+          setCheckinClaimPending(true);
+          setCheckinMsg(tr.shop_claim_failed);
+        }
+      }
+    } catch (error: unknown) {
+      if (!chainConfirmed && isCurrentAttempt()) {
+        const rejected = /reject|denied|cancel/i.test(
+          error instanceof Error ? error.message : String(error ?? ""),
+        );
+        setCheckinMsg(rejected ? tr.tx_rejected : tr.shop_claim_failed);
+      }
+    } finally {
+      if (isCurrentAttempt()) {
+        activeCheckinAttempt.current = null;
+        setCheckinLoading(false);
+      }
     }
-
-    writeCheckin({
-      address: SEABATTLE_CONTRACT_ADDRESS,
-      abi: seaBattleAbi,
-      functionName: "checkin",
-      chainId: base.id,
-      dataSuffix: BUILDER_CODE_SUFFIX,
-    });
   };
 
   const pieceUnit = (quantity: number) =>

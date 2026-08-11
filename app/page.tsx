@@ -17,9 +17,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const params = searchParams ? await searchParams : {};
   const ref = normalizeReferralToken(firstParam(params.ref));
-  const launchUrl = ref
-    ? withReferralParam(farcasterConfig.miniapp.homeUrl, ref)
-    : farcasterConfig.miniapp.homeUrl;
+  const launchUrl = withLaunchParams(farcasterConfig.miniapp.homeUrl, params, ref);
   const miniAppEmbed = {
     version: farcasterConfig.miniapp.version,
     imageUrl: farcasterConfig.miniapp.heroImageUrl,
@@ -85,8 +83,23 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function withReferralParam(baseUrl: string, ref: string): string {
+function withLaunchParams(
+  baseUrl: string,
+  params: Record<string, string | string[] | undefined>,
+  ref: string | null,
+): string {
   const url = new URL(baseUrl);
-  url.searchParams.set("ref", ref);
+  if (ref) url.searchParams.set("ref", ref);
+
+  for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content"] as const) {
+    const value = normalizeLaunchParam(firstParam(params[key]));
+    if (value) url.searchParams.set(key, value);
+  }
+
   return url.toString();
+}
+
+function normalizeLaunchParam(value: string | undefined): string | null {
+  const normalized = value?.trim().slice(0, 80) ?? "";
+  return normalized && !/[\u0000-\u001f\u007f]/.test(normalized) ? normalized : null;
 }

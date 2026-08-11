@@ -36,7 +36,7 @@ export function buildPublicPromoShopUrl(code: string) {
 
 export function buildBaseAppMiniAppUrl(targetUrl: string) {
   const url = new URL(targetUrl, getPublicAppUrl());
-  return `https://base.app/app/${url.host}${url.pathname}${url.search}${url.hash}`;
+  return `https://base.app/app/${encodeURIComponent(url.toString())}`;
 }
 
 export function normalizePublicWallet(value: string | null | undefined) {

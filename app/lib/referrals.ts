@@ -3,6 +3,7 @@ import {
   normalizeReferralToken,
   normalizeReferralWallet,
 } from "./referralIdentity";
+import { waitForAcquisitionVisit } from "./acquisition";
 
 export { buildReferralRecordMessage } from "./referralIdentity";
 
@@ -39,6 +40,7 @@ export async function recordReferral(
   const r2 = normalizeReferralWallet(referee);
   if (!r1 || !r2 || r1 === r2) return false;
 
+  await waitForAcquisitionVisit();
   const res = await fetch("/api/referrals/record", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,7 +49,7 @@ export async function recordReferral(
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error || "Could not record referral");
-  return Boolean(data?.recorded);
+  return Boolean(data?.attributed ?? data?.recorded);
 }
 
 export async function resolveReferralRef(refValue: string): Promise<string | null> {
@@ -138,7 +140,11 @@ export function getReferralLink(refValue: string): string {
 }
 
 export function getBaseAppReferralLink(refValue: string): string {
-  return buildReferralUrl("https://base.app/app/seabattle.top", refValue);
+  const target = new URL(buildReferralUrl("https://seabattle.top", refValue));
+  target.searchParams.set("utm_source", "base_app");
+  target.searchParams.set("utm_medium", "referral");
+  target.searchParams.set("utm_campaign", "captain_invite");
+  return `https://base.app/app/${encodeURIComponent(target.toString())}`;
 }
 
 export async function getPreferredReferralLinks(walletValue: string): Promise<ReferralLinks> {

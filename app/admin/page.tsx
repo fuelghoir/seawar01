@@ -105,6 +105,47 @@ type ReferralCodeEntry = {
   updated_at: string;
 };
 
+type ReferralAnalyticsSummary = {
+  visitors: number;
+  connectedWallets: number;
+  recordedReferrals: number;
+  activeReferrals: number;
+  paidReferrals: number;
+  pendingReferrals: number;
+  unpaidActive: number;
+  firstGameBonusPoints: number;
+};
+
+type ReferralSource = {
+  source: string;
+  visitors: number;
+  connected: number;
+  referrals: number;
+  active: number;
+  conversion: number;
+};
+
+type ReferralRecord = {
+  referrer: string;
+  referee: string;
+  refToken: string | null;
+  source: string | null;
+  campaign: string | null;
+  createdAt: string;
+  gamesPlayed: number;
+  bonusPaidAt: string | null;
+  bonusPoints: number;
+};
+
+type ReferralAnalytics = {
+  trackingAvailable: boolean;
+  rewardLedgerAvailable: boolean;
+  summary: ReferralAnalyticsSummary;
+  sources: ReferralSource[];
+  referrals: ReferralRecord[];
+  codes: ReferralCodeEntry[];
+};
+
 type AdminQuest = {
   quest_key: string;
   kind: "baseApp" | "twitter" | "telegram";
@@ -117,6 +158,7 @@ type AdminQuest = {
 };
 
 const EASTER_USDC_ADMIN_ENABLED = false;
+const DEFAULT_FIRST_GAME_BONUS_POINTS = 1_000;
 
 const ITEM_OPTIONS = [
   { slug: "", label: "Без предмета" },
@@ -205,6 +247,9 @@ export default function AdminPage() {
   const [referralCodes, setReferralCodes] = useState<ReferralCodeEntry[]>([]);
   const [referralCodeForm, setReferralCodeForm] = useState({ wallet: "", code: "" });
   const [referralCodeBusy, setReferralCodeBusy] = useState(false);
+  const [referralAnalytics, setReferralAnalytics] = useState<ReferralAnalytics | null>(null);
+  const [referralAnalyticsLoading, setReferralAnalyticsLoading] = useState(false);
+  const [referralAnalyticsError, setReferralAnalyticsError] = useState("");
   const [quests, setQuests] = useState<AdminQuest[]>([]);
   const [questBusy, setQuestBusy] = useState(false);
   const [questForm, setQuestForm] = useState({
@@ -344,6 +389,29 @@ export default function AdminPage() {
     }
   }, [authenticated, isRu]);
 
+  const loadReferralAnalytics = useCallback(async () => {
+    if (!authenticated) return;
+    setReferralAnalyticsLoading(true);
+    setReferralAnalyticsError("");
+    try {
+      const res = await fetch("/api/admin/referrals", { cache: "no-store" });
+      const data = await res.json().catch(() => null) as (ReferralAnalytics & { error?: string }) | null;
+      if (!res.ok || !data) {
+        throw new Error(data?.error || (isRu ? "Не удалось загрузить реферальную аналитику" : "Failed to load referral analytics"));
+      }
+      setReferralAnalytics(data);
+      if (Array.isArray(data.codes)) setReferralCodes(data.codes);
+    } catch (err) {
+      setReferralAnalyticsError(
+        err instanceof Error
+          ? err.message
+          : (isRu ? "Не удалось загрузить реферальную аналитику" : "Failed to load referral analytics"),
+      );
+    } finally {
+      setReferralAnalyticsLoading(false);
+    }
+  }, [authenticated, isRu]);
+
   useEffect(() => {
     loadSession();
   }, [loadSession]);
@@ -351,6 +419,10 @@ export default function AdminPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    void loadReferralAnalytics();
+  }, [loadReferralAnalytics]);
 
   const login = async () => {
     if (!address) return;
@@ -1018,68 +1090,299 @@ export default function AdminPage() {
           )}
 
           {tab === "referrals" && (
-            <section className={styles.panel}>
-              <h2>{isRu ? "Короткие реферальные ссылки" : "Short referral links"}</h2>
-              <p className={styles.panelLead}>
-                {isRu
-                  ? "Назначь кошельку короткий код. Новый код станет основным в профиле, старые ссылки продолжат работать."
-                  : "Assign a short code to a wallet. The new code becomes primary in Profile while older links keep working."}
-              </p>
-
-              <div className={styles.compactForm}>
-                <label>
-                  <span>{isRu ? "Кошелёк пользователя" : "User wallet"}</span>
-                  <input
-                    value={referralCodeForm.wallet}
-                    onChange={(event) => setReferralCodeForm((current) => ({ ...current, wallet: event.target.value }))}
-                    placeholder="0x..."
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  <span>{isRu ? "Короткий код" : "Short code"}</span>
-                  <input
-                    value={referralCodeForm.code}
-                    onChange={(event) => setReferralCodeForm((current) => ({ ...current, code: event.target.value.toLowerCase() }))}
-                    placeholder="captain"
-                    minLength={3}
-                    maxLength={32}
-                    pattern="[a-z0-9][a-z0-9_-]{2,31}"
-                    autoComplete="off"
-                  />
-                </label>
+            <section className={`${styles.panel} ${styles.referralPanel}`}>
+              <header className={styles.referralHeader}>
+                <div>
+                  <span className={styles.referralEyebrow}>{isRu ? "КАНАЛ ПРИВЛЕЧЕНИЯ" : "ACQUISITION CHANNEL"}</span>
+                  <h2>{isRu ? "Реферальная разведка" : "Referral intelligence"}</h2>
+                  <p>
+                    {isRu
+                      ? "Источники новых переходов и статусы всех записанных рефералов."
+                      : "Acquisition sources for new visits and the status of every recorded referral."}
+                  </p>
+                </div>
                 <button
-                  className={styles.primaryBtn}
-                  onClick={saveReferralCode}
-                  disabled={referralCodeBusy || !referralCodeForm.wallet.trim() || !referralCodeForm.code.trim()}
+                  className={styles.refreshButton}
+                  onClick={() => void loadReferralAnalytics()}
+                  disabled={referralAnalyticsLoading}
                   type="button"
                 >
-                  {referralCodeBusy
-                    ? (isRu ? "Сохраняем..." : "Saving...")
-                    : (isRu ? "Назначить код" : "Assign code")}
+                  <span aria-hidden="true">↻</span>
+                  {referralAnalyticsLoading
+                    ? (isRu ? "Обновляем" : "Refreshing")
+                    : (isRu ? "Обновить" : "Refresh")}
                 </button>
-              </div>
+              </header>
 
-              <div className={styles.table} style={{ marginTop: 16 }}>
-                {referralCodes.length === 0 ? (
-                  <p className={styles.emptyState}>
-                    {isRu ? "Коротких кодов пока нет." : "No short codes yet."}
-                  </p>
-                ) : referralCodes.map((entry) => (
-                  <article
-                    key={entry.code}
-                    className={styles.submissionRow}
-                    style={{ gridTemplateColumns: "minmax(180px, 0.7fr) minmax(260px, 1.3fr) auto" }}
-                  >
-                    <div>
-                      <b>?ref={entry.code}</b>
-                      <small>{entry.is_primary ? (isRu ? "Основной код" : "Primary code") : (isRu ? "Старый алиас" : "Legacy alias")}</small>
+              {referralAnalyticsError && referralAnalytics && (
+                <div className={styles.referralInlineError} role="status">
+                  <span>{referralAnalyticsError}</span>
+                  <button onClick={() => void loadReferralAnalytics()} type="button">
+                    {isRu ? "Повторить" : "Retry"}
+                  </button>
+                </div>
+              )}
+
+              {referralAnalytics && (!referralAnalytics.trackingAvailable || !referralAnalytics.rewardLedgerAvailable) && (
+                <div className={styles.referralSchemaWarning} role="status">
+                  <span aria-hidden="true">!</span>
+                  <div>
+                    <b>{isRu ? "Нужна миграция Supabase" : "Supabase migration required"}</b>
+                    {!referralAnalytics.trackingAvailable && (
+                      <p>
+                        {isRu
+                          ? "Текущие рефералы видны, но переходы и источники начнут считаться после установки acquisition-схемы."
+                          : "Existing referrals are visible, but visits and sources start counting after the acquisition schema is installed."}
+                      </p>
+                    )}
+                    {!referralAnalytics.rewardLedgerAvailable && (
+                      <p>
+                        {isRu
+                          ? "Журнал 10% наград ещё не установлен — резервное начисление не защищено от повторной обработки."
+                          : "The 10% reward ledger is not installed yet, so fallback awards are not protected from duplicate processing."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(referralAnalyticsLoading && !referralAnalytics) || (!referralAnalytics && !referralAnalyticsError) ? (
+                <ReferralAnalyticsLoading isRu={isRu} />
+              ) : referralAnalyticsError && !referralAnalytics ? (
+                <div className={styles.referralErrorState} role="alert">
+                  <span className={styles.errorSignal} aria-hidden="true">!</span>
+                  <div>
+                    <b>{isRu ? "Сигнал не получен" : "Signal unavailable"}</b>
+                    <p>{referralAnalyticsError}</p>
+                  </div>
+                  <button onClick={() => void loadReferralAnalytics()} type="button">
+                    {isRu ? "Загрузить ещё раз" : "Try again"}
+                  </button>
+                </div>
+              ) : referralAnalytics ? (
+                <>
+                  <ReferralFunnel summary={referralAnalytics.summary} isRu={isRu} />
+
+                  <div className={styles.referralSignals}>
+                    <article>
+                      <span>{isRu ? "ЖДУТ ПЕРВУЮ ИГРУ" : "AWAITING FIRST GAME"}</span>
+                      <b>{referralAnalytics.summary.pendingReferrals.toLocaleString()}</b>
+                      <small>{isRu ? "рефка записана, но игрок ещё не активен" : "recorded referrals that are not active yet"}</small>
+                    </article>
+                    <article className={referralAnalytics.summary.unpaidActive > 0 ? styles.signalAlert : ""}>
+                      <span>{isRu ? "НУЖНО ВЫПЛАТИТЬ" : "PAYOUT REQUIRED"}</span>
+                      <b>{referralAnalytics.summary.unpaidActive.toLocaleString()}</b>
+                      <small>{isRu ? "активные игроки без начисленного бонуса" : "active players whose bonus is still unpaid"}</small>
+                    </article>
+                    <article>
+                      <span>{isRu ? "НАЧИСЛЕНО БОНУСАМИ" : "BONUS POINTS AWARDED"}</span>
+                      <b>{referralAnalytics.summary.firstGameBonusPoints.toLocaleString()} <i>PTS</i></b>
+                      <small>{isRu ? "всего поинтов за первые игры рефералов" : "total points awarded for referrals' first games"}</small>
+                    </article>
+                  </div>
+
+                  <section className={styles.referralDataSection}>
+                    <div className={styles.referralSectionHeading}>
+                      <div>
+                        <span>{isRu ? "АТРИБУЦИЯ" : "ATTRIBUTION"}</span>
+                        <h3>{isRu ? "Откуда приходят игроки" : "Where players come from"}</h3>
+                      </div>
+                      <small>
+                        {isRu
+                          ? "Переходы считаются с момента включения трекинга"
+                          : "Visits are counted from the moment tracking was enabled"}
+                      </small>
                     </div>
-                    <span title={entry.wallet}>{entry.wallet}</span>
-                    <span className={styles.status}>{entry.is_primary ? "PRIMARY" : "ALIAS"}</span>
-                  </article>
-                ))}
-              </div>
+
+                    {referralAnalytics.sources.length === 0 ? (
+                      <div className={styles.referralEmptyState}>
+                        <span aria-hidden="true">◎</span>
+                        <b>{isRu ? "Источников пока нет" : "No sources yet"}</b>
+                        <p>{isRu ? "Новые переходы появятся здесь вместе с площадкой и конверсией." : "New visits will appear here with their source and conversion."}</p>
+                      </div>
+                    ) : (
+                      <div
+                        className={styles.dataTableScroll}
+                        role="region"
+                        aria-label={isRu ? "Таблица источников реферального трафика" : "Referral traffic sources table"}
+                        tabIndex={0}
+                      >
+                        <table className={`${styles.referralTable} ${styles.sourceTable}`}>
+                          <thead>
+                            <tr>
+                              <th scope="col">{isRu ? "Источник" : "Source"}</th>
+                              <th scope="col">{isRu ? "Посетители" : "Visitors"}</th>
+                              <th scope="col">{isRu ? "Кошельки" : "Wallets"}</th>
+                              <th scope="col">{isRu ? "Рефералы" : "Referrals"}</th>
+                              <th scope="col">{isRu ? "Активные" : "Active"}</th>
+                              <th scope="col">{isRu ? "Кошелёк → реф" : "Wallet → referral"}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {referralAnalytics.sources.map((source) => (
+                              <tr key={source.source || "unknown"}>
+                                <td><span className={styles.sourceName}><i aria-hidden="true" />{sourceLabel(source.source, isRu)}</span></td>
+                                <td>{source.visitors.toLocaleString()}</td>
+                                <td>{source.connected.toLocaleString()}</td>
+                                <td>{source.referrals.toLocaleString()}</td>
+                                <td>{source.active.toLocaleString()}</td>
+                                <td><span className={styles.conversionBadge}>{formatPercent(source.conversion)}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    <p className={styles.referralDataNote}>
+                      {isRu
+                        ? "Посетители — уникальные браузерные сессии. Один кошелёк может встречаться в нескольких источниках. Подключения фиксируются аппкой, реферальная связь подтверждается подписью."
+                        : "Visitors are unique browser sessions. One wallet may appear under multiple sources. Connections are app-reported; referral relationships are signature-verified."}
+                    </p>
+                  </section>
+
+                  <section className={styles.referralDataSection}>
+                    <div className={styles.referralSectionHeading}>
+                      <div>
+                        <span>{isRu ? "ЖУРНАЛ РЕФЕРАЛОВ" : "REFERRAL LOG"}</span>
+                        <h3>{isRu ? "Кто кого пригласил" : "Who invited whom"}</h3>
+                      </div>
+                      <strong>{referralAnalytics.referrals.length.toLocaleString()}</strong>
+                    </div>
+
+                    {referralAnalytics.referrals.length === 0 ? (
+                      <div className={styles.referralEmptyState}>
+                        <span aria-hidden="true">⌁</span>
+                        <b>{isRu ? "Записанных рефералов пока нет" : "No recorded referrals yet"}</b>
+                        <p>{isRu ? "Как только новый игрок подтвердит реферальную связь, запись появится здесь." : "A row will appear as soon as a new player confirms a referral."}</p>
+                      </div>
+                    ) : (
+                      <div
+                        className={styles.dataTableScroll}
+                        role="region"
+                        aria-label={isRu ? "Таблица записанных рефералов" : "Recorded referrals table"}
+                        tabIndex={0}
+                      >
+                        <table className={`${styles.referralTable} ${styles.referralLogTable}`}>
+                          <thead>
+                            <tr>
+                              <th scope="col">{isRu ? "Дата" : "Date"}</th>
+                              <th scope="col">{isRu ? "Пригласил" : "Referrer"}</th>
+                              <th scope="col">{isRu ? "Новый игрок" : "New player"}</th>
+                              <th scope="col">{isRu ? "Источник" : "Source"}</th>
+                              <th scope="col">{isRu ? "Кампания" : "Campaign"}</th>
+                              <th scope="col">{isRu ? "Активность" : "Activity"}</th>
+                              <th scope="col">{isRu ? "Бонус" : "Bonus"}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {referralAnalytics.referrals.map((referral) => {
+                              const isActive = referral.gamesPlayed > 0;
+                              const rewardPoints = referral.bonusPoints || DEFAULT_FIRST_GAME_BONUS_POINTS;
+                              return (
+                                <tr key={`${referral.referrer}-${referral.referee}-${referral.createdAt}`}>
+                                  <td>
+                                    <time dateTime={referral.createdAt} title={formatAdminDate(referral.createdAt, isRu, true)}>
+                                      {formatAdminDate(referral.createdAt, isRu)}
+                                    </time>
+                                  </td>
+                                  <td><span className={styles.walletValue} title={referral.referrer}>{shortWallet(referral.referrer)}</span></td>
+                                  <td><span className={styles.walletValue} title={referral.referee}>{shortWallet(referral.referee)}</span></td>
+                                  <td>
+                                    <span className={styles.sourceBadge}>{sourceLabel(referral.source, isRu)}</span>
+                                    {referral.refToken && <small title={referral.refToken}>ref: {referral.refToken}</small>}
+                                  </td>
+                                  <td><span className={styles.campaignValue} title={referral.campaign ?? undefined}>{referral.campaign || "—"}</span></td>
+                                  <td>
+                                    <span className={isActive ? styles.activeChip : styles.waitingChip}>
+                                      {isActive ? (isRu ? "АКТИВЕН" : "ACTIVE") : (isRu ? "ЖДЁМ ИГРУ" : "WAITING")}
+                                    </span>
+                                    <small>{referral.gamesPlayed.toLocaleString()} {isRu ? "игр" : "games"}</small>
+                                  </td>
+                                  <td>
+                                    <span className={referral.bonusPaidAt ? styles.paidChip : isActive ? styles.unpaidChip : styles.waitingChip}>
+                                      {referral.bonusPaidAt
+                                        ? (isRu ? "ВЫПЛАЧЕН" : "PAID")
+                                        : isActive
+                                          ? (isRu ? "К ВЫПЛАТЕ" : "DUE")
+                                          : (isRu ? "НЕ ОТКРЫТ" : "LOCKED")}
+                                    </span>
+                                    <small>{rewardPoints.toLocaleString()} PTS</small>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                </>
+              ) : null}
+
+              <section className={styles.referralCodeSection}>
+                <div className={styles.referralSectionHeading}>
+                  <div>
+                    <span>{isRu ? "КОРОТКИЕ ССЫЛКИ" : "SHORT LINKS"}</span>
+                    <h3>{isRu ? "Коды для амбассадоров" : "Ambassador codes"}</h3>
+                  </div>
+                </div>
+                <p className={styles.panelLead}>
+                  {isRu
+                    ? "Назначь кошельку короткий код. Новый код станет основным в профиле, старые ссылки продолжат работать."
+                    : "Assign a short code to a wallet. The new code becomes primary in Profile while older links keep working."}
+                </p>
+
+                <div className={`${styles.compactForm} ${styles.referralCodeForm}`}>
+                  <label>
+                    <span>{isRu ? "Кошелёк пользователя" : "User wallet"}</span>
+                    <input
+                      value={referralCodeForm.wallet}
+                      onChange={(event) => setReferralCodeForm((current) => ({ ...current, wallet: event.target.value }))}
+                      placeholder="0x..."
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label>
+                    <span>{isRu ? "Короткий код" : "Short code"}</span>
+                    <input
+                      value={referralCodeForm.code}
+                      onChange={(event) => setReferralCodeForm((current) => ({ ...current, code: event.target.value.toLowerCase() }))}
+                      placeholder="captain"
+                      minLength={3}
+                      maxLength={32}
+                      pattern="[a-z0-9][a-z0-9_-]{2,31}"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <button
+                    className={`${styles.primaryBtn} ${styles.referralCodeSubmit}`}
+                    onClick={saveReferralCode}
+                    disabled={referralCodeBusy || !referralCodeForm.wallet.trim() || !referralCodeForm.code.trim()}
+                    type="button"
+                  >
+                    {referralCodeBusy
+                      ? (isRu ? "Сохраняем..." : "Saving...")
+                      : (isRu ? "Назначить код" : "Assign code")}
+                  </button>
+                </div>
+
+                <div className={styles.referralCodeList}>
+                  {referralCodes.length === 0 ? (
+                    <p className={styles.emptyState}>
+                      {isRu ? "Коротких кодов пока нет." : "No short codes yet."}
+                    </p>
+                  ) : referralCodes.map((entry) => (
+                    <article key={entry.code} className={styles.referralCodeRow}>
+                      <div>
+                        <b>?ref={entry.code}</b>
+                        <small>{entry.is_primary ? (isRu ? "Основной код" : "Primary code") : (isRu ? "Старый алиас" : "Legacy alias")}</small>
+                      </div>
+                      <span className={styles.walletValue} title={entry.wallet}>{shortWallet(entry.wallet)}</span>
+                      <span className={entry.is_primary ? styles.primaryCodeChip : styles.aliasCodeChip}>{entry.is_primary ? "PRIMARY" : "ALIAS"}</span>
+                    </article>
+                  ))}
+                </div>
+              </section>
             </section>
           )}
 
@@ -1937,6 +2240,93 @@ export default function AdminPage() {
   );
 }
 
+function ReferralFunnel({ summary, isRu }: { summary: ReferralAnalyticsSummary; isRu: boolean }) {
+  const stages = [
+    {
+      key: "visitors",
+      label: isRu ? "Посетители" : "Visitors",
+      value: summary.visitors,
+      detail: isRu ? "уникальные сессии" : "unique sessions",
+      scope: isRu ? "С ТРЕКИНГА" : "TRACKED",
+    },
+    {
+      key: "wallets",
+      label: isRu ? "Кошельки" : "Wallets",
+      value: summary.connectedWallets,
+      detail: isRu ? "зафиксированы аппкой" : "reported by the app",
+      scope: isRu ? "С ТРЕКИНГА" : "TRACKED",
+    },
+    {
+      key: "recorded",
+      label: isRu ? "Рефералы" : "Referrals",
+      value: summary.recordedReferrals,
+      detail: isRu ? "связь записана" : "relation recorded",
+      scope: isRu ? "ЗА ВСЁ ВРЕМЯ" : "ALL TIME",
+    },
+    {
+      key: "active",
+      label: isRu ? "Сыграли" : "Played",
+      value: summary.activeReferrals,
+      detail: isRu ? "минимум 1 игра" : "at least 1 game",
+      scope: isRu ? "ЗА ВСЁ ВРЕМЯ" : "ALL TIME",
+    },
+    {
+      key: "paid",
+      label: isRu ? "Выплачено" : "Paid",
+      value: summary.paidReferrals,
+      detail: isRu ? "бонус начислен" : "bonus credited",
+      scope: isRu ? "ЗА ВСЁ ВРЕМЯ" : "ALL TIME",
+    },
+  ];
+
+  return (
+    <section className={styles.referralFunnel} aria-label={isRu ? "Реферальная сводка" : "Referral overview"}>
+      <div className={styles.funnelHeading}>
+        <span>{isRu ? "СВОДКА" : "OVERVIEW"}</span>
+        <small>
+          {isRu
+            ? "посещения считаются с момента запуска трекинга, рефералы и выплаты — за всё время"
+            : "visits count from tracking launch; referrals and payouts are all-time"}
+        </small>
+      </div>
+      <div className={styles.funnelGrid}>
+        {stages.map((stage, index) => (
+            <article
+              key={stage.key}
+              className={`${styles.funnelStep} ${stage.key === "paid" ? styles.funnelStepPaid : ""}`}
+            >
+              <div className={styles.funnelStepMeta}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <small>{stage.scope}</small>
+              </div>
+              <strong>{stage.value.toLocaleString()}</strong>
+              <b>{stage.label}</b>
+              <p>{stage.detail}</p>
+            </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReferralAnalyticsLoading({ isRu }: { isRu: boolean }) {
+  return (
+    <div className={styles.referralLoadingState} aria-live="polite" aria-busy="true">
+      <p>{isRu ? "Собираем реферальный сигнал..." : "Reading referral signal..."}</p>
+      <div className={styles.referralLoadingGrid} aria-hidden="true">
+        {Array.from({ length: 5 }, (_, index) => (
+          <span key={index} />
+        ))}
+      </div>
+      <div className={styles.referralLoadingRows} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
+
 function Modal({
   title,
   children,
@@ -1975,6 +2365,40 @@ function Row({ children }: { children: ReactNode }) {
 function shortWallet(wallet: string) {
   if (!wallet) return "-";
   return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+}
+
+function formatPercent(value: number) {
+  if (!Number.isFinite(value)) return "0%";
+  const rounded = Math.round(Math.max(0, value) * 10) / 10;
+  return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+}
+
+function sourceLabel(source: string | null | undefined, isRu: boolean) {
+  const normalized = source?.trim().toLowerCase().replace(/[\s-]+/g, "_") ?? "";
+  const labels: Record<string, string> = {
+    base: "Base App",
+    base_app: "Base App",
+    telegram: "Telegram",
+    tg: "Telegram",
+    twitter: "X / Twitter",
+    x: "X / Twitter",
+    farcaster: "Farcaster",
+    warpcast: "Farcaster",
+    direct: isRu ? "Прямой переход" : "Direct",
+    qr: "QR",
+    other: isRu ? "Другое" : "Other",
+    unknown: isRu ? "Не определён" : "Unknown",
+  };
+  if (!normalized) return labels.unknown;
+  return labels[normalized] ?? source!.replace(/[_-]+/g, " ");
+}
+
+function formatAdminDate(value: string, isRu: boolean, withTime = false) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(isRu ? "ru-RU" : "en-US", withTime
+    ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
+    : { day: "2-digit", month: "short", year: "2-digit" }).format(date);
 }
 
 function statusLabel(status: string, isRu: boolean) {

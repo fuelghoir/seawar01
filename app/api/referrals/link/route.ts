@@ -25,7 +25,11 @@ export async function GET(req: NextRequest) {
     const code = await getPrimaryReferralCodeServer(adminSupabase(), wallet);
     const ref = code ?? wallet;
     const link = buildPublicReferralUrl(ref);
-    const baseLink = buildBaseAppMiniAppUrl(link);
+    const baseTarget = new URL(link);
+    baseTarget.searchParams.set("utm_source", "base_app");
+    baseTarget.searchParams.set("utm_medium", "referral");
+    baseTarget.searchParams.set("utm_campaign", "captain_invite");
+    const baseLink = buildBaseAppMiniAppUrl(baseTarget.toString());
     return NextResponse.json(
       { wallet, code, ref, link, baseLink },
       { headers: NO_STORE_HEADERS },

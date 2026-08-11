@@ -40,6 +40,9 @@ import {
 } from "./lib/referrals";
 import { QuestHub } from "./components/QuestHub";
 import ReferralPanel from "./components/ReferralPanel";
+import ReferralCaptureNotice, {
+  type ReferralCaptureStatus,
+} from "./components/ReferralCaptureNotice";
 import CreatorRewardsSummary from "./components/CreatorRewardsSummary";
 import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -70,11 +73,27 @@ import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
 import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
 import { useTransactionWarmup } from "./lib/useTransactionWarmup";
 import { useOnboarding } from "./providers/OnboardingProvider";
+import {
+  recordAcquisitionVisit,
+  recordAcquisitionWallet,
+  type AcquisitionPlatform,
+} from "./lib/acquisition";
+import {
+  applyConfirmedCheckin,
+  checkinDayKey,
+  isCheckinPending,
+  markCheckinPending,
+  useCheckinDayRollover,
+  usePendingCheckinRecovery,
+} from "./lib/checkinClient";
 import styles from "./home.module.css";
 
 const TG_URL = "https://t.me/+xWV1zyGwNOM1ZTFi";
 const YT_URL = "https://www.youtube.com/@hermcrypto0x";
 const REFERRAL_STORAGE_KEY = "sea-battle-referrer";
+const REFERRAL_STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const REFERRAL_HANDLED_STORAGE_PREFIX = "sea-battle-referral-handled";
+const REFERRAL_HANDLED_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const BOOT_MIN_MS = 950;
 const BOOT_MAX_MS = 3600;
 
@@ -115,6 +134,8 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [bootMaxDone, setBootMaxDone] = useState(false);
   const [autoConnectGraceDone, setAutoConnectGraceDone] = useState(false);
   const [incomingRef, setIncomingRef] = useState<string | null>(null);
+  const [referralCaptureStatus, setReferralCaptureStatus] = useState<ReferralCaptureStatus | "idle">("idle");
+  const [checkinClaimPending, setCheckinClaimPending] = useState(false);
   const [showPlay, setShowPlay] = useState(false);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -128,13 +149,33 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [mobileShowcasePage, setMobileShowcasePage] = useState<MobileShowcasePage>("battle");
   const autoConnected = useRef(false);
   const recordedReferralKey = useRef<string | null>(null);
+  const acquisitionVisitKey = useRef<string | null>(null);
+  const acquisitionWalletKey = useRef<string | null>(null);
+  const referralAttemptGeneration = useRef(0);
+  const referralSuccessTimer = useRef<number | null>(null);
+  const confirmedCheckinTxKey = useRef<string | null>(null);
+  const checkinStatusGeneration = useRef(0);
+  const currentCheckinWalletRef = useRef<string | null>(address?.toLowerCase() ?? null);
   const recoveredOnboardingCheckinKey = useRef<string | null>(null);
   const mobileShowcaseTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const checkinWalletSession = useMemo(
+    () => ({ wallet: address?.toLowerCase() ?? null }),
+    [address],
+  );
+  const currentCheckinWalletSessionRef = useRef(checkinWalletSession);
+  currentCheckinWalletRef.current = address?.toLowerCase() ?? null;
+  currentCheckinWalletSessionRef.current = checkinWalletSession;
 
   const openPlay = useCallback(() => setShowPlay(true), []);
 
   useEffect(() => {
+    checkinStatusGeneration.current += 1;
     setShowPlay(false);
+    referralAttemptGeneration.current += 1;
+    recordedReferralKey.current = null;
+    confirmedCheckinTxKey.current = null;
+    setCheckinClaimPending(address ? isCheckinPending(address) : false);
+    setReferralCaptureStatus("idle");
   }, [address]);
 
   const toggleSection = (s: NonNullable<typeof openSection>) =>
@@ -175,44 +216,151 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     const urlRef = extractReferralRefFromCurrentUrl();
     const contextRef = extractReferralRefFromMiniAppContext(context);
     const storedRef = safeGetReferralRef();
-    const ref = urlRef ?? contextRef ?? storedRef;
+    // Referral ownership is first-touch for the lifetime of the local capture.
+    // A later link must not replace the invitation that brought this player in.
+    const ref = storedRef ?? urlRef ?? contextRef;
 
     if (!ref) return;
     setIncomingRef((current) => (current === ref ? current : ref));
-    safeSetReferralRef(ref);
+    if (!storedRef && (urlRef || contextRef)) safeSetReferralRef(ref);
   }, [context]);
 
   useEffect(() => {
+    if (!isReady || typeof window === "undefined") return;
+
+    const urlRef = extractReferralRefFromCurrentUrl();
+    const contextRef = extractReferralRefFromMiniAppContext(context);
+    const ref = safeGetReferralRef() ?? urlRef ?? contextRef;
+    const params = new URLSearchParams(window.location.search);
+    const platform = detectAcquisitionPlatform(isInMiniApp);
+    const visitKey = [
+      window.location.pathname,
+      ref ?? "",
+      params.get("utm_source") ?? "",
+      params.get("utm_campaign") ?? "",
+      platform,
+    ].join(":");
+
+    if (acquisitionVisitKey.current === visitKey) return;
+    acquisitionVisitKey.current = visitKey;
+
+    void recordAcquisitionVisit({
+      ref,
+      source: params.get("utm_source"),
+      medium: params.get("utm_medium"),
+      campaign: params.get("utm_campaign"),
+      content: params.get("utm_content"),
+      referrer: document.referrer || null,
+      landingPath: window.location.pathname,
+      platform,
+    }).catch(() => {
+      // The acquisition client owns bounded in-session retries. Keep this key
+      // claimed so a context re-render cannot enqueue the same visit twice.
+    });
+  }, [context, isInMiniApp, isReady]);
+
+  useEffect(() => {
+    if (!isReady || !address) return;
+    const wallet = address.toLowerCase();
+    if (acquisitionWalletKey.current === wallet) return;
+    acquisitionWalletKey.current = wallet;
+    void recordAcquisitionWallet(wallet).catch(() => {
+      if (acquisitionWalletKey.current === wallet) {
+        acquisitionWalletKey.current = null;
+      }
+    });
+  }, [address, isReady]);
+
+  const attemptReferralCapture = useCallback(async () => {
     if (!address || !incomingRef) return;
 
+    const referralRef = incomingRef;
     const referee = address.toLowerCase();
-    const recordKey = `${incomingRef}:${referee}`;
-    if (incomingRef === referee) {
-      safeClearReferralRef(incomingRef);
+    const recordKey = `${referralRef}:${referee}`;
+    if (safeWasReferralHandled(referralRef, referee)) {
+      clearCapturedReferral(referralRef);
+      setIncomingRef(null);
+      setReferralCaptureStatus("idle");
+      return;
+    }
+    if (referralRef === referee) {
+      clearCapturedReferral(referralRef);
+      setIncomingRef(null);
+      setReferralCaptureStatus("idle");
       return;
     }
     if (recordedReferralKey.current === recordKey) return;
 
+    const generation = referralAttemptGeneration.current + 1;
+    referralAttemptGeneration.current = generation;
+    const isStale = () => referralAttemptGeneration.current !== generation;
     recordedReferralKey.current = recordKey;
-    void (async () => {
-      try {
-        const referrer = await resolveReferralRef(incomingRef);
-        if (!referrer || referrer === referee) {
-          safeClearReferralRef(incomingRef);
-          return;
-        }
-
-        const issuedAt = Date.now();
-        const message = buildReferralRecordMessage(incomingRef, referee, issuedAt);
-        if (!message) return;
-        const signature = await signMessageAsync({ message });
-        await recordReferral(incomingRef, referee, signature, issuedAt);
-        safeClearReferralRef(incomingRef);
-      } catch {
-        recordedReferralKey.current = null;
+    setReferralCaptureStatus("recording");
+    try {
+      const referrer = await resolveReferralRef(referralRef);
+      if (isStale()) return;
+      if (!referrer || referrer === referee) {
+        clearCapturedReferral(referralRef);
+        setIncomingRef(null);
+        setReferralCaptureStatus("idle");
+        return;
       }
-    })();
+
+      const issuedAt = Date.now();
+      const message = buildReferralRecordMessage(referralRef, referee, issuedAt);
+      if (!message) throw new Error("Invalid referral confirmation");
+
+      setReferralCaptureStatus("signing");
+      const signature = await signMessageAsync({ message });
+      if (isStale()) return;
+      setReferralCaptureStatus("recording");
+      const attributed = await recordReferral(referralRef, referee, signature, issuedAt);
+      safeMarkReferralHandled(referralRef, referee);
+      if (isStale()) return;
+
+      clearCapturedReferral(referralRef);
+      setIncomingRef(null);
+      if (!attributed) {
+        setReferralCaptureStatus("idle");
+        return;
+      }
+      setReferralCaptureStatus("success");
+
+      if (referralSuccessTimer.current !== null) {
+        window.clearTimeout(referralSuccessTimer.current);
+      }
+      referralSuccessTimer.current = window.setTimeout(() => {
+        if (isStale()) return;
+        setReferralCaptureStatus("idle");
+        referralSuccessTimer.current = null;
+      }, 3200);
+    } catch {
+      if (isStale()) return;
+      recordedReferralKey.current = null;
+      setReferralCaptureStatus("error");
+    }
   }, [address, incomingRef, signMessageAsync]);
+
+  useEffect(() => {
+    if (!isReady || !onboardingLoaded || onboarding?.required) return;
+    void attemptReferralCapture();
+  }, [attemptReferralCapture, isReady, onboarding?.required, onboardingLoaded]);
+
+  useEffect(() => () => {
+    if (referralSuccessTimer.current !== null) {
+      window.clearTimeout(referralSuccessTimer.current);
+    }
+  }, []);
+
+  const dismissReferralCapture = useCallback(() => {
+    referralAttemptGeneration.current += 1;
+    if (referralSuccessTimer.current !== null) {
+      window.clearTimeout(referralSuccessTimer.current);
+      referralSuccessTimer.current = null;
+    }
+    setReferralCaptureStatus("idle");
+    recordedReferralKey.current = null;
+  }, []);
 
   useEffect(() => {
     const minTimer = window.setTimeout(() => setBootMinDone(true), BOOT_MIN_MS);
@@ -270,13 +418,37 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     }
   }, [isConnected, chainId, switchChain]);
 
+  const reloadCheckinStatus = useCallback(async (wallet: string) => {
+    const normalizedWallet = wallet.toLowerCase();
+    const generation = ++checkinStatusGeneration.current;
+    try {
+      const status = await getCheckinStatus(normalizedWallet);
+      if (
+        checkinStatusGeneration.current !== generation ||
+        currentCheckinWalletRef.current !== normalizedWallet
+      ) return;
+      setCheckin(
+        applyConfirmedCheckin(
+          normalizedWallet,
+          status,
+          confirmedCheckinTxKey.current,
+        ),
+      );
+    } catch {
+      // Keep the last known state; a later refresh or focus can retry it.
+    }
+  }, []);
+
   const loadProfile = useCallback(async () => {
     if (!address) return;
+    const wallet = address.toLowerCase();
     try {
-      const p = await getPlayerProfile(address);
+      const p = await getPlayerProfile(wallet);
+      if (currentCheckinWalletRef.current !== wallet) return;
       setProfile(p);
     } catch {
-      setProfile(createEmptyProfile(address));
+      if (currentCheckinWalletRef.current !== wallet) return;
+      setProfile(createEmptyProfile(wallet));
     }
   }, [address]);
 
@@ -296,12 +468,13 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     setHistory([]);
     setSeason(null);
 
+    void reloadCheckinStatus(address);
+
     Promise.allSettled([
       getPlayerProfile(address),
-      getCheckinStatus(address),
       getPlayerGameHistory(address),
       SEASON_UI_ENABLED ? getSeasonState(address) : Promise.resolve(null),
-    ]).then(([profileResult, checkinResult, historyResult, seasonResult]) => {
+    ]).then(([profileResult, historyResult, seasonResult]) => {
       if (cancelled) return;
 
       setProfile(
@@ -309,7 +482,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           ? profileResult.value
           : createEmptyProfile(address)
       );
-      setCheckin(checkinResult.status === "fulfilled" ? checkinResult.value : null);
       setHistory(
         historyResult.status === "fulfilled"
           ? historyResult.value.slice(0, 4)
@@ -321,19 +493,19 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     return () => {
       cancelled = true;
     };
-  }, [address]);
+  }, [address, reloadCheckinStatus]);
 
   useEffect(() => {
     if (!address) return;
     const refresh = () => {
       void loadProfile();
-      void getCheckinStatus(address).then(setCheckin).catch(() => {});
+      void reloadCheckinStatus(address);
       void getPlayerGameHistory(address).then((entries) => setHistory(entries.slice(0, 4))).catch(() => {});
       if (SEASON_UI_ENABLED) void getSeasonState(address).then(setSeason).catch(() => {});
     };
     window.addEventListener(PLAYER_DATA_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(PLAYER_DATA_REFRESH_EVENT, refresh);
-  }, [address, loadProfile]);
+  }, [address, loadProfile, reloadCheckinStatus]);
 
   useEffect(() => {
     if (!isConnected || !address || !profile || !onboardingLoaded) {
@@ -363,16 +535,16 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       }
     }
 
-    setShowWelcome(true);
-  }, [isConnected, address, profile, season, onboarding, onboardingLoaded]);
+    setShowWelcome(checkin?.canCheckin === true);
+  }, [isConnected, address, profile, season, onboarding, onboardingLoaded, checkin?.canCheckin]);
 
   const closeSeasonIntro = useCallback(() => {
     if (address) {
       sessionStorage.setItem(`sea-battle-usdc-season-intro-${address.toLowerCase()}`, "1");
     }
     setShowSeasonIntro(false);
-    setShowWelcome(true);
-  }, [address]);
+    setShowWelcome(checkin?.canCheckin === true);
+  }, [address, checkin?.canCheckin]);
 
   const openSeasonEndedClaim = useCallback(() => {
     setShowSeasonEndedIntro(false);
@@ -406,19 +578,91 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       });
   }, [address, checkin?.canCheckin, lang, onboarding?.language, onboarding?.required, onboarding?.step, progressOnboarding]);
 
-  const handleCheckedIn = useCallback(() => {
+  const handleCheckedIn = useCallback((wallet: string, walletSession?: object) => {
+    const normalizedWallet = wallet.toLowerCase();
+    if (
+      currentCheckinWalletRef.current !== normalizedWallet ||
+      (walletSession && currentCheckinWalletSessionRef.current !== walletSession)
+    ) return;
+    setCheckinClaimPending(false);
+    setShowWelcome(false);
+    setCheckin((current) => current ? { ...current, canCheckin: false } : current);
     void loadProfile();
-    if (!address || !onboarding?.required) return;
+    if (!onboarding?.required) return;
     void progressOnboarding("loadout", onboarding.language ?? lang)
       .then(() => {
+        if (currentCheckinWalletRef.current !== normalizedWallet) return;
         setShowWelcome(false);
       })
       .catch(() => {
+        if (currentCheckinWalletRef.current !== normalizedWallet) return;
         void refreshOnboarding().then(() => {
+          if (currentCheckinWalletRef.current !== normalizedWallet) return;
           setShowWelcome(false);
         });
       });
-  }, [address, lang, loadProfile, onboarding?.language, onboarding?.required, progressOnboarding, refreshOnboarding]);
+  }, [lang, loadProfile, onboarding?.language, onboarding?.required, progressOnboarding, refreshOnboarding]);
+
+  const handleCheckinTransactionConfirmed = useCallback((wallet: string, walletSession: object) => {
+    const normalizedWallet = wallet.toLowerCase();
+    if (
+      currentCheckinWalletRef.current !== normalizedWallet ||
+      currentCheckinWalletSessionRef.current !== walletSession
+    ) return;
+    confirmedCheckinTxKey.current = checkinDayKey(normalizedWallet);
+    markCheckinPending(normalizedWallet);
+    setShowWelcome(false);
+    setCheckin((current) => current ? { ...current, canCheckin: false } : current);
+  }, []);
+
+  const handleCheckinClaimFailed = useCallback((wallet: string, walletSession: object) => {
+    if (
+      currentCheckinWalletRef.current !== wallet.toLowerCase() ||
+      currentCheckinWalletSessionRef.current !== walletSession
+    ) return;
+    setCheckinClaimPending(true);
+  }, []);
+
+  const handleRecoveredCheckin = useCallback((status: CheckinStatus, wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    setCheckinClaimPending(false);
+    setCheckin(status);
+    handleCheckedIn(wallet);
+  }, [handleCheckedIn]);
+
+  const handleCheckinRecoveryExpired = useCallback((wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    setCheckinClaimPending(false);
+    void reloadCheckinStatus(wallet);
+  }, [reloadCheckinStatus]);
+
+  usePendingCheckinRecovery({
+    wallet: address,
+    enabled: checkinClaimPending,
+    onSettled: handleRecoveredCheckin,
+    onExpired: handleCheckinRecoveryExpired,
+  });
+
+  const handleCheckinDayRollover = useCallback((wallet: string) => {
+    if (currentCheckinWalletRef.current !== wallet) return;
+    checkinStatusGeneration.current += 1;
+    confirmedCheckinTxKey.current = null;
+    setCheckinClaimPending(false);
+    setShowWelcome(false);
+    setCheckin(null);
+    void reloadCheckinStatus(wallet);
+  }, [reloadCheckinStatus]);
+
+  useCheckinDayRollover({
+    wallet: address,
+    onRollover: handleCheckinDayRollover,
+  });
+
+  const handleWelcomeClose = useCallback(() => {
+    if (!address) return;
+    setShowWelcome(false);
+    void reloadCheckinStatus(address);
+  }, [address, reloadCheckinStatus]);
 
   const displayName = context?.user?.displayName || "Captain";
   const isMobileHome = isInMiniApp || isNarrowScreen;
@@ -546,6 +790,15 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         onConnectClick={() => setShowWalletConnect(true)}
       />
 
+      {referralCaptureStatus !== "idle" && (
+        <ReferralCaptureNotice
+          status={referralCaptureStatus}
+          language={lang}
+          onRetry={() => void attemptReferralCapture()}
+          onDismiss={dismissReferralCapture}
+        />
+      )}
+
       <PlayModal
         open={showPlay}
         onClose={() => setShowPlay(false)}
@@ -655,10 +908,10 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       {!showSeasonIntro && !showSeasonEndedIntro && showWelcome && address && (
         <WelcomeCheckin
           address={address}
-          onClose={() => {
-            setShowWelcome(false);
-            getCheckinStatus(address).then(setCheckin).catch(() => {});
-          }}
+          walletSession={checkinWalletSession}
+          onClose={handleWelcomeClose}
+          onTransactionConfirmed={handleCheckinTransactionConfirmed}
+          onClaimFailed={handleCheckinClaimFailed}
           onCheckedIn={handleCheckedIn}
         />
       )}
@@ -1482,7 +1735,28 @@ function createEmptyProfile(wallet: string): PlayerProfile {
 
 function safeGetReferralRef(): string | null {
   try {
-    return normalizeReferralRef(window.localStorage.getItem(REFERRAL_STORAGE_KEY));
+    const raw = window.localStorage.getItem(REFERRAL_STORAGE_KEY);
+    if (!raw) return null;
+
+    const legacyRef = normalizeReferralRef(raw);
+    if (legacyRef) {
+      safeSetReferralRef(legacyRef);
+      return legacyRef;
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStoredReferral(parsed)) {
+      window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      return null;
+    }
+
+    const ref = normalizeReferralRef(parsed.ref);
+    const expired = Date.now() - parsed.capturedAt > REFERRAL_STORAGE_TTL_MS;
+    if (!ref || expired) {
+      window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      return null;
+    }
+    return ref;
   } catch {
     return null;
   }
@@ -1490,7 +1764,12 @@ function safeGetReferralRef(): string | null {
 
 function safeSetReferralRef(ref: string) {
   try {
-    window.localStorage.setItem(REFERRAL_STORAGE_KEY, ref);
+    const normalized = normalizeReferralRef(ref);
+    if (!normalized) return;
+    window.localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify({
+      ref: normalized,
+      capturedAt: Date.now(),
+    }));
   } catch {
     // ignore
   }
@@ -1498,12 +1777,83 @@ function safeSetReferralRef(ref: string) {
 
 function safeClearReferralRef(ref: string) {
   try {
-    if (window.localStorage.getItem(REFERRAL_STORAGE_KEY) === ref) {
+    const raw = window.localStorage.getItem(REFERRAL_STORAGE_KEY);
+    const legacyRef = normalizeReferralRef(raw);
+    let storedRef = legacyRef;
+    if (!storedRef && raw) {
+      const parsed: unknown = JSON.parse(raw);
+      storedRef = isStoredReferral(parsed) ? normalizeReferralRef(parsed.ref) : null;
+    }
+    if (storedRef === normalizeReferralRef(ref)) {
       window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
     }
   } catch {
     // ignore
   }
+}
+
+function clearCapturedReferral(ref: string) {
+  safeClearReferralRef(ref);
+  try {
+    const url = new URL(window.location.href);
+    if (normalizeReferralRef(url.searchParams.get("ref")) !== normalizeReferralRef(ref)) {
+      return;
+    }
+    url.searchParams.delete("ref");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  } catch {
+    // URL cleanup is best-effort; referral storage was already cleared.
+  }
+}
+
+function safeWasReferralHandled(ref: string, wallet: string) {
+  try {
+    const key = referralHandledStorageKey(ref, wallet);
+    const handledAt = Number(window.localStorage.getItem(key));
+    if (!Number.isFinite(handledAt) || handledAt <= 0) return false;
+    if (Date.now() - handledAt <= REFERRAL_HANDLED_TTL_MS) return true;
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore restricted storage; server-side attribution stays authoritative.
+  }
+  return false;
+}
+
+function safeMarkReferralHandled(ref: string, wallet: string) {
+  try {
+    window.localStorage.setItem(referralHandledStorageKey(ref, wallet), String(Date.now()));
+  } catch {
+    // Ignore restricted storage.
+  }
+}
+
+function referralHandledStorageKey(ref: string, wallet: string) {
+  return `${REFERRAL_HANDLED_STORAGE_PREFIX}:${normalizeReferralRef(ref) ?? "invalid"}:${wallet.toLowerCase()}`;
+}
+
+function isStoredReferral(value: unknown): value is { ref: string; capturedAt: number } {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.ref === "string" && Number.isFinite(record.capturedAt);
+}
+
+function detectAcquisitionPlatform(isInMiniApp: boolean): AcquisitionPlatform {
+  const source = new URLSearchParams(window.location.search).get("utm_source")?.toLowerCase();
+  const userAgent = window.navigator.userAgent;
+  const referrer = document.referrer;
+  if (
+    source === "base_app" ||
+    /BaseApp|CoinbaseWallet/i.test(userAgent) ||
+    /^https:\/\/(?:www\.)?base\.app(?:\/|$)/i.test(referrer)
+  ) {
+    return "base_app";
+  }
+  if (isInMiniApp || /Farcaster|Warpcast/i.test(userAgent)) return "farcaster";
+  return "web";
 }
 
 function CheckinDots({ streak }: { streak: number }) {

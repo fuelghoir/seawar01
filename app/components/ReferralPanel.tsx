@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import sdk from "@farcaster/miniapp-sdk";
 import {
   getPreferredReferralLinks,
@@ -46,13 +46,25 @@ export default function ReferralPanel({
   const [internalExpanded, setInternalExpanded] = useState(false);
   const expanded = controlledExpanded ?? internalExpanded;
   const [stats, setStats] = useState<ReferralStats>(EMPTY_STATS);
+  const [statsWallet, setStatsWallet] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(false);
   const [copied, setCopied] = useState<"direct" | "base" | "share" | null>(null);
   const [link, setLink] = useState("");
   const [baseLink, setBaseLink] = useState("");
+  const [linksWallet, setLinksWallet] = useState<string | null>(null);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linksError, setLinksError] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
-  const activeBonus = stats.firstGameBonusPoints;
+  const wallet = address.toLowerCase();
+  const linksAreCurrent = linksWallet === wallet;
+  const statsAreCurrent = statsWallet === wallet;
+  const visibleLink = linksAreCurrent ? link : "";
+  const visibleBaseLink = linksAreCurrent ? baseLink : "";
+  const visibleStats = statsAreCurrent ? stats : EMPTY_STATS;
+  const linksBusy = !linksAreCurrent || linksLoading;
+  const statsBusy = !statsAreCurrent || statsLoading;
+  const activeBonus = visibleStats.firstGameBonusPoints;
 
   const toggle = () => {
     if (onToggleExpand) onToggleExpand();
@@ -61,38 +73,64 @@ export default function ReferralPanel({
 
   useEffect(() => {
     if (!address) return;
+    const requestedWallet = address.toLowerCase();
     let cancelled = false;
-    getPreferredReferralLinks(address).then((links) => {
-      if (cancelled) return;
-      setLink(links.link);
-      setBaseLink(links.baseLink);
-    });
+    setLink("");
+    setBaseLink("");
+    setLinksWallet(requestedWallet);
+    setLinksLoading(true);
+    setLinksError(false);
+    setCopied(null);
+    setShareMenuOpen(false);
+    void getPreferredReferralLinks(requestedWallet)
+      .then((links) => {
+        if (cancelled) return;
+        setLink(links.link);
+        setBaseLink(links.baseLink);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLink("");
+        setBaseLink("");
+        setLinksError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLinksLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, [address]);
 
-  const loadStats = useCallback(async () => {
+  useEffect(() => {
     if (!address) return;
+    const requestedWallet = address.toLowerCase();
+    let cancelled = false;
+    setStats(EMPTY_STATS);
+    setStatsWallet(requestedWallet);
     setStatsLoading(true);
     setStatsError(false);
-    try {
-      setStats(await getReferralStats(address));
-    } catch {
-      setStatsError(true);
-    } finally {
-      setStatsLoading(false);
-    }
+    void getReferralStats(requestedWallet)
+      .then((nextStats) => {
+        if (!cancelled) setStats(nextStats);
+      })
+      .catch(() => {
+        if (!cancelled) setStatsError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setStatsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
 
   const handleCopy = async (text: string, type: "direct" | "base") => {
     if (!text) return;
     try {
-      await copyToClipboard(text);
+      await copyToClipboard(
+        type === "direct" ? withReferralSource(text, "copy_link") : text,
+      );
       setCopied(type);
       window.setTimeout(() => setCopied(null), 2000);
     } catch {
@@ -101,18 +139,19 @@ export default function ReferralPanel({
   };
 
   const handleShare = async () => {
-    const url = link || baseLink;
+    const url = visibleLink || visibleBaseLink;
     if (!url) return;
     setShareMenuOpen((open) => !open);
   };
 
   const handleNativeShare = async () => {
-    const url = link || baseLink;
-    if (!url) return;
+    const rawUrl = visibleLink || visibleBaseLink;
+    if (!rawUrl) return;
     setShareMenuOpen(false);
 
     try {
       if (await isMiniAppShareAvailable()) {
+        const url = withReferralSource(rawUrl, "farcaster");
         await sdk.actions.composeCast({
           text: copy.shareText,
           embeds: [url],
@@ -123,25 +162,30 @@ export default function ReferralPanel({
       }
 
       if (typeof navigator.share === "function") {
+        const url = withReferralSource(rawUrl, "native_share");
         await navigator.share({
           title: "Sea Battle",
           text: copy.shareText,
           url,
         });
       } else {
-        await copyToClipboard(url);
+        await copyToClipboard(withReferralSource(rawUrl, "native_share"));
       }
       setCopied("share");
       window.setTimeout(() => setCopied(null), 2000);
     } catch (err) {
       if (isAbortError(err)) return;
-      openExternal(getTwitterShareUrl(url, TWITTER_REFERRAL_SHARE_TEXT));
+      openExternal(getTwitterShareUrl(
+        withReferralSource(rawUrl, "x"),
+        TWITTER_REFERRAL_SHARE_TEXT,
+      ));
     }
   };
 
   const handleFarcasterShare = async () => {
-    const url = link || baseLink;
-    if (!url) return;
+    const rawUrl = visibleLink || visibleBaseLink;
+    if (!rawUrl) return;
+    const url = withReferralSource(rawUrl, "farcaster");
     setShareMenuOpen(false);
 
     try {
@@ -160,14 +204,27 @@ export default function ReferralPanel({
   };
 
   const handleTwitterShare = () => {
-    const url = link || baseLink;
-    if (!url) return;
+    const rawUrl = visibleLink || visibleBaseLink;
+    if (!rawUrl) return;
     setShareMenuOpen(false);
-    openExternal(getTwitterShareUrl(url, TWITTER_REFERRAL_SHARE_TEXT));
+    openExternal(getTwitterShareUrl(
+      withReferralSource(rawUrl, "x"),
+      TWITTER_REFERRAL_SHARE_TEXT,
+    ));
+  };
+
+  const handleTelegramShare = () => {
+    const rawUrl = visibleLink || visibleBaseLink;
+    if (!rawUrl) return;
+    setShareMenuOpen(false);
+    openExternal(getTelegramShareUrl(
+      withReferralSource(rawUrl, "telegram"),
+      copy.shareText,
+    ));
   };
 
   const handleBaseOpen = async () => {
-    const url = baseLink || link;
+    const url = visibleBaseLink || visibleLink;
     if (!url) return;
     setShareMenuOpen(false);
 
@@ -192,7 +249,7 @@ export default function ReferralPanel({
             <span className={styles.sub}>{tr.referrals_sub}</span>
           </div>
           <div className={styles.headerRight}>
-            {stats.count > 0 && <span className={styles.badge}>{stats.count}</span>}
+            {visibleStats.count > 0 && <span className={styles.badge}>{visibleStats.count}</span>}
             <span className={styles.chevron}>{expanded ? "v" : ">"}</span>
           </div>
         </button>
@@ -227,7 +284,7 @@ export default function ReferralPanel({
             <button
               className={`${styles.actionBtn} ${styles.actionPrimary}`}
               onClick={handleShare}
-              disabled={!baseLink && !link}
+              disabled={linksBusy || (!visibleBaseLink && !visibleLink)}
               type="button"
             >
               <ShareIcon size={17} />
@@ -235,8 +292,8 @@ export default function ReferralPanel({
             </button>
             <button
               className={styles.actionBtn}
-              onClick={() => handleCopy(baseLink, "base")}
-              disabled={!baseLink}
+              onClick={() => handleCopy(visibleBaseLink, "base")}
+              disabled={linksBusy || !visibleBaseLink}
               type="button"
             >
               <CopyIcon size={17} />
@@ -254,6 +311,10 @@ export default function ReferralPanel({
                 <ExternalLinkIcon size={15} />
                 {copy.shareTwitter}
               </button>
+              <button className={styles.shareOption} onClick={handleTelegramShare} type="button">
+                <ExternalLinkIcon size={15} />
+                {copy.shareTelegram}
+              </button>
               <button className={styles.shareOption} onClick={handleBaseOpen} type="button">
                 <ExternalLinkIcon size={15} />
                 {copy.openBase}
@@ -267,33 +328,35 @@ export default function ReferralPanel({
             </div>
           )}
 
-          <div className={styles.stats} aria-busy={statsLoading}>
-            <StatBox value={stats.count} label={tr.invited} />
-            <StatBox value={stats.activeCount} label={tr.playing} good />
-            <StatBox value={stats.pendingCount} label={tr.pending_ref} />
-            <StatBox value={formatPoints(activeBonus)} label={copy.unlocked} good />
+          <div className={styles.stats} aria-busy={statsBusy}>
+            <StatBox value={statsBusy ? "…" : visibleStats.count} label={tr.invited} />
+            <StatBox value={statsBusy ? "…" : visibleStats.activeCount} label={tr.playing} good />
+            <StatBox value={statsBusy ? "…" : visibleStats.pendingCount} label={tr.pending_ref} />
+            <StatBox value={statsBusy ? "…" : formatPoints(activeBonus)} label={copy.unlocked} good />
           </div>
 
-          <div className={styles.linkGroup}>
+          <div className={styles.linkGroup} aria-busy={linksBusy}>
             <div className={styles.linkHeader}>
               <span className={styles.linkLabel}>Base App</span>
               <a
                 className={styles.openLink}
-                href={baseLink || "#"}
+                href={visibleBaseLink || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-disabled={!baseLink}
+                aria-disabled={!visibleBaseLink}
               >
                 <ExternalLinkIcon size={14} />
                 {copy.open}
               </a>
             </div>
             <div className={styles.linkRow}>
-              <span className={styles.linkText}>{baseLink || "..."}</span>
+              <span className={styles.linkText}>
+                {visibleBaseLink || (linksBusy ? "..." : "—")}
+              </span>
               <button
                 className={styles.copyBtn}
-                onClick={() => handleCopy(baseLink, "base")}
-                disabled={!baseLink}
+                onClick={() => handleCopy(visibleBaseLink, "base")}
+                disabled={linksBusy || !visibleBaseLink}
                 type="button"
               >
                 {copied === "base" ? tr.copied_ok : tr.copy}
@@ -302,11 +365,13 @@ export default function ReferralPanel({
 
             <span className={styles.linkLabel}>{tr.direct_link}</span>
             <div className={styles.linkRow}>
-              <span className={styles.linkText}>{link || "..."}</span>
+              <span className={styles.linkText}>
+                {visibleLink || (linksBusy ? "..." : "—")}
+              </span>
               <button
                 className={styles.copyBtn}
-                onClick={() => handleCopy(link, "direct")}
-                disabled={!link}
+                onClick={() => handleCopy(visibleLink, "direct")}
+                disabled={linksBusy || !visibleLink}
                 type="button"
               >
                 {copied === "direct" ? tr.copied_ok : tr.copy}
@@ -314,7 +379,8 @@ export default function ReferralPanel({
             </div>
           </div>
 
-          {statsError && <p className={styles.note}>{copy.statsError}</p>}
+          {linksAreCurrent && linksError && <p className={styles.note}>{copy.linksError}</p>}
+          {statsAreCurrent && statsError && <p className={styles.note}>{copy.statsError}</p>}
         </div>
       )}
     </div>
@@ -375,6 +441,22 @@ function getFarcasterShareUrl(url: string, text: string) {
   return `https://warpcast.com/~/compose?text=${encodeURIComponent(`${text} ${url}`)}`;
 }
 
+function withReferralSource(value: string, source: string) {
+  try {
+    const url = new URL(value);
+    url.searchParams.set("utm_source", source);
+    url.searchParams.set("utm_medium", "referral");
+    url.searchParams.set("utm_campaign", "captain_invite");
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function getTelegramShareUrl(url: string, text: string) {
+  return `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+}
+
 function openExternal(url: string) {
   window.location.assign(url);
 }
@@ -392,17 +474,20 @@ const REFERRAL_COPY = {
     share: "Share invite",
     shareFarcaster: "Farcaster",
     shareTwitter: "X / Twitter",
+    shareTelegram: "Telegram",
     openBase: "Base App",
     systemShare: "Share sheet",
     copyBase: "Copy Base link",
     open: "Open",
     unlocked: "Bonus",
     shareText: "Join me in Sea Battle on Base.",
+    linksError: "Invite links are temporarily unavailable.",
     statsError: "Referral stats are temporarily unavailable.",
   },
   ru: {
     shareFarcaster: "Farcaster",
     shareTwitter: "X / Twitter",
+    shareTelegram: "Telegram",
     openBase: "Base App",
     systemShare: "Share sheet",
     kicker: "Центр приглашений",
@@ -414,6 +499,7 @@ const REFERRAL_COPY = {
     open: "Открыть",
     unlocked: "Бонус",
     shareText: "Заходи ко мне в Sea Battle на Base.",
+    linksError: "Ссылки для приглашения временно недоступны.",
     statsError: "Статистика рефералов временно недоступна.",
   },
 };
