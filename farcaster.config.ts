@@ -26,10 +26,10 @@ export const farcasterConfig = {
     homeUrl: ROOT_URL,
     primaryCategory: "games",
     tags: ["battleship", "pvp", "onchain", "base", "strategy"],
-    heroImageUrl: `${ROOT_URL}/hero.png`,
+    heroImageUrl: `${ROOT_URL}/sea-battle-og-v2.jpg`,
     tagline: "Naval strategy, rebuilt onchain",
     ogTitle: "Sea Battle - Onchain Battleship",
     ogDescription: "Play solo, challenge friends, and compete in USDC wager battles on Base.",
-    ogImageUrl: `${ROOT_URL}/hero.png`,
+    ogImageUrl: `${ROOT_URL}/sea-battle-og-v2.jpg`,
   },
 } as const;

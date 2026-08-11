@@ -6,7 +6,7 @@ export const SITE_TITLE = "Sea Battle - Onchain Battleship on Base";
 export const SITE_DESCRIPTION =
   "Play Sea Battle, an onchain Battleship strategy game on Base with AI battles, PvP, daily rewards, promo codes, leaderboards, and creator rewards.";
 
-export const OG_IMAGE_PATH = "/hero.png";
+export const OG_IMAGE_PATH = "/sea-battle-og-v2.jpg";
 export const ICON_IMAGE_PATH = "/icon.png";
 
 const BASE_KEYWORDS = [
