@@ -16,6 +16,7 @@ interface GameResultProps {
   onSecondary?: () => void;
   secondaryLabel?: string;
   secondaryVariant?: "default" | "claim";
+  secondaryDisabled?: boolean;
   shareReward?: ShareRewardButtonProps;
   children?: ReactNode;
   message?: string;
@@ -45,6 +46,7 @@ export function GameResult({
   onSecondary,
   secondaryLabel,
   secondaryVariant = "default",
+  secondaryDisabled = false,
   shareReward,
   children,
   message,
@@ -142,6 +144,7 @@ export function GameResult({
               }
               onClick={onSecondary}
               type="button"
+              disabled={secondaryDisabled}
             >
               {secondaryLabel}
             </button>

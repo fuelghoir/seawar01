@@ -88,7 +88,7 @@ export async function saveOnboardingProgress(
 export async function completeOnboarding(wallet: string): Promise<OnboardingStatus> {
   const saved = readLocalStatus(wallet);
   if (saved?.persistence === "local" && saved.step !== "debrief" && saved.step !== "complete") {
-    throw new Error("Finish the training battle first");
+    throw new Error("Claim the training score first");
   }
 
   try {

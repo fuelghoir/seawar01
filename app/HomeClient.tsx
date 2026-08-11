@@ -131,6 +131,12 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const recoveredOnboardingCheckinKey = useRef<string | null>(null);
   const mobileShowcaseTouchStart = useRef<{ x: number; y: number } | null>(null);
 
+  const openPlay = useCallback(() => setShowPlay(true), []);
+
+  useEffect(() => {
+    setShowPlay(false);
+  }, [address]);
+
   const toggleSection = (s: NonNullable<typeof openSection>) =>
     setOpenSection((prev) => (prev === s ? null : s));
 
@@ -545,6 +551,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         onClose={() => setShowPlay(false)}
         walletConnected={!!address}
         onConnectRequest={() => setShowWalletConnect(true)}
+        tutorialBotMode={Boolean(onboarding?.required && onboarding.step === "battle")}
       />
 
       {showWalletConnect && !address && (
@@ -623,7 +630,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           lang={lang}
           reducedMotion={reducedFx}
           onLanguageChange={setLang}
-          onOpenCheckin={() => setShowWelcome(true)}
+          playModalOpen={showPlay}
         />
       )}
 
@@ -920,7 +927,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                   <button
                     className={`${styles.playNow} ${styles.mobilePlayNow}`}
                     data-tour="play"
-                    onClick={() => setShowPlay(true)}
+                    onClick={openPlay}
                     type="button"
                   >
                     <span className={styles.playNowInner}>
@@ -1178,7 +1185,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           <button
             data-tour="play"
             className={styles.playNow}
-            onClick={() => setShowPlay(true)}
+            onClick={openPlay}
             type="button"
           >
             <span className={styles.playNowInner}>

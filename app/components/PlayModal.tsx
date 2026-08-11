@@ -10,6 +10,7 @@ interface PlayModalProps {
   onClose: () => void;
   walletConnected?: boolean;
   onConnectRequest?: () => void;
+  tutorialBotMode?: boolean;
 }
 
 function BotModeArt() {
@@ -63,6 +64,7 @@ export function PlayModal({
   onClose,
   walletConnected = true,
   onConnectRequest,
+  tutorialBotMode = false,
 }: PlayModalProps) {
   const router = useRouter();
   const { lang } = useSettings();
@@ -98,7 +100,11 @@ export function PlayModal({
       accent: "#35e6c1",
       accentRgb: "53 230 193",
       Art: BotModeArt,
-      onSelect: () => router.push("/game?id=0&mode=bot"),
+      onSelect: () => router.push(
+        tutorialBotMode
+          ? "/game?id=0&mode=bot&tutorial=1"
+          : "/game?id=0&mode=bot",
+      ),
     },
     {
       id: "friend" as const,
@@ -177,6 +183,7 @@ export function PlayModal({
               <button
                 key={mode.id}
                 ref={index === 0 ? firstModeRef : undefined}
+                data-tour={mode.id === "bot" ? "bot-mode" : undefined}
                 onClick={mode.onSelect}
                 className={styles.modeCard}
                 style={{

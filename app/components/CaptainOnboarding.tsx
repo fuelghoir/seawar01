@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, type KeyboardEvent } from "react";
 import type { Lang } from "../lib/settings";
 import { useOnboarding } from "../providers/OnboardingProvider";
 import { MissionGuide } from "./MissionGuide";
@@ -10,51 +9,63 @@ import styles from "./CaptainOnboarding.module.css";
 const COPY = {
   ru: {
     skip: "пропустить обучение",
-    languageEyebrow: "канал связи / recruit-02",
-    languageTitle: "выбери язык",
-    languageBody: "дальше будет короткий боевой курс на настоящих экранах игры",
+    offerCode: "CAPTAIN'S BRIEF · 3 МИН",
+    offerTitle: "пройти короткое обучение?",
+    offerBody: "покажем check-in, бесплатное снаряжение и первый бой прямо на экранах игры",
+    start: "начать обучение",
+    notNow: "играть без обучения",
+    language: "язык",
     ru: "русский",
     en: "english",
-    checkinEyebrow: "первый выход",
+    route: ["HOME", "SHOP", "BATTLE", "SCORE"],
+    routeLabel: "маршрут обучения",
+    onlineLabel: "в сети",
+    checkinEyebrow: "приказ 01 · check-in",
     checkinTitle: "забери первые пойнты",
-    checkinBody: "нажми на настоящий check-in под подсветкой и подтверди транзакцию\nесли Base App покажет FREE, газ оплачивает приложение",
-    checkinCta: "открыть check-in",
-    loadoutEyebrow: "снаряжение",
-    loadoutTitle: "собери бесплатный комплект",
-    loadoutBody: "в магазине тебя ждут радар и торпеда. комплект стоит 0 пойнтов и выдаётся один раз",
-    loadoutCta: "забрать комплект",
-    battleEyebrow: "учебный полигон",
-    battleTitle: "выиграй первый бой",
-    battleBody: "подсказки появятся поверх обычного боя с ботом: расставишь флот, попробуешь радар и торпеду, а затем добьёшь соперника",
-    battleCta: "начать учебный бой",
-    debriefEyebrow: "сигнал подтверждён",
-    debriefTitle: "курс пройден",
-    debriefBody: "первый комплект у тебя, управление освоено. дальше играй с ботом, другом или за USDC",
-    debriefCta: "завершить обучение",
+    checkinBody: "нажми настоящий check-in в рамке и подтверди транзакцию\nесли Base App покажет FREE, газ оплачивает приложение",
+    loadoutEyebrow: "приказ 02 · снаряжение",
+    loadoutTitle: "зайди в магазин",
+    loadoutBody: "там заберёшь радар и торпеду за 0 пойнтов. подсказка останется поверх настоящего магазина",
+    battleHomeEyebrow: "приказ 03A · home",
+    battleHomeTitle: "нажми PLAY",
+    battleHomeBody: "открой настоящее меню режимов игры",
+    battleModeEyebrow: "приказ 03B · режим",
+    battleModeTitle: "выбери бой с ботом",
+    battleModeBody: "это будет обычный бой. покажем только как использовать радар и торпеду, дальше играешь сам",
+    debriefEyebrow: "приказ выполнен",
+    debriefTitle: "обучение пройдено",
+    debriefBody: "первый бой закончен, управление освоено. теперь можно играть с ботом, другом или за USDC",
+    debriefCta: "готово",
   },
   en: {
     skip: "skip tutorial",
-    languageEyebrow: "comms channel / recruit-02",
-    languageTitle: "choose your language",
-    languageBody: "next is a short combat course on the real game screens",
+    offerCode: "CAPTAIN'S BRIEF · 3 MIN",
+    offerTitle: "take a quick tutorial?",
+    offerBody: "we'll show check-in, free gear and your first battle on the real game screens",
+    start: "start tutorial",
+    notNow: "play without tutorial",
+    language: "language",
     ru: "русский",
     en: "english",
-    checkinEyebrow: "first deployment",
+    route: ["HOME", "SHOP", "BATTLE", "SCORE"],
+    routeLabel: "tutorial route",
+    onlineLabel: "online",
+    checkinEyebrow: "order 01 · check-in",
     checkinTitle: "collect your first points",
-    checkinBody: "tap the real check-in under the target and confirm the transaction\nwhen Base App shows FREE, the app sponsors the gas",
-    checkinCta: "open check-in",
-    loadoutEyebrow: "loadout",
-    loadoutTitle: "claim your free recruit kit",
-    loadoutBody: "a radar and torpedo are waiting in the shop. the kit costs 0 points and can be claimed once",
-    loadoutCta: "claim recruit kit",
-    battleEyebrow: "training waters",
-    battleTitle: "win your first battle",
-    battleBody: "tips appear over the regular bot battle: deploy your fleet, try the radar and torpedo, then finish the opponent",
-    battleCta: "start training battle",
-    debriefEyebrow: "signal confirmed",
-    debriefTitle: "training complete",
-    debriefBody: "your starter kit is secured and the controls are clear. next, fight the bot, a friend, or play for USDC",
-    debriefCta: "finish tutorial",
+    checkinBody: "tap the real check-in inside the brackets and confirm the transaction\nwhen Base App shows FREE, the app sponsors the gas",
+    loadoutEyebrow: "order 02 · loadout",
+    loadoutTitle: "open the shop",
+    loadoutBody: "claim a radar and torpedo for 0 points. the guide stays over the real shop",
+    battleHomeEyebrow: "order 03A · home",
+    battleHomeTitle: "tap PLAY",
+    battleHomeBody: "open the real game mode selector",
+    battleModeEyebrow: "order 03B · mode",
+    battleModeTitle: "choose bot battle",
+    battleModeBody: "this is a regular match. we'll only show Radar and Torpedo, then you play on your own",
+    debriefEyebrow: "order complete",
+    debriefTitle: "tutorial complete",
+    debriefBody: "your first battle is complete and the controls are clear. next, fight a bot, a friend, or play for USDC",
+    debriefCta: "done",
   },
 } as const;
 
@@ -62,20 +73,21 @@ type CaptainOnboardingProps = {
   lang: Lang;
   reducedMotion: boolean;
   onLanguageChange: (language: Lang) => void;
-  onOpenCheckin: () => void;
+  playModalOpen: boolean;
 };
 
 export function CaptainOnboarding({
   lang,
   reducedMotion,
   onLanguageChange,
-  onOpenCheckin,
+  playModalOpen,
 }: CaptainOnboardingProps) {
-  const router = useRouter();
   const { status, progress, dismiss, complete } = useOnboarding();
+  const [selectedLanguage, setSelectedLanguage] = useState<Lang>(status?.language ?? lang);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const copy = COPY[lang];
+  const displayLanguage = status?.step === "language" ? selectedLanguage : lang;
+  const copy = COPY[displayLanguage];
 
   if (!status?.required || status.step === "complete") return null;
 
@@ -91,45 +103,96 @@ export function CaptainOnboarding({
     }
   };
 
+  const chooseLanguage = (language: Lang) => {
+    setSelectedLanguage(language);
+    onLanguageChange(language);
+  };
   const skip = () => void run(dismiss);
+
+  const keepDialogFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      skip();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    );
+    if (buttons.length === 0) return;
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.shiftKey
+      ? current <= 0 ? buttons.length - 1 : current - 1
+      : current < 0 || current === buttons.length - 1 ? 0 : current + 1;
+    event.preventDefault();
+    buttons[next]?.focus();
+  };
 
   if (status.step === "language") {
     return (
-      <div className={`${styles.languageBackdrop} ${reducedMotion ? styles.reducedMotion : ""}`} role="dialog" aria-modal="true" aria-labelledby="recruit-language-title">
-        <button className={styles.languageSkip} type="button" onClick={skip} disabled={busy}>
-          {copy.skip}
-        </button>
+      <div
+        className={`${styles.languageBackdrop} ${reducedMotion ? styles.reducedMotion : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recruit-offer-title"
+        aria-describedby="recruit-offer-body"
+        onKeyDown={keepDialogFocus}
+      >
         <section className={styles.languageCard}>
-          <div className={styles.languageMeta} aria-hidden="true">
-            <span>SEA BATTLE / BASE</span>
-            <span><i /> COMMS ONLINE</span>
+          <header className={styles.briefHeader}>
+            <span className={styles.orderFlag}>{copy.offerCode}</span>
+            <span className={styles.liveMark} aria-label={copy.onlineLabel}>ONLINE</span>
+          </header>
+
+          <h2 id="recruit-offer-title">{copy.offerTitle}</h2>
+          <p id="recruit-offer-body">{copy.offerBody}</p>
+
+          <ol className={styles.route} aria-label={copy.routeLabel}>
+            {copy.route.map((label, index) => (
+              <li key={label}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                {label}
+              </li>
+            ))}
+          </ol>
+
+          <div className={styles.languageRow}>
+            <span>{copy.language}</span>
+            <div className={styles.languageOptions}>
+              <button
+                type="button"
+                className={selectedLanguage === "ru" ? styles.languageActive : ""}
+                aria-pressed={selectedLanguage === "ru"}
+                disabled={busy}
+                onClick={() => chooseLanguage("ru")}
+              >
+                <strong>RU</strong><small>{copy.ru}</small>
+              </button>
+              <button
+                type="button"
+                className={selectedLanguage === "en" ? styles.languageActive : ""}
+                aria-pressed={selectedLanguage === "en"}
+                disabled={busy}
+                onClick={() => chooseLanguage("en")}
+              >
+                <strong>EN</strong><small>{copy.en}</small>
+              </button>
+            </div>
           </div>
-          <div className={styles.languageRadar} aria-hidden="true">
-            <span /><span /><span /><i />
-          </div>
-          <span className={styles.languageEyebrow}>{copy.languageEyebrow}</span>
-          <h2 id="recruit-language-title">{copy.languageTitle}</h2>
-          <p>{copy.languageBody}</p>
-          <div className={styles.languageOptions}>
+
+          <div className={styles.offerActions}>
             <button
+              className={styles.startButton}
               type="button"
+              autoFocus
               disabled={busy}
-              onClick={() => {
-                onLanguageChange("ru");
-                void run(() => progress("checkin", "ru"));
-              }}
+              onClick={() => void run(() => progress("checkin", selectedLanguage))}
             >
-              <strong>RU</strong><span>{copy.ru}</span><i>→</i>
+              <span>{busy ? "…" : copy.start}</span>
+              <span aria-hidden="true">→</span>
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                onLanguageChange("en");
-                void run(() => progress("checkin", "en"));
-              }}
-            >
-              <strong>EN</strong><span>{copy.en}</span><i>→</i>
+            <button className={styles.notNowButton} type="button" onClick={skip} disabled={busy}>
+              {copy.notNow}
             </button>
           </div>
           {error && <div className={styles.languageError} role="alert">{error}</div>}
@@ -146,10 +209,8 @@ export function CaptainOnboarding({
         eyebrow={copy.checkinEyebrow}
         title={copy.checkinTitle}
         body={copy.checkinBody}
-        step={2}
-        total={5}
-        primaryLabel={copy.checkinCta}
-        onPrimary={onOpenCheckin}
+        step={1}
+        total={4}
         skipLabel={copy.skip}
         onSkip={skip}
         busy={busy}
@@ -167,10 +228,8 @@ export function CaptainOnboarding({
         eyebrow={copy.loadoutEyebrow}
         title={copy.loadoutTitle}
         body={copy.loadoutBody}
-        step={3}
-        total={5}
-        primaryLabel={copy.loadoutCta}
-        onPrimary={() => router.push("/shop?recruit=1#shop-items")}
+        step={2}
+        total={4}
         skipLabel={copy.skip}
         onSkip={skip}
         busy={busy}
@@ -183,15 +242,13 @@ export function CaptainOnboarding({
   if (status.step === "battle") {
     return (
       <MissionGuide
-        key="battle"
-        target='[data-tour="play"]'
-        eyebrow={copy.battleEyebrow}
-        title={copy.battleTitle}
-        body={copy.battleBody}
-        step={4}
-        total={5}
-        primaryLabel={copy.battleCta}
-        onPrimary={() => router.push("/game?mode=bot&tutorial=1")}
+        key={playModalOpen ? "battle-mode" : "battle-home"}
+        target={playModalOpen ? '[data-tour="bot-mode"]' : '[data-tour="play"]'}
+        eyebrow={playModalOpen ? copy.battleModeEyebrow : copy.battleHomeEyebrow}
+        title={playModalOpen ? copy.battleModeTitle : copy.battleHomeTitle}
+        body={playModalOpen ? copy.battleModeBody : copy.battleHomeBody}
+        step={3}
+        total={4}
         skipLabel={copy.skip}
         onSkip={skip}
         busy={busy}
@@ -207,8 +264,8 @@ export function CaptainOnboarding({
       eyebrow={copy.debriefEyebrow}
       title={copy.debriefTitle}
       body={copy.debriefBody}
-      step={5}
-      total={5}
+      step={4}
+      total={4}
       primaryLabel={copy.debriefCta}
       onPrimary={() => void run(complete)}
       skipLabel={copy.skip}

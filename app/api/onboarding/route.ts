@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "complete") {
       if (current.stage !== "debrief") {
-        return conflict("Win the training battle first");
+        return conflict("Claim the training score first");
       }
       return json(toPayload(await updateRow(admin, wallet, {
         status: "completed",

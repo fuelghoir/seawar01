@@ -345,7 +345,7 @@ export default function ShopPage() {
           setStarterAdvanceFailed(false);
           try {
             await progressOnboarding("battle");
-            router.replace("/game?mode=bot&tutorial=1");
+            router.replace("/");
           } catch (error) {
             setStarterAdvanceFailed(true);
             throw error;
@@ -395,7 +395,7 @@ export default function ShopPage() {
         setStarterAdvanceFailed(false);
         try {
           await progressOnboarding("battle");
-          router.push("/game?mode=bot&tutorial=1");
+          router.push("/");
         } catch (error) {
           setStarterAdvanceFailed(true);
           throw error;

@@ -11,6 +11,7 @@ interface GameTopBarProps {
   myHits?: number;
   enemyHits?: number;
   timer?: number;
+  onExit?: () => void;
 }
 
 const MODE_INFO: Record<
@@ -36,6 +37,7 @@ export function GameTopBar({
   myHits,
   enemyHits,
   timer,
+  onExit,
 }: GameTopBarProps) {
   const router = useRouter();
   const info = MODE_INFO[mode];
@@ -54,7 +56,7 @@ export function GameTopBar({
       <div className={styles.left}>
         <button
           className={styles.exit}
-          onClick={() => router.push("/")}
+          onClick={onExit ?? (() => router.push("/"))}
           type="button"
           aria-label="Exit"
         >
