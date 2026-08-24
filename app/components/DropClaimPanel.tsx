@@ -93,7 +93,6 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
     () => allocations.filter((allocation) => !allocation.claimed_at),
     [allocations],
   );
-  const claimableSummary = useMemo(() => summarizeClaimable(claimable), [claimable]);
   const hasClaimable = claimable.length > 0;
   const panelState = loading ? "loading" : hasClaimable ? "claimable" : "empty";
   const panelTitle = loading
@@ -103,7 +102,7 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
       : ru ? "Снапшот наград" : "Snapshot pending";
   const badgeLabel = loading
     ? "..."
-    : claimableSummary ?? (hasClaimable ? claimable.length.toString() : ru ? "СКОРО" : "SOON");
+    : hasClaimable ? ru ? "ДОСТУПНО" : "READY" : ru ? "СКОРО" : "SOON";
 
   const claim = async (allocation: Allocation) => {
     if (writePending) return;
@@ -161,8 +160,8 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
           </span>
           <p>
             {ru
-              ? "После снапшота здесь появятся сумма USDC и кнопка клейма."
-              : "Your USDC amount and claim button will appear here after the snapshot."}
+              ? "После снапшота здесь появится кнопка клейма."
+              : "Your claim button will appear here after the snapshot."}
           </p>
         </div>
       ) : (
@@ -178,10 +177,6 @@ export function DropClaimPanel({ address }: { address: `0x${string}` }) {
                     ? `${allocation.points.toLocaleString()} ${ru ? "очков снапшота" : "snapshot points"}`
                     : ru ? "Персональная награда" : "Personal reward"}
                 </span>
-              </span>
-              <span className={styles.amount}>
-                <strong>{formatRaw(allocation.amount_raw, campaign?.decimals ?? 18)}</strong>
-                <small>{campaign?.token_symbol ?? "TOKEN"}</small>
               </span>
               <button className={styles.claim} onClick={() => claim(allocation)} disabled={active || writePending} type="button">
                 {active || writePending ? (ru ? "Клейм..." : "Claiming...") : (ru ? "Забрать" : "Claim")}
@@ -201,36 +196,4 @@ function campaignOf(allocation: Allocation) {
   return Array.isArray(allocation.drop_campaigns)
     ? allocation.drop_campaigns[0]
     : allocation.drop_campaigns;
-}
-
-function summarizeClaimable(allocations: Allocation[]) {
-  if (allocations.length === 0) return null;
-
-  const firstCampaign = campaignOf(allocations[0]);
-  const symbol = firstCampaign?.token_symbol ?? "TOKEN";
-  const decimals = firstCampaign?.decimals ?? 18;
-  const sameToken = allocations.every((allocation) => {
-    const campaign = campaignOf(allocation);
-    return (campaign?.token_symbol ?? "TOKEN") === symbol &&
-      (campaign?.decimals ?? 18) === decimals;
-  });
-
-  if (!sameToken) return `${allocations.length} drops`;
-
-  const total = allocations.reduce(
-    (sum, allocation) => sum + BigInt(allocation.amount_raw || "0"),
-    BigInt(0),
-  );
-  return `${formatRaw(total.toString(), decimals)} ${symbol}`;
-}
-
-function formatRaw(raw: string, decimals: number) {
-  const value = BigInt(raw || "0");
-  const scale = BigInt(10) ** BigInt(Math.max(0, decimals));
-  const whole = value / scale;
-  const fraction = value % scale;
-  if (fraction === BigInt(0)) return whole.toLocaleString();
-
-  const fractionText = fraction.toString().padStart(decimals, "0").slice(0, 4).replace(/0+$/, "");
-  return `${whole.toLocaleString()}${fractionText ? `.${fractionText}` : ""}`;
 }

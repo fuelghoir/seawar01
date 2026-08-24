@@ -75,7 +75,7 @@
 
 .drop {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 10px;

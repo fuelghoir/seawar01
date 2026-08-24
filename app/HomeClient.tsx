@@ -551,7 +551,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     if (address) {
       sessionStorage.setItem(`sea-battle-usdc-season-ended-${address.toLowerCase()}`, "1");
     }
-    router.push("/season");
+    router.push("/claim");
   }, [address, router]);
 
   useEffect(() => {
@@ -1480,7 +1480,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
               season={season}
               address={address}
               onOpenShop={() => router.push("/shop")}
-              onOpenLeaderboard={() => router.push("/leaderboard")}
             />
           </div>
 
@@ -2010,12 +2009,10 @@ function ShopPreview({
   season,
   address,
   onOpenShop,
-  onOpenLeaderboard,
 }: {
   season: SeasonState | null;
   address?: `0x${string}`;
   onOpenShop: () => void;
-  onOpenLeaderboard: () => void;
 }) {
   const { lang } = useSettings();
   const tr = TR[lang];
@@ -2082,9 +2079,9 @@ function ShopPreview({
           </div>
 
           {previewTab === "usdc" && USDC_SEASON_REWARDS_ENABLED ? (
-            <button className={styles.previewCardButton} onClick={onOpenLeaderboard} type="button">
-              <SeasonPoolCard variant="sidebar" address={address} clickable={false} />
-            </button>
+            <div className={styles.previewCardButton}>
+              <SeasonPoolCard variant="sidebar" address={address} />
+            </div>
           ) : (
             <SeasonRoadmap season={season} onOpen={onOpenShop} />
           )}

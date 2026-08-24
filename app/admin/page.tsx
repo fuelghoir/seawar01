@@ -1481,7 +1481,7 @@ export default function AdminPage() {
                   <span>{isRu ? "Источник очков" : "Points Source"}</span>
                   <select value={dropForm.pointsSource} onChange={(e) => setDropForm({ ...dropForm, pointsSource: e.target.value })}>
                     <option value="all_time">{isRu ? "За все время (Общие поинты)" : "All-time Points"}</option>
-                    <option value="season_current">{isRu ? "Текущий сезон (XP)" : "Current Season XP"}</option>
+                    <option value="season_current">{isRu ? "Текущий сезон (очки)" : "Current Season Points"}</option>
                   </select>
                 </label>
                 <label>

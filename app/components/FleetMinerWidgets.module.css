@@ -232,6 +232,62 @@
   text-align: center;
 }
 
+.poolTop .poolEndedBadge {
+  border-color: rgba(255, 200, 80, 0.72);
+  background: #ffc850;
+  color: #171003;
+}
+
+.poolStatus {
+  min-height: 104px;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.poolStatus strong {
+  color: #fff2bf;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.poolClaimState {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 200, 80, 0.66);
+  border-radius: 8px;
+  background: rgba(255, 200, 80, 0.1);
+  box-shadow: 0 8px 24px rgba(255, 200, 80, 0.08);
+}
+
+.poolClaimState small {
+  grid-column: 1;
+}
+
+.poolClaimState strong {
+  grid-column: 1;
+  color: #fff2bf;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+}
+
+.poolClaimState span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: #ffc850;
+  font-size: 28px;
+  line-height: 1;
+}
+
 .poolAmount {
   display: grid;
   gap: 3px;

@@ -95,7 +95,7 @@ export function SeasonPoolCard({
     args: [DROP_CLAIM_CONTRACT_ADDRESS],
     chainId: base.id,
     query: {
-      enabled: DROP_CLAIM_CONTRACT_ADDRESS !== ZERO_ADDRESS,
+      enabled: DROP_CLAIM_CONTRACT_ADDRESS !== ZERO_ADDRESS && seasonState?.isEnded === false,
       refetchInterval: 20_000,
     },
   });
@@ -110,34 +110,27 @@ export function SeasonPoolCard({
     return formatSeasonEndDate(seasonState?.endDate || endDate || "2026-08-26T00:00:00.000Z", ru);
   }, [seasonState?.endDate, endDate, ru]);
 
-  const isEnded = seasonState?.isEnded ?? false;
+  const isEnded = seasonState?.isEnded === true;
   const activeSeasonKey = seasonState?.seasonKey ?? "S2";
 
-  const content = isEnded ? (
+  const content = seasonState === null ? (
+    <div className={styles.poolStatus}>
+      <small>{ru ? "ПРОВЕРЯЕМ СЕЗОН" : "CHECKING SEASON"}</small>
+      <strong>{ru ? "Загрузка..." : "Loading..."}</strong>
+    </div>
+  ) : isEnded ? (
     <>
       <div className={styles.poolTop}>
         <span>{ru ? "СЕЗОННЫЙ ПУЛ" : "SEASON REWARD POOL"}</span>
-        <b style={{ background: '#ffcc00', color: '#03111e' }}>{ru ? "ОЖИДАНИЕ" : "WAITING"}</b>
+        <b className={styles.poolEndedBadge}>{ru ? "ЗАВЕРШЁН" : "ENDED"}</b>
       </div>
-      <div style={{ margin: '24px 0', display: 'flex', justifyContent: 'center' }}>
-        <div style={{
-          background: 'transparent',
-          color: '#ffcc00',
-          border: '1px solid #ffcc00',
-          padding: '12px 24px',
-          borderRadius: '8px',
-          fontWeight: '900',
-          fontSize: '16px',
-          textTransform: 'uppercase',
-          boxShadow: '0 4px 14px rgba(255, 204, 0, 0.1)'
-        }}>
-          {ru ? "Скоро Сезон 2" : "Season 2 soon"}
-        </div>
+      <div className={styles.poolClaimState}>
+        <small>{ru ? "ДРОП ДОСТУПЕН" : "DROP AVAILABLE"}</small>
+        <strong>{ru ? "ПЕРЕЙТИ К КЛЕЙМУ" : "GO TO CLAIM"}</strong>
+        <span aria-hidden="true">→</span>
       </div>
       <div className={styles.poolMeta}>
-        <span style={{ color: '#ffcc00', fontWeight: 'bold' }}>
-          {ru ? "Награды разосланы! Ждем С2" : "Rewards sent! Get ready for S2"}
-        </span>
+        <span>{ru ? "Подключи кошелёк и забери награду" : "Connect your wallet and claim your reward"}</span>
       </div>
     </>
   ) : (
@@ -177,7 +170,15 @@ export function SeasonPoolCard({
 
   if (clickable) {
     return (
-      <Link href="/season" className={className} aria-label={ru ? "Открыть награды сезона" : "Open season rewards"}>
+      <Link
+        href={isEnded ? "/claim" : "/season"}
+        className={className}
+        aria-label={
+          isEnded
+            ? ru ? "Перейти к клейму" : "Go to claim"
+            : ru ? "Открыть награды сезона" : "Open season rewards"
+        }
+      >
         {content}
       </Link>
     );
@@ -420,8 +421,8 @@ export function SeasonEndedClaimIntro({
         <h2>{ru ? "ЗАБЕРИТЕ СВОЙ ДРОП" : "CLAIM YOUR DROP"}</h2>
         <p>
           {ru
-            ? "Распределение наград успешно завершено! Перейдите на страницу сезона, чтобы заклеймить свой USDC дроп."
-            : "Reward distribution is finished! Go to the season page to claim your USDC drop."}
+            ? "Распределение наград завершено. Перейдите к клейму и заберите свой USDC дроп."
+            : "Reward distribution is finished. Go to claim and collect your USDC drop."}
         </p>
         <div style={{ margin: '15px 0 25px 0', display: 'flex', justifyContent: 'center' }}>
           <div style={{
