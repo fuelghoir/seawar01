@@ -168,6 +168,9 @@ export default function ClaimPage() {
                       <b>{campaign?.title ?? allocation.drop_id}</b>
                       <span>{allocation.points.toLocaleString()} leaderboard points</span>
                     </div>
+                    <strong>
+                      {formatRaw(allocation.amount_raw, campaign?.decimals ?? 18)} {campaign?.token_symbol ?? "TOKEN"}
+                    </strong>
                     <button onClick={() => claim(allocation)} disabled={active || writePending} type="button">
                       {active || writePending ? "Claiming..." : "Claim"}
                     </button>
@@ -188,4 +191,21 @@ function campaignOf(allocation: Allocation) {
   return Array.isArray(allocation.drop_campaigns)
     ? allocation.drop_campaigns[0]
     : allocation.drop_campaigns;
+}
+
+function formatRaw(raw: string, decimals: number) {
+  const safeDecimals = Math.max(0, decimals);
+  const value = BigInt(raw || "0");
+  const scale = BigInt(10) ** BigInt(safeDecimals);
+  const whole = value / scale;
+  const fraction = value % scale;
+  if (fraction === BigInt(0)) return whole.toLocaleString();
+
+  const visibleDecimals = Math.min(safeDecimals, 6);
+  const fractionText = fraction
+    .toString()
+    .padStart(safeDecimals, "0")
+    .slice(0, visibleDecimals)
+    .replace(/0+$/, "");
+  return `${whole.toLocaleString()}${fractionText ? `.${fractionText}` : ""}`;
 }
