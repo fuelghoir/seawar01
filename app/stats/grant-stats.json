@@ -4,32 +4,32 @@
     "network": "Base Mainnet",
     "website": "https://seabattle.top",
     "primaryContract": "0x8de75fbc38b1e47e53fb2e85791c935f5f653aa6",
-    "generatedAt": "2026-08-25T03:15:41.270Z",
+    "generatedAt": "2026-08-26T03:28:28.975Z",
     "coverageStart": "2026-04-14T12:40:37.738Z",
-    "coverageEnd": "2026-08-25T02:57:25.658Z",
+    "coverageEnd": "2026-08-26T03:24:40.841Z",
     "methodology": "Read-only aggregation of production Supabase tables. Human-wallet metrics exclude the zero address and the internal bot sentinel. Tracked MAU includes profile, season, economy, social, creator, inventory, booster, referral, and game records; core activity excludes profile, season, inventory, and booster update timestamps. Game players are reported separately."
   },
   "headline": {
-    "uniqueHumanWallets": 490,
-    "playerProfiles": 475,
-    "totalGames": 2826,
-    "finishedGames": 2604,
-    "completionRatePct": 92.1,
-    "totalShots": 108470,
-    "latestMau": 295,
-    "latestCoreMau": 187,
-    "latestGamePlayers": 144,
+    "uniqueHumanWallets": 503,
+    "playerProfiles": 488,
+    "totalGames": 3012,
+    "finishedGames": 2770,
+    "completionRatePct": 92,
+    "totalShots": 113883,
+    "latestMau": 308,
+    "latestCoreMau": 196,
+    "latestGamePlayers": 151,
     "latestMauGrowthPct": null
   },
   "acquisition": {
-    "uniqueHumanWallets": 490,
-    "activityWallets": 490,
-    "latestMau": 295,
-    "latestCoreMau": 187,
-    "latestGamePlayers": 144,
-    "activeLast7Days": 73,
-    "activeLast30Days": 212,
-    "trackedActiveLast30Days": 339,
+    "uniqueHumanWallets": 503,
+    "activityWallets": 503,
+    "latestMau": 308,
+    "latestCoreMau": 196,
+    "latestGamePlayers": 151,
+    "activeLast7Days": 79,
+    "activeLast30Days": 216,
+    "trackedActiveLast30Days": 343,
     "peakCoreDau": 35,
     "monthly": [
       {
@@ -95,24 +95,20 @@
       {
         "month": "2026-08",
         "period": "month_to_date",
-        "newWallets": 245,
-        "cumulativeWallets": 490,
-        "activeWallets": 295,
-        "coreActiveWallets": 187,
-        "gamePlayers": 144,
+        "newWallets": 258,
+        "cumulativeWallets": 503,
+        "activeWallets": 308,
+        "coreActiveWallets": 196,
+        "gamePlayers": 151,
         "activeGrowthPct": null,
         "retainedFromPreviousMonth": 36,
         "monthToMonthRetentionPct": 16.4,
-        "games": 1083,
-        "finishedGames": 1000,
-        "completionRatePct": 92.3
+        "games": 1269,
+        "finishedGames": 1166,
+        "completionRatePct": 91.9
       }
     ],
     "dailyLast30Days": [
-      {
-        "date": "2026-07-27",
-        "activeWallets": 15
-      },
       {
         "date": "2026-07-28",
         "activeWallets": 17
@@ -227,94 +223,98 @@
       },
       {
         "date": "2026-08-25",
+        "activeWallets": 26
+      },
+      {
+        "date": "2026-08-26",
         "activeWallets": 2
       }
     ]
   },
   "gameplay": {
-    "totalGames": 2826,
+    "totalGames": 3012,
     "states": {
-      "waiting": 33,
-      "active": 112,
-      "finished": 2604,
-      "cancelled": 77,
+      "waiting": 34,
+      "active": 122,
+      "finished": 2770,
+      "cancelled": 86,
       "other": 0
     },
-    "completionRatePct": 92.1,
-    "resolvedLedgerRows": 2120,
+    "completionRatePct": 92,
+    "resolvedLedgerRows": 2286,
     "byMode": {
-      "bot": 1899,
-      "free": 874,
+      "bot": 1955,
+      "free": 1004,
       "wager": 43,
       "hybrid": 10
     },
-    "humanPlayersInGames": 251,
-    "gamesPerHumanWallet": 5.77,
-    "totalShots": 108470,
-    "hits": 49615,
-    "misses": 57758,
+    "humanPlayersInGames": 258,
+    "gamesPerHumanWallet": 5.99,
+    "totalShots": 113883,
+    "hits": 53029,
+    "misses": 59757,
     "unclassifiedShots": 1097,
-    "hitRatePct": 46.2,
-    "shotsPerGame": 38.4,
-    "shotsPerFinishedGame": 41.7
+    "hitRatePct": 47,
+    "shotsPerGame": 37.8,
+    "shotsPerFinishedGame": 41.1
   },
   "players": {
-    "profiles": 475,
-    "totalRecordedGames": 3842,
-    "totalRecordedWins": 2250,
-    "totalCheckins": 3930,
+    "profiles": 488,
+    "totalRecordedGames": 4124,
+    "totalRecordedWins": 2395,
+    "totalCheckins": 3985,
     "totalRecordedShots": 47,
     "points": {
-      "total": 8988618,
+      "total": 9316633,
       "median": 1000,
       "p90": 8103,
-      "maximum": 1583653
+      "maximum": 1586453
     },
     "leaderboard": [
       {
         "rank": 1,
         "wallet": "0x7b92...aee7",
-        "points": 1583653,
+        "points": 1586453,
         "wins": 153,
         "games": 292,
         "winRatePct": 52.4,
-        "checkinStreak": 93
+        "checkinStreak": 95
       },
       {
         "rank": 2,
         "wallet": "0xa4df...90e4",
-        "points": 993669,
+        "points": 1011428,
         "wins": 122,
         "games": 433,
         "winRatePct": 28.2,
-        "checkinStreak": 69
+        "checkinStreak": 70
       },
       {
         "rank": 3,
         "wallet": "0x99d8...28dd",
-        "points": 615067,
-        "wins": 339,
-        "games": 347,
-        "winRatePct": 97.7,
-        "checkinStreak": 90
+        "points": 758552,
+        "wins": 455,
+        "games": 463,
+        "winRatePct": 98.3,
+        "checkinStreak": 91
       },
       {
         "rank": 4,
         "wallet": "0x4cc2...d9a5",
-        "points": 546510,
-        "wins": 241,
-        "games": 297,
-        "winRatePct": 81.1,
+        "points": 552055,
+        "wins": 242,
+        "games": 298,
+        "winRatePct": 81.2,
         "checkinStreak": 39
       },
       {
         "rank": 5,
         "wallet": "0x06a3...c11b",
-        "points": 478241,
+        "points": 490441,
         "wins": 290,
         "games": 383,
         "winRatePct": 75.7,
-        "checkinStreak": 33
+        "checkinStreak": 35
       },
       {
         "rank": 6,
@@ -328,38 +328,38 @@
       {
         "rank": 7,
         "wallet": "0x22fa...87e0",
-        "points": 364728,
+        "points": 373606,
         "wins": 101,
         "games": 119,
         "winRatePct": 84.9,
-        "checkinStreak": 98
+        "checkinStreak": 99
       },
       {
         "rank": 8,
         "wallet": "0xeddb...1cbc",
-        "points": 281055,
+        "points": 281155,
         "wins": 100,
         "games": 106,
         "winRatePct": 94.3,
-        "checkinStreak": 99
+        "checkinStreak": 100
       },
       {
         "rank": 9,
         "wallet": "0x4dba...dbf2",
-        "points": 274640,
+        "points": 277188,
         "wins": 100,
         "games": 119,
         "winRatePct": 84,
-        "checkinStreak": 98
+        "checkinStreak": 99
       },
       {
         "rank": 10,
         "wallet": "0xef9c...7944",
-        "points": 261719,
+        "points": 270258,
         "wins": 100,
         "games": 101,
         "winRatePct": 99,
-        "checkinStreak": 65
+        "checkinStreak": 66
       }
     ]
   },
@@ -371,77 +371,76 @@
     "completedWagerVolumeUsdc": 40.2,
     "shopUsdcTransactions": 4,
     "shopRevenueUsdc": 1.2,
-    "pointPurchases": 65,
-    "itemsInInventories": 492,
-    "inventoryOwners": 85,
+    "pointPurchases": 73,
+    "itemsInInventories": 506,
+    "inventoryOwners": 89,
     "activeOrOwnedBoosters": 13,
     "inventoryByItem": {
-      "double_points_1h": 148,
-      "radar_scan": 128,
-      "quest_reroll": 108,
-      "torpedo": 58,
-      "streak_freeze": 50
+      "double_points_1h": 150,
+      "radar_scan": 125,
+      "quest_reroll": 110,
+      "torpedo": 65,
+      "streak_freeze": 56
     }
   },
   "seasonAndCollectibles": {
-    "seasonProgressRows": 944,
-    "uniqueSeasonParticipants": 475,
-    "seasonPoints": 9910339,
-    "seasonXp": 248409,
+    "seasonProgressRows": 970,
+    "uniqueSeasonParticipants": 488,
+    "seasonPoints": 10237854,
+    "seasonXp": 260001,
     "seasons": {
-      "S1": 474,
-      "S2": 470
+      "S1": 487,
+      "S2": 483
     },
-    "fleetNftClaims": 601,
+    "fleetNftClaims": 612,
     "uniqueFleetClaimers": 19,
     "uniqueFleetTokenIds": 37,
-    "fleetPointsClaimed": 3323101,
+    "fleetPointsClaimed": 3378599,
     "captainSbtClaims": 0,
     "easterEggClaimRows": 16,
-    "easterEggTotalClaims": 95
+    "easterEggTotalClaims": 97
   },
   "community": {
     "externalQuestClaims": 195,
     "uniqueQuesters": 80,
-    "socialConnections": 71,
-    "uniqueSocialWallets": 59,
-    "socialShareRewards": 759,
+    "socialConnections": 74,
+    "uniqueSocialWallets": 61,
+    "socialShareRewards": 804,
     "uniqueSharers": 33,
     "referrals": 20,
     "uniqueReferrers": 4,
-    "creatorSubmissions": 58,
+    "creatorSubmissions": 59,
     "creatorSubmissionStatuses": {
-      "rewarded": 47,
+      "rewarded": 49,
       "approved": 9,
-      "rejected": 1,
-      "pending": 1
+      "rejected": 1
     },
-    "creatorRewards": 103,
+    "creatorRewards": 105,
     "creatorRewardStatuses": {
-      "granted": 91,
+      "granted": 93,
       "planned": 7,
       "paid": 5
     },
     "uniqueCreatorsRewarded": 17
   },
   "sourceRows": {
-    "games": 2826,
-    "shots": 108470,
-    "player_stats": 475,
-    "season_progress": 944,
-    "resolved_games": 2120,
+    "games": 3012,
+    "shots": 113883,
+    "player_stats": 488,
+    "season_progress": 970,
+    "resolved_games": 2286,
     "shop_usdc_purchases": 4,
-    "shop_weekly_point_purchases": 65,
-    "fleet_nft_point_claims": 601,
+    "shop_weekly_point_purchases": 73,
+    "fleet_nft_point_claims": 612,
     "limited_sbt_claims": 0,
     "easter_egg_claims": 16,
     "external_quest_claims": 195,
-    "social_connections": 71,
-    "social_share_rewards": 759,
-    "creator_submissions": 58,
-    "creator_rewards": 103,
+    "social_connections": 74,
+    "social_share_rewards": 804,
+    "creator_submissions": 59,
+    "creator_rewards": 105,
     "challenge_games": 0,
-    "player_items": 255,
+    "player_items": 265,
     "player_boosters": 13,
     "referrals": 20
   }
