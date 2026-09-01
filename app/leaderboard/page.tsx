@@ -92,7 +92,7 @@ function FleetStandings({
           <TrophyIcon size={15} />
           {ru ? "Рейтинг флотов" : "Fleet standings"}
         </span>
-        <small><TrophyIcon size={13} /> {ru ? "Порядок по PvP-победам" : "Live order by PvP wins"}</small>
+        <small><TrophyIcon size={13} /> {ru ? "Живой порядок по победам" : "Live order by total wins"}</small>
       </div>
 
       {membership && (
@@ -390,7 +390,7 @@ export default function LeaderboardPage() {
           ) : (
             <strong>{(mode === "fleet" ? fleetPlayers : total).toLocaleString()} {lang === "ru" ? "игроков" : "players"}</strong>
           )}
-          <p>{mode === "fleet" ? (lang === "ru" ? "Каждая PvP-победа двигает весь флот" : "Every PvP win moves the whole fleet") : tr.lb_subtitle}</p>
+          <p>{mode === "fleet" ? (lang === "ru" ? "Каждая победа двигает весь флот" : "Every win moves the whole fleet") : tr.lb_subtitle}</p>
         </div>
 
         <div className={styles.tabsContainer}>
@@ -424,7 +424,7 @@ export default function LeaderboardPage() {
             <p className={styles.helpTitle}>{lang === "ru" ? "Как работает сезон" : "How Fleet Season works"}</p>
             <ul className={styles.helpList}>
               <li>{lang === "ru" ? "Ты сам выбираешь флот при первом Play. Позже его можно сменить за 5 USDC." : "You choose your fleet on first Play. Changing later costs 5 USDC."}</li>
-              <li>{lang === "ru" ? "Место флота определяют только PvP-победы его игроков." : "Only player-vs-player wins decide the fleet ranking."}</li>
+              <li>{lang === "ru" ? "Место флота определяют победы его игроков во всех режимах." : "Captain wins across all game modes decide the fleet ranking."}</li>
               <li><strong>60% / 30% / 10%</strong> {lang === "ru" ? "делятся по итоговым местам." : "is split by final place."}</li>
               <li><strong>100% PTS</strong> {lang === "ru" ? "награда внутри флота распределяется пропорционально поинтам S3. Майнер учитывается." : "the fleet reward is distributed proportionally to S3 points. Miner points count."}</li>
               <li><strong>10,000 PTS + {fleetSeason?.minTransactions ?? 10} TX</strong> {lang === "ru" ? "оба условия обязательны; TX — это игры и чек-ины суммарно." : "both are required; TX is combined games and check-ins."}</li>

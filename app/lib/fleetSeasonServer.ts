@@ -190,12 +190,11 @@ async function loadGames(admin: SupabaseClient, startsAt: string, endsAt: string
     player2: string | null;
     winner: string | null;
     created_at: string;
-    game_mode: string | null;
   }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await admin
       .from("games")
-      .select("id,player1,player2,winner,created_at,game_mode")
+      .select("id,player1,player2,winner,created_at")
       .eq("state", 3)
       .gte("created_at", startsAt)
       .lt("created_at", endsAt)
@@ -203,11 +202,7 @@ async function loadGames(admin: SupabaseClient, startsAt: string, endsAt: string
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const pageRows = (data ?? []) as typeof rows;
-    rows.push(...pageRows.filter((row) =>
-      String(row.game_mode ?? "").toLowerCase() !== "bot" &&
-      !isExcludedFleetWallet(row.player1) &&
-      !isExcludedFleetWallet(row.player2)
-    ));
+    rows.push(...pageRows);
     if (pageRows.length < PAGE_SIZE) return rows;
   }
 }
