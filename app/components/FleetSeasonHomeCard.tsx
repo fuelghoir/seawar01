@@ -48,7 +48,7 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
         </span>
 
         <span className={styles.wideFoot}>
-          <span><b>{ru ? "ДРОП СКРЫТ" : "DROP CLASSIFIED"}</b><small>{ru ? "50% поровну + 50% по пойнтам" : "50% equal + 50% by points"}</small></span>
+          <span><b>{ru ? "ДРОП СКРЫТ" : "DROP CLASSIFIED"}</b><small>{ru ? "100% пропорционально поинтам" : "100% proportional to points"}</small></span>
           <ChevronRightIcon size={17} />
         </span>
       </button>

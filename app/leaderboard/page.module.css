@@ -1030,6 +1030,21 @@
 .myFleetActions > button:hover { color: #ffffff; }
 .myFleetActions > button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
+.fleetEligibilityWarning {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  color: #f4c963;
+  border-bottom: 1px solid rgba(244, 201, 99, 0.18);
+  background: rgba(95, 62, 4, 0.16);
+}
+
+.fleetEligibilityWarning strong { font: 900 9px var(--font-orbitron), monospace; }
+.fleetEligibilityWarning span { color: #ffffff; font: 800 10px var(--font-mono), monospace; text-align: center; }
+.fleetEligibilityWarning small { color: rgba(255, 255, 255, 0.48); font: 700 7px var(--font-mono), monospace; text-align: right; }
+
 .fleetRows {
   display: grid;
   gap: 7px;
@@ -1138,6 +1153,9 @@
 .fleetMemberRow > b { color: var(--fleet-color); }
 .fleetMemberRow > strong { color: #f3bc62; font: 900 11px var(--font-orbitron), monospace; }
 .fleetMemberWallet { overflow: hidden; color: #edf8fb; text-overflow: ellipsis; white-space: nowrap; }
+.fleetMemberIdentity { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.fleetMemberIdentity small { padding: 2px 4px; color: #061217; font: 900 6px var(--font-mono), monospace; background: var(--fleet-color); }
+.fleetMemberRowMine { background: color-mix(in srgb, var(--fleet-color) 10%, transparent); }
 .fleetMemberHeader { min-height: 28px; color: rgba(255, 255, 255, 0.32); font-size: 7px; }
 .fleetMembersEmpty { margin: 0; padding: 22px 14px; color: rgba(255, 255, 255, 0.42); font-size: 11px; text-align: center; }
 
@@ -1168,6 +1186,9 @@
   .fleetProgress { grid-column: 3 / 6; }
   .fleetMembersHead { padding: 9px 10px; }
   .fleetMembersHead small { font-size: 7px; }
+  .fleetEligibilityWarning { grid-template-columns: 1fr; gap: 4px; padding: 9px 10px; }
+  .fleetEligibilityWarning span { font-size: 9px; text-align: left; }
+  .fleetEligibilityWarning small { text-align: left; }
   .fleetMemberRow { grid-template-columns: 24px minmax(0, 1fr) 30px 30px 72px; gap: 5px; padding: 6px 10px; font-size: 8px; }
   .fleetMemberRow > strong { font-size: 9px; }
   .fleetBoardFoot { align-items: flex-start; padding: 12px; }

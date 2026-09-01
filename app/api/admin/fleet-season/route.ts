@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
         ends_at: config.endsAt,
         status: "draft",
         ranking_metric: "total_wins",
-        min_games: config.minGames,
+        // Legacy column name; this value is the minimum games + check-ins threshold.
+        min_games: config.minTransactions,
         first_share_bps: config.sharesBps[0],
         second_share_bps: config.sharesBps[1],
         third_share_bps: config.sharesBps[2],
@@ -76,6 +77,26 @@ export async function POST(req: NextRequest) {
     const seasonKey = String(body?.seasonKey ?? "").trim();
     if (!KEY_RE.test(seasonKey)) return NextResponse.json({ error: "Invalid season key" }, { status: 400 });
 
+    if (action === "save_eligibility") {
+      const minTransactions = parseMinTransactions(body?.minTransactions);
+      const { data: season, error: seasonError } = await admin
+        .from("fleet_seasons")
+        .select("status")
+        .eq("season_key", seasonKey)
+        .maybeSingle();
+      if (seasonError) throw new Error(seasonError.message);
+      if (!season) return NextResponse.json({ error: "Fleet season not found" }, { status: 404 });
+      if (season.status === "snapshotted") {
+        return NextResponse.json({ error: "Eligibility rules are locked after snapshot" }, { status: 409 });
+      }
+      const { error } = await admin
+        .from("fleet_seasons")
+        .update({ min_games: minTransactions })
+        .eq("season_key", seasonKey);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ dashboard: await loadFleetSeasonDashboard(admin, { seasonKey }) });
+    }
+
     if (action === "activate") {
       const { error } = await admin.rpc("activate_fleet_season", { p_season_key: seasonKey });
       if (error) throw new Error(error.message);
@@ -89,8 +110,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "preview_snapshot" || action === "create_snapshot") {
-      const dashboard = await loadFleetSeasonDashboard(admin, { seasonKey });
+      let dashboard = await loadFleetSeasonDashboard(admin, { seasonKey });
       if (!dashboard) return NextResponse.json({ error: "Fleet season not found" }, { status: 404 });
+      const requestedMinTransactions = body?.minTransactions ?? body?.minGames;
+      if (requestedMinTransactions !== undefined) {
+        const minTransactions = parseMinTransactions(requestedMinTransactions);
+        if (dashboard.season.status === "snapshotted") {
+          return NextResponse.json({ error: "Eligibility rules are locked after snapshot" }, { status: 409 });
+        }
+        const { error: ruleError } = await admin
+          .from("fleet_seasons")
+          .update({ min_games: minTransactions })
+          .eq("season_key", seasonKey);
+        if (ruleError) throw new Error(ruleError.message);
+        dashboard = await loadFleetSeasonDashboard(admin, { seasonKey });
+        if (!dashboard) throw new Error("Fleet season disappeared while saving eligibility rules");
+      }
       const drop = parseDrop(body);
       const calculation = calculateFleetDrop(
         dashboard.stats,
@@ -167,7 +202,7 @@ function parseConfig(body: Record<string, unknown>) {
   const title = String(body.title ?? "Fleet Season").trim().slice(0, 120);
   const startsAt = new Date(String(body.startsAt ?? "")).toISOString();
   const endsAt = new Date(String(body.endsAt ?? "")).toISOString();
-  const minGames = Math.max(0, Math.floor(Number(body.minGames ?? 3)));
+  const minTransactions = parseMinTransactions(body.minTransactions ?? body.minGames ?? 10);
   const shares = Array.isArray(body.shares) ? body.shares : [60, 30, 10];
   const sharesBps = shares.map((value) => Math.round(Number(value) * 100));
   if (!KEY_RE.test(seasonKey)) throw new Error("Invalid season key");
@@ -192,7 +227,13 @@ function parseConfig(body: Record<string, unknown>) {
   });
   if (new Set(fleets.map((fleet) => fleet.id)).size !== 3) throw new Error("Exactly three unique fleets are required");
 
-  return { seasonKey, title, startsAt, endsAt, minGames, sharesBps, fleets };
+  return { seasonKey, title, startsAt, endsAt, minTransactions, sharesBps, fleets };
+}
+
+function parseMinTransactions(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error("Invalid minimum transaction count");
+  return Math.max(0, Math.floor(parsed));
 }
 
 function parseDrop(body: Record<string, unknown>) {

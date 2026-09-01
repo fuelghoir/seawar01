@@ -5,6 +5,7 @@ export const FLEET_CHOICE_RESET_SEASON_KEY = "S3";
 // Updated immediately before rollout. Memberships created earlier were automatic assignments.
 export const FLEET_CHOICE_ROLLOUT_AT = "2026-09-01T16:33:00.000Z";
 export const FLEET_CHANGE_PRICE_USDC_MICRO = 5_000_000;
+export const FLEET_MIN_POINTS = 10_000;
 
 export const FLEET_PAYOUT_BPS = [6000, 3000, 1000] as const;
 export const FLEET_BPS_TOTAL = 10_000;
@@ -23,6 +24,7 @@ export type FleetMemberInput = {
   joinedAt: string;
   pointsAtJoin: number;
   currentPoints: number;
+  transactions: number;
 };
 
 export type FleetGameInput = {
@@ -100,6 +102,7 @@ export type PublicFleetMember = {
   fleetId: FleetId;
   games: number;
   wins: number;
+  transactions: number;
   pointsEarned: number;
   eligible: boolean;
 };
@@ -111,7 +114,8 @@ export type PublicFleetSeason = {
   endsAt: string;
   status: "active" | "ended" | "snapshotted";
   rankingMetric: "total_wins";
-  minGames: number;
+  minTransactions: number;
+  minPoints: number;
   shares: number[];
   drop: { secret: true };
   fleets: PublicFleetStanding[];
@@ -119,11 +123,13 @@ export type PublicFleetSeason = {
 };
 
 export type PublicFleetMembership = {
+  wallet: string;
   fleetId: FleetId;
   fleetName: string;
   joinedAt: string;
   games: number;
   wins: number;
+  transactions: number;
   pointsEarned: number;
   eligible: boolean;
 };
@@ -168,9 +174,11 @@ export function computeFleetSeasonStats(
   fleetDefinitions: FleetDefinition[],
   memberInputs: FleetMemberInput[],
   gameInputs: FleetGameInput[],
-  minGames: number,
+  minTransactions: number,
+  minPoints: number = FLEET_MIN_POINTS,
 ): FleetSeasonStats {
-  const safeMinGames = Math.max(0, Math.floor(minGames));
+  const safeMinTransactions = Math.max(0, Math.floor(minTransactions));
+  const safeMinPoints = Math.max(0, Math.floor(minPoints));
   const membersByWallet = new Map<string, FleetMemberStats>();
 
   for (const input of memberInputs) {
@@ -181,8 +189,9 @@ export function computeFleetSeasonStats(
       wallet,
       games: 0,
       wins: 0,
+      transactions: Math.max(0, Math.floor(Number(input.transactions || 0))),
       pointsEarned: Math.max(0, Math.floor(Number(input.currentPoints || 0) - Number(input.pointsAtJoin || 0))),
-      eligible: safeMinGames === 0,
+      eligible: safeMinTransactions === 0 && safeMinPoints === 0,
     });
   }
 
@@ -207,7 +216,7 @@ export function computeFleetSeasonStats(
 
   const members = Array.from(membersByWallet.values()).map((member) => ({
     ...member,
-    eligible: member.games >= safeMinGames,
+    eligible: member.transactions >= safeMinTransactions && member.pointsEarned >= safeMinPoints,
   }));
 
   const unsorted = fleetDefinitions.map((fleet) => {
@@ -264,19 +273,17 @@ export function calculateFleetDrop(
       throw new Error(`${standing.name} has no eligible members`);
     }
 
-    const memberCount = eligibleMembers.length;
     const eligiblePoints = eligibleMembers.map((member) => Math.max(0, Math.floor(member.pointsEarned)));
     const totalEligiblePoints = eligiblePoints.reduce((sum, value) => sum + BigInt(value), BigInt(0));
-    const equalPool = totalEligiblePoints > BigInt(0) ? bucketAmount / BigInt(2) : bucketAmount;
-    const pointsPool = bucketAmount - equalPool;
-    const equalShares = allocateEqual(equalPool, memberCount);
-    const pointsShares = allocateByPoints(pointsPool, eligibleMembers, eligiblePoints, totalEligiblePoints);
+    if (totalEligiblePoints <= BigInt(0)) {
+      throw new Error(`${standing.name} has no eligible S3 points`);
+    }
+    const pointsShares = allocateByPoints(bucketAmount, eligibleMembers, eligiblePoints, totalEligiblePoints);
 
     for (let index = 0; index < eligibleMembers.length; index += 1) {
       const member = eligibleMembers[index];
-      const equalAmount = equalShares[index];
       const pointsAmount = pointsShares[index];
-      const amount = equalAmount + pointsAmount;
+      const amount = pointsAmount;
       if (amount <= BigInt(0)) continue;
       payouts.push({
         wallet: member.wallet,
@@ -285,7 +292,7 @@ export function calculateFleetDrop(
         games: member.games,
         wins: member.wins,
         pointsEarned: member.pointsEarned,
-        equalAmountRaw: equalAmount.toString(),
+        equalAmountRaw: "0",
         pointsAmountRaw: pointsAmount.toString(),
         amountRaw: amount.toString(),
       });
@@ -311,17 +318,6 @@ export function calculateFleetDrop(
     buckets,
     payouts,
   };
-}
-
-function allocateEqual(total: bigint, count: number) {
-  const shares = Array.from({ length: count }, () => BigInt(0));
-  if (count <= 0 || total <= BigInt(0)) return shares;
-  const base = total / BigInt(count);
-  const remainder = Number(total % BigInt(count));
-  for (let index = 0; index < count; index += 1) {
-    shares[index] = base + (index < remainder ? BigInt(1) : BigInt(0));
-  }
-  return shares;
 }
 
 function allocateByPoints(

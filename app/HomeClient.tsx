@@ -78,7 +78,8 @@ import { useTransactionWarmup } from "./lib/useTransactionWarmup";
 import type { FleetId, PublicFleetSeasonResponse } from "./lib/fleetSeason";
 import { FLEET_CHANGE_PRICE_USDC_MICRO, isFleetId } from "./lib/fleetSeason";
 import { FLEET_SEASON_DEMO_RESPONSE } from "./lib/fleetSeasonDemo";
-import { erc20Abi, SHOP_TREASURY_ADDRESS, USDC_ADDRESS } from "./contracts/seaBattleAbi";
+import { erc20Abi, USDC_ADDRESS } from "./contracts/seaBattleAbi";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "./contracts/dropClaimAbi";
 import { clearWalletRequest, markWalletRequestStarted } from "./lib/walletRequestRecovery";
 import { useOnboarding } from "./providers/OnboardingProvider";
 import {
@@ -242,7 +243,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       let pendingKey: string | null = null;
 
       if (paidChange) {
-        pendingKey = `sea-battle-fleet-change-${address.toLowerCase()}`;
+        pendingKey = `sea-battle-fleet-change-drop-v1-${address.toLowerCase()}`;
         const stored = readPendingFleetChange(pendingKey);
         if (stored && stored.fleetId !== fleetId) {
           throw new Error(lang === "ru" ? `Сначала заверши смену на ${stored.fleetId}.` : `Finish the pending change to ${stored.fleetId} first.`);
@@ -260,7 +261,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             address: USDC_ADDRESS,
             abi: erc20Abi,
             functionName: "transfer",
-            args: [SHOP_TREASURY_ADDRESS, BigInt(FLEET_CHANGE_PRICE_USDC_MICRO)],
+            args: [DROP_CLAIM_CONTRACT_ADDRESS, BigInt(FLEET_CHANGE_PRICE_USDC_MICRO)],
             chainId: base.id,
           });
           localStorage.setItem(pendingKey, JSON.stringify({ txHash, fleetId }));

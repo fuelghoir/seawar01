@@ -95,7 +95,7 @@ export function FleetAssignmentModal({
 
             <div className={styles.rules}>
               <span><TrophyIcon size={16} /> {ru ? "Место флота считается по победам" : "Fleet rank is based on wins"}</span>
-              <span><ShieldIcon size={16} /> {ru ? "Дроп скрыт · 50% по пойнтам S3" : "Drop hidden · 50% by S3 points"}</span>
+              <span><ShieldIcon size={16} /> {ru ? "Дроп скрыт · 100% по пойнтам S3" : "Drop hidden · 100% by S3 points"}</span>
             </div>
 
             <button ref={primaryRef} className={styles.primary} type="button" onClick={onContinue}>
@@ -144,7 +144,7 @@ export function FleetAssignmentModal({
 
             <div className={styles.rules}>
               <span><TrophyIcon size={16} /> {ru ? "Больше побед — выше место" : "More wins means a higher rank"}</span>
-              <span><ShieldIcon size={16} /> {changeMode ? (ru ? "Оплата проверяется в сети Base" : "Payment is verified on Base") : (ru ? "Смена позже стоит 5 USDC" : "Changing later costs 5 USDC")}</span>
+              <span><ShieldIcon size={16} /> {changeMode ? (ru ? "5 USDC пополняют контракт дропа" : "5 USDC funds the Drop Claim contract") : (ru ? "Смена позже стоит 5 USDC" : "Changing later costs 5 USDC")}</span>
             </div>
 
             {error && <p className={styles.choiceError}>{error}</p>}

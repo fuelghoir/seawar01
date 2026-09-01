@@ -21,7 +21,7 @@ export type FleetSeasonRecord = {
   endsAt: string;
   status: "draft" | "active" | "ended" | "snapshotted";
   rankingMetric: "total_wins";
-  minGames: number;
+  minTransactions: number;
   sharesBps: [number, number, number];
   dropId: string | null;
   claimStatus: "draft" | "active" | "closed" | null;
@@ -73,7 +73,8 @@ export async function loadFleetSeasonDashboard(
     endsAt: String(seasonRow.ends_at),
     status: seasonRow.status as FleetSeasonRecord["status"],
     rankingMetric: "total_wins",
-    minGames: Math.max(0, Math.floor(Number(seasonRow.min_games ?? 0))),
+    // min_games is the legacy database column name; S3 uses it as min transactions.
+    minTransactions: Math.max(0, Math.floor(Number(seasonRow.min_games ?? 0))),
     sharesBps: [
       Math.floor(Number(seasonRow.first_share_bps ?? 6000)),
       Math.floor(Number(seasonRow.second_share_bps ?? 3000)),
@@ -102,9 +103,7 @@ export async function loadFleetSeasonDashboard(
   const safeFleets = fleets.length === 3 ? fleets : DEFAULT_FLEETS;
 
   const memberRows = await loadMembers(admin, season.seasonKey);
-  const currentPoints = season.status === "active"
-    ? await loadCurrentPoints(admin, memberRows.map((row) => row.wallet))
-    : new Map<string, number>();
+  const currentPlayerStats = await loadCurrentPlayerStats(admin, memberRows.map((row) => row.wallet));
   const gameRows = await loadGames(admin, season.startsAt, statsEndDate(season));
   const members: FleetMemberInput[] = memberRows
     .filter((row) => isFleetId(row.fleet_id))
@@ -114,8 +113,9 @@ export async function loadFleetSeasonDashboard(
       joinedAt: String(row.joined_at),
       pointsAtJoin: Math.max(0, Math.floor(Number(row.points_at_join ?? 0))),
       currentPoints: season.status === "active"
-        ? currentPoints.get(String(row.wallet).toLowerCase()) ?? 0
+        ? currentPlayerStats.get(String(row.wallet).toLowerCase())?.points ?? 0
         : Math.max(0, Math.floor(Number(row.points_at_end ?? row.points_at_join ?? 0))),
+      transactions: currentPlayerStats.get(String(row.wallet).toLowerCase())?.transactions ?? 0,
     }));
   const games: FleetGameInput[] = gameRows.map((row) => ({
     id: row.id,
@@ -128,7 +128,7 @@ export async function loadFleetSeasonDashboard(
   return {
     season,
     fleets: safeFleets,
-    stats: computeFleetSeasonStats(safeFleets, members, games, season.minGames),
+    stats: computeFleetSeasonStats(safeFleets, members, games, season.minTransactions),
   };
 }
 
@@ -156,18 +156,24 @@ async function loadMembers(admin: SupabaseClient, seasonKey: string) {
   }
 }
 
-async function loadCurrentPoints(admin: SupabaseClient, wallets: string[]) {
-  const result = new Map<string, number>();
+async function loadCurrentPlayerStats(admin: SupabaseClient, wallets: string[]) {
+  const result = new Map<string, { points: number; transactions: number }>();
   const uniqueWallets = Array.from(new Set(wallets.map((wallet) => wallet.toLowerCase())));
   for (let index = 0; index < uniqueWallets.length; index += POINTS_BATCH_SIZE) {
     const batch = uniqueWallets.slice(index, index + POINTS_BATCH_SIZE);
     const { data, error } = await admin
       .from("player_stats")
-      .select("wallet,points")
+      .select("wallet,points,games_played,total_checkins")
       .in("wallet", batch);
     if (error) throw new Error(error.message);
     for (const row of data ?? []) {
-      result.set(String(row.wallet).toLowerCase(), Math.max(0, Math.floor(Number(row.points ?? 0))));
+      result.set(String(row.wallet).toLowerCase(), {
+        points: Math.max(0, Math.floor(Number(row.points ?? 0))),
+        transactions: Math.max(
+          0,
+          Math.floor(Number(row.games_played ?? 0)) + Math.floor(Number(row.total_checkins ?? 0)),
+        ),
+      });
     }
   }
   return result;

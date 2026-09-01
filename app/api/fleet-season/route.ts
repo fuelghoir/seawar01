@@ -14,11 +14,13 @@ import {
   FLEET_CHANGE_PRICE_USDC_MICRO,
   FLEET_CHOICE_RESET_SEASON_KEY,
   FLEET_CHOICE_ROLLOUT_AT,
+  FLEET_MIN_POINTS,
   isFleetId,
   type FleetId,
 } from "../../lib/fleetSeason";
 import { loadFleetSeasonDashboard } from "../../lib/fleetSeasonServer";
-import { SHOP_TREASURY_ADDRESS, USDC_ADDRESS } from "../../contracts/seaBattleAbi";
+import { USDC_ADDRESS } from "../../contracts/seaBattleAbi";
+import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../contracts/dropClaimAbi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,7 +136,8 @@ function publicSeason(dashboard: NonNullable<Awaited<ReturnType<typeof loadFleet
     endsAt: dashboard.season.endsAt,
     status: dashboard.season.status,
     rankingMetric: dashboard.season.rankingMetric,
-    minGames: dashboard.season.minGames,
+    minTransactions: dashboard.season.minTransactions,
+    minPoints: FLEET_MIN_POINTS,
     shares: dashboard.season.sharesBps.map((value) => value / 100),
     drop: { secret: true },
     fleets: dashboard.stats.standings.map((fleet) => ({
@@ -154,6 +157,7 @@ function publicSeason(dashboard: NonNullable<Awaited<ReturnType<typeof loadFleet
         fleetId: member.fleetId,
         games: member.games,
         wins: member.wins,
+        transactions: member.transactions,
         pointsEarned: member.pointsEarned,
         eligible: member.eligible,
       }))
@@ -171,11 +175,13 @@ function publicMembership(
 ) {
   const fleet = dashboard.stats.standings.find((entry) => entry.id === member.fleetId);
   return {
+    wallet: member.wallet,
     fleetId: member.fleetId,
     fleetName: fleet?.name ?? member.fleetId,
     joinedAt: member.joinedAt,
     games: member.games,
     wins: member.wins,
+    transactions: member.transactions,
     pointsEarned: member.pointsEarned,
     eligible: member.eligible,
   };
@@ -416,7 +422,7 @@ async function assertFleetChangePayment(wallet: string, txHash: string, joinedAt
   }
 
   const from = wallet.toLowerCase();
-  const to = SHOP_TREASURY_ADDRESS.toLowerCase();
+  const to = DROP_CLAIM_CONTRACT_ADDRESS.toLowerCase();
   const usdc = USDC_ADDRESS.toLowerCase();
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== usdc) continue;

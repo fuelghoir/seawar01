@@ -18,7 +18,8 @@ create table if not exists public.fleet_seasons (
   ends_at timestamptz not null,
   status text not null default 'draft',
   ranking_metric text not null default 'total_wins',
-  min_games integer not null default 3,
+  -- Legacy column name: stores the minimum games + check-ins eligibility threshold.
+  min_games integer not null default 10,
   first_share_bps integer not null default 6000,
   second_share_bps integer not null default 3000,
   third_share_bps integer not null default 1000,
@@ -35,6 +36,10 @@ create table if not exists public.fleet_seasons (
     first_share_bps + second_share_bps + third_share_bps = 10000
   )
 );
+
+alter table public.fleet_seasons alter column min_games set default 10;
+comment on column public.fleet_seasons.min_games is
+  'Legacy name: minimum games_played + total_checkins required for the fleet drop';
 
 create unique index if not exists idx_fleet_seasons_one_active
   on public.fleet_seasons(status)
@@ -310,10 +315,10 @@ begin
     from jsonb_array_elements(p_payouts) entry
     where (entry->>'pointsEarned')::bigint < 0
       or (entry->>'amountRaw')::numeric < 0
-      or (entry->>'amountRaw')::numeric <>
-        (entry->>'equalAmountRaw')::numeric + (entry->>'pointsAmountRaw')::numeric
+      or (entry->>'equalAmountRaw')::numeric <> 0
+      or (entry->>'amountRaw')::numeric <> (entry->>'pointsAmountRaw')::numeric
   ) then
-    raise exception 'Invalid 50/50 member payout breakdown';
+    raise exception 'Invalid points-only member payout breakdown';
   end if;
 
   select coalesce(sum((entry->>'amountRaw')::numeric), 0)

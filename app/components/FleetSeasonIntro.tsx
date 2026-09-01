@@ -64,7 +64,7 @@ export function FleetSeasonIntro({ open, season, lang, onClose }: FleetSeasonInt
         <div className={styles.rules}>
           <span><TrophyIcon size={17} /><b>{ru ? "ПОБЕДЫ = МЕСТО" : "WINS = RANK"}</b><small>{ru ? "Больше побед — выше флот" : "More wins move the fleet higher"}</small></span>
           <span><ShieldIcon size={17} /><b>60 / 30 / 10</b><small>{ru ? "Доли по итоговым местам" : "Shares by final rank"}</small></span>
-          <span><b>50% + 50%</b><small>{ru ? "Поровну и по пойнтам S3" : "Equal split and S3 points"}</small></span>
+          <span><b>100% PTS</b><small>{ru ? "Доля зависит от поинтов S3" : "Your share follows S3 points"}</small></span>
         </div>
 
         <div className={styles.classified}>

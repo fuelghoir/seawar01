@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DEFAULT_FLEETS, type FleetDropCalculation, type FleetId } from "../lib/fleetSeason";
+import { DEFAULT_FLEETS, FLEET_MIN_POINTS, type FleetDropCalculation, type FleetId } from "../lib/fleetSeason";
 import { CheckIcon, FlagIcon, GiftIcon, ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
 import styles from "./FleetSeasonAdminPanel.module.css";
 
@@ -12,7 +12,7 @@ type Dashboard = {
     startsAt: string;
     endsAt: string;
     status: "draft" | "active" | "ended" | "snapshotted";
-    minGames: number;
+    minTransactions: number;
     sharesBps: [number, number, number];
     dropId: string | null;
     claimStatus: "draft" | "active" | "closed" | null;
@@ -75,7 +75,7 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
       title: next.season.title,
       startsAt: toLocalInput(next.season.startsAt),
       endsAt: toLocalInput(next.season.endsAt),
-      minGames: String(next.season.minGames),
+      minTransactions: String(next.season.minTransactions),
       fleetNames: Object.fromEntries(next.fleets.map((fleet) => [fleet.id, fleet.name])) as Record<FleetId, string>,
     });
     setDrop((current) => ({
@@ -128,7 +128,7 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
         payload.title = form.title;
         payload.startsAt = new Date(form.startsAt).toISOString();
         payload.endsAt = new Date(form.endsAt).toISOString();
-        payload.minGames = Number(form.minGames);
+        payload.minTransactions = Number(form.minTransactions);
         payload.shares = [60, 30, 10];
         payload.fleets = DEFAULT_FLEETS.map((fleet) => ({
           ...fleet,
@@ -136,7 +136,12 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
         }));
       }
 
+      if (action === "save_eligibility") {
+        payload.minTransactions = Number(form.minTransactions);
+      }
+
       if (action === "preview_snapshot" || action === "create_snapshot") {
+        payload.minTransactions = Number(form.minTransactions);
         payload.drop = {
           ...drop,
           decimals: Number(drop.decimals),
@@ -161,6 +166,7 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
       }
       if (data?.calculation) setPreview(data.calculation);
       if (action === "save") setMessage(isRu ? "Черновик сохранён" : "Draft saved");
+      if (action === "save_eligibility") setMessage(isRu ? "Критерии eligibility сохранены" : "Eligibility rules saved");
       if (action === "activate") setMessage(isRu ? "Сезон активирован" : "Season activated");
       if (action === "finish") setMessage(isRu ? "Сезон завершён, статистика зафиксирована" : "Season ended and stats locked");
       if (action === "preview_snapshot") setMessage(isRu ? "Расчёт готов. Проверь все три флота." : "Preview ready. Review all three fleets.");
@@ -207,14 +213,14 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
           <section className={styles.configSection}>
             <div className={styles.sectionHead}>
               <span><ShieldIcon size={18} /> {isRu ? "НАСТРОЙКИ СЕЗОНА" : "SEASON CONFIG"}</span>
-              <small>{isRu ? "После активации настройки блокируются" : "Config locks after activation"}</small>
+              <small>{isRu ? "Порог транзакций можно менять до снапшота" : "Transaction threshold stays editable until snapshot"}</small>
             </div>
             <div className={styles.formGrid}>
               <label><span>Season key</span><input value={form.seasonKey} onChange={(event) => setForm((current) => ({ ...current, seasonKey: event.target.value }))} disabled={!canEdit} /></label>
               <label><span>{isRu ? "Название" : "Title"}</span><input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} disabled={!canEdit} /></label>
               <label><span>{isRu ? "Начало" : "Starts"}</span><input type="datetime-local" value={form.startsAt} onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))} disabled={!canEdit} /></label>
               <label><span>{isRu ? "Окончание" : "Ends"}</span><input type="datetime-local" value={form.endsAt} onChange={(event) => setForm((current) => ({ ...current, endsAt: event.target.value }))} disabled={!canEdit} /></label>
-              <label><span>{isRu ? "Мин. игр для дропа" : "Min games for drop"}</span><input type="number" min="0" value={form.minGames} onChange={(event) => setForm((current) => ({ ...current, minGames: event.target.value }))} disabled={!canEdit} /></label>
+              <label><span>{isRu ? "Мин. транзакций для дропа" : "Min transactions for drop"}</span><input type="number" min="0" value={form.minTransactions} onChange={(event) => { setForm((current) => ({ ...current, minTransactions: event.target.value })); setPreview(null); }} disabled={status === "snapshotted"} /></label>
               <div className={styles.readonlyField}><span>{isRu ? "Метрика победителя" : "Winner metric"}</span><strong>{isRu ? "ОБЩЕЕ ЧИСЛО ПОБЕД" : "TOTAL FLEET WINS"}</strong></div>
             </div>
 
@@ -237,12 +243,13 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
 
             <div className={styles.formulaBar}>
               <span><b>{isRu ? "МЕСТО ФЛОТА" : "FLEET RANK"}</b>{isRu ? "только по победам" : "total wins only"}</span>
-              <span><b>{isRu ? "ЛИЧНЫЙ ДРОП" : "MEMBER PAYOUT"}</b>{isRu ? "50% поровну + 50% по пойнтам S3" : "50% equal + 50% by S3 points"}</span>
-              <span><b>{isRu ? "ФИКСАЦИЯ" : "POINT FREEZE"}</b>{isRu ? "при завершении сезона" : "when the season ends"}</span>
+              <span><b>{isRu ? "ЛИЧНЫЙ ДРОП" : "MEMBER PAYOUT"}</b>{isRu ? "100% пропорционально поинтам S3" : "100% proportional to S3 points"}</span>
+              <span><b>{isRu ? "ELIGIBILITY" : "ELIGIBILITY"}</b>{FLEET_MIN_POINTS.toLocaleString()} PTS + {form.minTransactions || "0"} TX</span>
             </div>
 
             <div className={styles.actionRow}>
               {canEdit && <button type="button" className={styles.primary} disabled={!!busyAction} onClick={() => void runAction("save")}><CheckIcon size={17} />{busyAction === "save" ? "..." : isRu ? "СОХРАНИТЬ ЧЕРНОВИК" : "SAVE DRAFT"}</button>}
+              {!canEdit && status !== "snapshotted" && <button type="button" className={styles.secondary} disabled={!!busyAction} onClick={() => void runAction("save_eligibility")}><CheckIcon size={17} />{busyAction === "save_eligibility" ? "..." : isRu ? "СОХРАНИТЬ КРИТЕРИИ" : "SAVE ELIGIBILITY"}</button>}
               {dashboard && status === "draft" && <button type="button" className={styles.activate} disabled={!!busyAction} onClick={() => void runAction("activate")}><FlagIcon size={17} />{isRu ? "ЗАПУСТИТЬ СЕЗОН" : "ACTIVATE SEASON"}</button>}
               {status === "active" && <button type="button" className={styles.danger} disabled={!!busyAction} onClick={() => window.confirm(isRu ? "Завершить сезон сейчас?" : "End the season now?") && void runAction("finish")}><ShieldIcon size={17} />{isRu ? "ЗАВЕРШИТЬ СЕЗОН" : "END SEASON"}</button>}
             </div>
@@ -308,7 +315,7 @@ export function FleetSeasonAdminPanel({ isRu }: FleetSeasonAdminPanelProps) {
                     </div>
                   );
                 })}
-                <footer>{preview.payouts.length} {isRu ? "кошельков · 50% поровну + 50% по пойнтам S3" : "wallets · 50% equal + 50% by S3 points"}</footer>
+                <footer>{preview.payouts.length} {isRu ? "кошельков · 100% по поинтам S3" : "wallets · 100% by S3 points"}</footer>
               </div>
             )}
           </section>
@@ -329,7 +336,7 @@ function defaultForm() {
     title: "Fleet Season",
     startsAt: toLocalInput(startsAt.toISOString()),
     endsAt: toLocalInput(endsAt.toISOString()),
-    minGames: "3",
+    minTransactions: "10",
     fleetNames: Object.fromEntries(DEFAULT_FLEETS.map((fleet) => [fleet.id, fleet.name])) as Record<FleetId, string>,
   };
 }

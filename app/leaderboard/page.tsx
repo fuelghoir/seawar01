@@ -55,14 +55,23 @@ function FleetStandings({
       </div>
 
       {membership && (
-        <div className={styles.myFleetStrip}>
-          <ShieldIcon size={18} />
-          <span><small>{ru ? "ТВОЙ ФЛОТ" : "YOUR FLEET"}</small><strong>{membership.fleetName}</strong></span>
-          <span className={styles.myFleetActions}>
-            <b>{membership.wins}W · {membership.pointsEarned.toLocaleString()} PTS</b>
-            <button type="button" onClick={onChangeFleet}>{ru ? "СМЕНИТЬ · 5 USDC" : "CHANGE · 5 USDC"}</button>
-          </span>
-        </div>
+        <>
+          <div className={styles.myFleetStrip}>
+            <ShieldIcon size={18} />
+            <span><small>{ru ? "ТВОЙ ФЛОТ" : "YOUR FLEET"}</small><strong>{membership.fleetName}</strong></span>
+            <span className={styles.myFleetActions}>
+              <b>{membership.wins}W · {membership.pointsEarned.toLocaleString()} PTS</b>
+              <button type="button" onClick={onChangeFleet}>{ru ? "СМЕНИТЬ · 5 USDC" : "CHANGE · 5 USDC"}</button>
+            </span>
+          </div>
+          {!membership.eligible && (
+            <div className={styles.fleetEligibilityWarning}>
+              <strong>{ru ? "ТЫ ПОКА НЕ ELIGIBLE" : "NOT ELIGIBLE YET"}</strong>
+              <span>{membership.transactions}/{season.minTransactions} TX · {membership.pointsEarned.toLocaleString()}/{season.minPoints.toLocaleString()} PTS</span>
+              <small>{ru ? "Для дропа нужны оба условия" : "Both requirements must be met for the drop"}</small>
+            </div>
+          )}
+        </>
       )}
 
       <div className={styles.fleetRows}>
@@ -111,26 +120,32 @@ function FleetStandings({
             <span>#</span>
             <span>{ru ? "КАПИТАН" : "CAPTAIN"}</span>
             <span>W</span>
-            <span>GP</span>
+            <span>TX</span>
             <span>PTS</span>
           </div>
           {selectedMembers.length === 0 ? (
             <p className={styles.fleetMembersEmpty}>{ru ? "Во флоте пока нет игроков." : "No captains have joined this fleet yet."}</p>
-          ) : selectedMembers.map((member, index) => (
-            <div className={styles.fleetMemberRow} key={member.wallet}>
-              <b>{String(index + 1).padStart(2, "0")}</b>
-              <WalletName address={member.wallet} className={styles.fleetMemberWallet} />
-              <span>{member.wins}</span>
-              <span>{member.games}</span>
-              <strong>{member.pointsEarned.toLocaleString()}</strong>
-            </div>
-          ))}
+          ) : selectedMembers.map((member, index) => {
+            const isMine = member.wallet.toLowerCase() === membership?.wallet.toLowerCase();
+            return (
+              <div className={`${styles.fleetMemberRow} ${isMine ? styles.fleetMemberRowMine : ""}`} key={member.wallet}>
+                <b>{String(index + 1).padStart(2, "0")}</b>
+                <span className={styles.fleetMemberIdentity}>
+                  <WalletName address={member.wallet} className={styles.fleetMemberWallet} />
+                  {isMine && <small>{ru ? "ТЫ" : "YOU"}</small>}
+                </span>
+                <span>{member.wins}</span>
+                <span>{member.transactions}</span>
+                <strong>{member.pointsEarned.toLocaleString()}</strong>
+              </div>
+            );
+          })}
         </section>
       )}
 
       <div className={styles.fleetBoardFoot}>
         <span><b>60 / 30 / 10</b>{ru ? "по итоговому месту" : "by final place"}</span>
-        <span><b>{ru ? "50% ПО ПОЙНТАМ" : "50% BY POINTS"}</b>{ru ? "игра и майнер учитываются" : "games and Miner count"}</span>
+        <span><b>{ru ? "100% ПО ПОЙНТАМ" : "100% BY POINTS"}</b>{ru ? "игра и майнер учитываются" : "games and Miner count"}</span>
       </div>
     </section>
   );
@@ -323,10 +338,11 @@ export default function LeaderboardPage() {
           <div className={styles.helpBox}>
             <p className={styles.helpTitle}>{lang === "ru" ? "Как работает сезон" : "How Fleet Season works"}</p>
             <ul className={styles.helpList}>
-              <li>{lang === "ru" ? "Ты сам выбираешь флот при первом Play. После подтверждения выбор не меняется." : "You choose your fleet on first Play. It locks after confirmation."}</li>
+              <li>{lang === "ru" ? "Ты сам выбираешь флот при первом Play. Позже его можно сменить за 5 USDC." : "You choose your fleet on first Play. Changing later costs 5 USDC."}</li>
               <li>{lang === "ru" ? "В рейтинге считаются только победы всего флота." : "Only total fleet wins decide the ranking."}</li>
               <li><strong>60% / 30% / 10%</strong> {lang === "ru" ? "делятся по итоговым местам." : "is split by final place."}</li>
-              <li><strong>50% + 50%</strong> {lang === "ru" ? "половина награды флота делится поровну, половина по пойнтам S3. Майнер учитывается." : "half the fleet reward is equal, half follows S3 points. Miner points count."}</li>
+              <li><strong>100% PTS</strong> {lang === "ru" ? "награда внутри флота распределяется пропорционально поинтам S3. Майнер учитывается." : "the fleet reward is distributed proportionally to S3 points. Miner points count."}</li>
+              <li><strong>10,000 PTS + {fleetSeason?.minTransactions ?? 10} TX</strong> {lang === "ru" ? "оба условия обязательны; TX — это игры и чек-ины суммарно." : "both are required; TX is combined games and check-ins."}</li>
             </ul>
           </div>
         )}
