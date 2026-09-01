@@ -390,12 +390,12 @@ export default function SeasonPage() {
                 <b style={{ color: '#ffcc00' }}>{ru ? "ОЖИДАНИЕ" : "WAITING"}</b>
               </div>
               <button className={styles.dropButton} type="button" disabled={true} style={{ opacity: 1, border: '1px solid #ffcc00', color: '#ffcc00', background: 'transparent' }}>
-                <span>{ru ? "Скоро Сезон 2" : "Season 2 soon"}</span>
+                <span>{ru ? "Прошлый сезон закрыт" : "Previous season closed"}</span>
               </button>
               <p>
                 {ru
-                  ? "Награды разосланы. Готовьтесь к С2!"
-                  : "Rewards sent. Get ready for S2!"}
+                  ? "Сезон 3 уже идёт в битве флотов."
+                  : "Season 3 is live in the fleet battle."}
               </p>
             </section>
           ) : address ? (

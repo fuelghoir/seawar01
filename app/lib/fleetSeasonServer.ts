@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   computeFleetSeasonStats,
   DEFAULT_FLEETS,
+  FLEET_CHOICE_RESET_SEASON_KEY,
+  FLEET_CHOICE_ROLLOUT_AT,
   isFleetId,
   type FleetDefinition,
   type FleetGameInput,
@@ -139,12 +141,15 @@ async function loadMembers(admin: SupabaseClient, seasonKey: string) {
     points_at_end: number | null;
   }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
+    let query = admin
       .from("fleet_season_members")
       .select("wallet,fleet_id,joined_at,points_at_join,points_at_end")
       .eq("season_key", seasonKey)
-      .order("wallet", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+      .order("wallet", { ascending: true });
+    if (seasonKey === FLEET_CHOICE_RESET_SEASON_KEY) {
+      query = query.gte("joined_at", FLEET_CHOICE_ROLLOUT_AT);
+    }
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     rows.push(...((data ?? []) as typeof rows));
     if ((data?.length ?? 0) < PAGE_SIZE) return rows;

@@ -38,7 +38,7 @@ function FleetStandings({
           <TrophyIcon size={15} />
           {ru ? "Рейтинг флотов" : "Fleet standings"}
         </span>
-        <small><ShieldIcon size={13} /> {ru ? "Общий дроп скрыт" : "Drop classified"}</small>
+        <small><TrophyIcon size={13} /> {ru ? "Живой порядок по победам" : "Live order by total wins"}</small>
       </div>
 
       {membership && (
@@ -52,13 +52,14 @@ function FleetStandings({
       <div className={styles.fleetRows}>
         {season.fleets.map((fleet) => {
           const isMine = membership?.fleetId === fleet.id;
+          const tied = season.fleets.some((other) => other.id !== fleet.id && other.wins === fleet.wins);
           return (
             <article
               key={fleet.id}
               className={`${styles.fleetRow} ${isMine ? styles.fleetRowMine : ""}`}
               style={{ ["--fleet-color" as string]: fleet.color }}
             >
-              <strong className={styles.fleetRank}>0{fleet.rank}</strong>
+              <strong className={styles.fleetRank}>{tied ? "—" : `0${fleet.rank}`}</strong>
               <span className={styles.fleetShip}><Image src={fleet.image} alt="" fill sizes="86px" /></span>
               <span className={styles.fleetIdentity}>
                 <strong>{fleet.name}</strong>
@@ -70,7 +71,7 @@ function FleetStandings({
               </span>
               <span className={styles.fleetShare}>
                 <small>{ru ? "ДОЛЯ" : "SHARE"}</small>
-                <strong>{season.shares[fleet.rank - 1]}%</strong>
+                <strong>{tied ? "TBD" : `${season.shares[fleet.rank - 1]}%`}</strong>
               </span>
               <span className={styles.fleetProgress}><i style={{ width: `${(fleet.wins / maxWins) * 100}%` }} /></span>
             </article>
@@ -150,6 +151,7 @@ export default function LeaderboardPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [season, setSeason] = useState<SeasonState | null>(null);
   const [fleetSeasonData, setFleetSeasonData] = useState<PublicFleetSeasonResponse>({ season: null });
+  const [fleetSeasonLoaded, setFleetSeasonLoaded] = useState(false);
   const isBaseApp = typeof window !== "undefined" && isBaseAppUserAgent(window.navigator.userAgent);
 
   useEffect(() => {
@@ -159,6 +161,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("fleetDemo") === "1") {
       setFleetSeasonData(FLEET_SEASON_DEMO_RESPONSE);
+      setFleetSeasonLoaded(true);
       setMode("fleet");
       setPage(1);
       return;
@@ -174,7 +177,8 @@ export default function LeaderboardPage() {
           setPage(1);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setFleetSeasonLoaded(true));
   }, [address]);
 
   useEffect(() => {
@@ -250,10 +254,12 @@ export default function LeaderboardPage() {
               setPage(1);
             }}
           >
-            {fleetSeason
+            {!fleetSeasonLoaded
+              ? "Season 3"
+              : fleetSeason
               ? (fleetSeason.status === "active" ? "Fleet Season" : (lang === "ru" ? "Итоги флотов" : "Fleet Results"))
               : season?.isEnded
-                ? (lang === "ru" ? "Скоро новый сезон" : "New season soon")
+                ? (lang === "ru" ? "Архив сезона" : "Season archive")
                 : (tr.leaderboard_season || "Current Season")}
           </button>
           <button
@@ -268,7 +274,7 @@ export default function LeaderboardPage() {
           <div className={styles.helpBox}>
             <p className={styles.helpTitle}>{lang === "ru" ? "Как работает сезон" : "How Fleet Season works"}</p>
             <ul className={styles.helpList}>
-              <li>{lang === "ru" ? "Флот назначается при первом Play и не меняется." : "Your fleet is assigned on first Play and stays locked."}</li>
+              <li>{lang === "ru" ? "Ты сам выбираешь флот при первом Play. После подтверждения выбор не меняется." : "You choose your fleet on first Play. It locks after confirmation."}</li>
               <li>{lang === "ru" ? "В рейтинге считаются только победы всего флота." : "Only total fleet wins decide the ranking."}</li>
               <li><strong>60% / 30% / 10%</strong> {lang === "ru" ? "делятся по итоговым местам." : "is split by final place."}</li>
               <li><strong>50% + 50%</strong> {lang === "ru" ? "половина награды флота делится поровну, половина по пойнтам S3. Майнер учитывается." : "half the fleet reward is equal, half follows S3 points. Miner points count."}</li>
@@ -289,7 +295,11 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {mode === "fleet" && fleetSeason ? (
+        {!fleetSeasonLoaded ? (
+          <div className={styles.loadingWrap}>
+            <div className={styles.spinner} />
+          </div>
+        ) : mode === "fleet" && fleetSeason ? (
           <FleetStandings
             season={fleetSeason}
             membership={fleetSeasonData.membership ?? null}
@@ -301,11 +311,11 @@ export default function LeaderboardPage() {
           </div>
         ) : mode === "season" && season?.isEnded ? (
           <div className={styles.emptyState}>
-            <h2 className={styles.emptyTitle} style={{ color: '#ffcc00' }}>{lang === "ru" ? "ОЖИДАНИЕ СЕЗОНА 2" : "WAITING FOR SEASON 2"}</h2>
+            <h2 className={styles.emptyTitle} style={{ color: '#ffcc00' }}>{lang === "ru" ? "ПРОШЛЫЙ СЕЗОН ЗАКРЫТ" : "PREVIOUS SEASON CLOSED"}</h2>
             <p className={styles.emptyText}>
-              {lang === "ru" 
-                ? "Таблица лидеров пуста. Готовьтесь, Сезон 2 начнется совсем скоро!"
-                : "The leaderboard is empty. Get ready, Season 2 starts very soon!"}
+              {lang === "ru"
+                ? "Сезон 3 идёт во вкладке Fleet Season."
+                : "Season 3 is live in the Fleet Season tab."}
             </p>
           </div>
         ) : entries.length === 0 ? (

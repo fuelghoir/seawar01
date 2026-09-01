@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
-import type { PublicFleetMembership, PublicFleetSeason } from "../lib/fleetSeason";
-import { AnchorIcon, ChevronRightIcon, ShieldIcon, TrophyIcon } from "./Icons";
+import { useEffect, useRef, useState } from "react";
+import type { FleetId, PublicFleetMembership, PublicFleetSeason } from "../lib/fleetSeason";
+import { AnchorIcon, CheckIcon, ChevronRightIcon, ShieldIcon, TrophyIcon, UsersIcon } from "./Icons";
 import styles from "./FleetAssignmentModal.module.css";
 
 type FleetAssignmentModalProps = {
@@ -13,8 +13,8 @@ type FleetAssignmentModalProps = {
   lang: "en" | "ru";
   season: PublicFleetSeason | null;
   membership: PublicFleetMembership | null;
+  onSelectFleet: (fleetId: FleetId) => void;
   onContinue: () => void;
-  onRetry: () => void;
   onClose: () => void;
 };
 
@@ -25,13 +25,19 @@ export function FleetAssignmentModal({
   lang,
   season,
   membership,
+  onSelectFleet,
   onContinue,
-  onRetry,
   onClose,
 }: FleetAssignmentModalProps) {
   const primaryRef = useRef<HTMLButtonElement>(null);
+  const [selectedFleetId, setSelectedFleetId] = useState<FleetId | null>(null);
   const ru = lang === "ru";
   const fleet = season?.fleets.find((entry) => entry.id === membership?.fleetId) ?? null;
+  const selectedFleet = season?.fleets.find((entry) => entry.id === selectedFleetId) ?? null;
+
+  useEffect(() => {
+    if (open && !membership) setSelectedFleetId(null);
+  }, [membership, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,25 +70,7 @@ export function FleetAssignmentModal({
           X
         </button>
 
-        {busy ? (
-          <div className={styles.loadingState}>
-            <span className={styles.radar}><AnchorIcon size={34} /></span>
-            <span>{ru ? "РАСПРЕДЕЛЕНИЕ ФЛОТА" : "FLEET ASSIGNMENT"}</span>
-            <h2 id="fleet-assignment-title">{ru ? "ИЩЕМ СВОБОДНОЕ МЕСТО" : "BALANCING THE FLEETS"}</h2>
-            <p>{ru ? "Система отправит тебя в наименее заполненный флот." : "You will join the fleet with the fewest captains."}</p>
-          </div>
-        ) : error ? (
-          <div className={styles.errorState}>
-            <span className={styles.statusIcon}><ShieldIcon size={28} /></span>
-            <span>{ru ? "ФЛОТ НЕ НАЗНАЧЕН" : "ASSIGNMENT FAILED"}</span>
-            <h2 id="fleet-assignment-title">{ru ? "ПОПРОБУЕМ ЕЩЁ РАЗ" : "TRY ASSIGNMENT AGAIN"}</h2>
-            <p>{error}</p>
-            <button ref={primaryRef} className={styles.primary} type="button" onClick={onRetry}>
-              {ru ? "ПОВТОРИТЬ" : "RETRY"}
-              <ChevronRightIcon size={18} />
-            </button>
-          </div>
-        ) : (
+        {membership ? (
           <>
             <div className={styles.assignmentHead}>
               <span>{ru ? "СЕЗОН 3 · ФЛОТ ЗАКРЕПЛЁН" : "SEASON 3 · FLEET LOCKED"}</span>
@@ -104,6 +92,64 @@ export function FleetAssignmentModal({
               {ru ? "ПЕРЕЙТИ К ВЫБОРУ ИГРЫ" : "CONTINUE TO BATTLE MODES"}
               <ChevronRightIcon size={18} />
             </button>
+          </>
+        ) : (
+          <>
+            <div className={styles.assignmentHead}>
+              <span>{ru ? "СЕЗОН 3 · ВЫБОР НА ВЕСЬ СЕЗОН" : "SEASON 3 · ONE CHOICE"}</span>
+              <h2 id="fleet-assignment-title">{ru ? "ВЫБЕРИ СВОЙ ФЛОТ" : "CHOOSE YOUR FLEET"}</h2>
+              <p>{ru ? "Ты сам решаешь, за какой флот играть. После подтверждения сменить его нельзя." : "You decide who to fight for. Your choice locks after confirmation."}</p>
+            </div>
+
+            <div className={styles.fleetChoices} role="radiogroup" aria-label={ru ? "Выбор флота" : "Choose a fleet"}>
+              {(season?.fleets ?? []).map((entry) => {
+                const selected = selectedFleetId === entry.id;
+                return (
+                  <button
+                    key={entry.id}
+                    className={`${styles.fleetChoice} ${selected ? styles.fleetChoiceSelected : ""}`}
+                    style={{ ["--fleet-color" as string]: entry.color }}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={busy}
+                    onClick={() => setSelectedFleetId(entry.id)}
+                  >
+                    <span className={styles.choiceMark}>{selected ? <CheckIcon size={14} /> : null}</span>
+                    <span className={styles.choiceShip}><Image src={entry.image} alt="" fill sizes="180px" /></span>
+                    <span className={styles.choiceCopy}>
+                      <strong>{entry.name}</strong>
+                      <small><TrophyIcon size={11} /> {entry.wins.toLocaleString()} W</small>
+                      <small><UsersIcon size={11} /> {entry.members}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className={styles.rules}>
+              <span><TrophyIcon size={16} /> {ru ? "Больше побед — выше место" : "More wins means a higher rank"}</span>
+              <span><ShieldIcon size={16} /> {ru ? "Выбор нельзя изменить" : "Your choice cannot be changed"}</span>
+            </div>
+
+            {error && <p className={styles.choiceError}>{error}</p>}
+
+            <button
+              ref={primaryRef}
+              className={styles.primary}
+              type="button"
+              disabled={!selectedFleetId || busy}
+              onClick={() => selectedFleetId && onSelectFleet(selectedFleetId)}
+            >
+              {busy
+                ? (ru ? "ЗАКРЕПЛЯЕМ ФЛОТ..." : "LOCKING YOUR FLEET...")
+                : selectedFleet
+                  ? (ru ? `ВЫБРАТЬ ${selectedFleet.name.toUpperCase()}` : `JOIN ${selectedFleet.name.toUpperCase()}`)
+                  : (ru ? "СНАЧАЛА ВЫБЕРИ ФЛОТ" : "SELECT A FLEET")}
+              {!busy && <ChevronRightIcon size={18} />}
+            </button>
+
+            {busy && <span className={styles.busyRadar}><AnchorIcon size={18} /></span>}
           </>
         )}
       </section>

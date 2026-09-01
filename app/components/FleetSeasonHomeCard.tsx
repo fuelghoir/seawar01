@@ -16,6 +16,9 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
   const ru = lang === "ru";
   const leadingFleet = season.fleets.find((fleet) => fleet.rank === 1) ?? season.fleets[0];
   const yourFleet = season.fleets.find((fleet) => fleet.id === membership?.fleetId) ?? null;
+  const leaderIsTied = Boolean(
+    leadingFleet && season.fleets.filter((fleet) => fleet.wins === leadingFleet.wins).length > 1,
+  );
 
   if (variant === "wide") {
     return (
@@ -26,21 +29,22 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
           </span>
           <span className={styles.copy}>
             <small>FLEET SEASON</small>
-            <strong>{yourFleet ? `${yourFleet.name} · ${ru ? "ЗАКРЕПЛЁН" : "LOCKED"}` : (ru ? "Флот назначится при Play" : "Fleet assigned on Play")}</strong>
+            <strong>{yourFleet ? `${yourFleet.name} · ${ru ? "ЗАКРЕПЛЁН" : "LOCKED"}` : (ru ? "Выбери флот при Play" : "Choose a fleet on Play")}</strong>
           </span>
           <span className={styles.live}>{season.status === "active" ? "LIVE" : "FINAL"}</span>
         </span>
 
         <span className={styles.miniRows}>
-          {season.fleets.map((fleet) => (
-            <span className={styles.miniRow} key={fleet.id} style={{ ["--fleet-color" as string]: fleet.color }}>
+          {season.fleets.map((fleet) => {
+            const tied = season.fleets.some((other) => other.id !== fleet.id && other.wins === fleet.wins);
+            return <span className={styles.miniRow} key={fleet.id} style={{ ["--fleet-color" as string]: fleet.color }}>
               <i />
-              <b>0{fleet.rank}</b>
+              <b>{tied ? "TIE" : `0${fleet.rank}`}</b>
               <strong>{fleet.name}</strong>
               <small>{fleet.wins.toLocaleString()} W</small>
-              <em>{season.shares[fleet.rank - 1]}%</em>
-            </span>
-          ))}
+              <em>{tied ? "--" : `${season.shares[fleet.rank - 1]}%`}</em>
+            </span>;
+          })}
         </span>
 
         <span className={styles.wideFoot}>
@@ -58,11 +62,11 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
       </span>
       <span className={styles.copy}>
         <small>FLEET SEASON</small>
-        <strong>{yourFleet ? `${yourFleet.name} · #${yourFleet.rank}` : (ru ? "Флот назначится при Play" : "Fleet assigned on Play")}</strong>
+        <strong>{yourFleet ? `${yourFleet.name} · #${yourFleet.rank}` : (ru ? "Выбери флот при Play" : "Choose a fleet on Play")}</strong>
       </span>
       <span className={styles.leader}>
-        <small><TrophyIcon size={11} /> {ru ? "ЛИДЕР" : "LEADER"}</small>
-        <strong>{leadingFleet?.name}</strong>
+        <small><TrophyIcon size={11} /> {leaderIsTied ? (ru ? "НИЧЬЯ" : "TIED") : (ru ? "ЛИДЕР" : "LEADER")}</small>
+        <strong>{leaderIsTied ? (ru ? "Лидера пока нет" : "No leader yet") : leadingFleet?.name}</strong>
       </span>
       <ChevronRightIcon size={17} />
     </button>

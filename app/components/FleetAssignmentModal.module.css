@@ -10,11 +10,11 @@
 
 .modal {
   position: relative;
-  width: min(520px, 100%);
+  width: min(640px, 100%);
   overflow: hidden;
   color: #edfaff;
   border: 1px solid rgb(119 168 188 / 24%);
-  border-radius: 18px;
+  border-radius: 12px;
   background: #07111b;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62);
   font-family: var(--font-rajdhani), "Rajdhani", sans-serif;
@@ -26,7 +26,7 @@
   z-index: 2;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, #35e6c1 0 33.33%, #66a6ff 33.33% 66.66%, #f3bc62 66.66%);
+  background: linear-gradient(90deg, #28d7ef 0 33.33%, #ff6571 33.33% 66.66%, #f1c75b 66.66%);
 }
 
 .close {
@@ -99,6 +99,107 @@
   background-size: 36px 36px, 36px 36px;
 }
 
+.fleetChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  padding: 4px 18px 0;
+}
+
+.fleetChoice {
+  --fleet-color: #28d7ef;
+  position: relative;
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0 10px;
+  color: #cfe1e7;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--fleet-color) 25%, #29414b);
+  border-radius: 8px;
+  background: #081720;
+  cursor: pointer;
+}
+
+.fleetChoice::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: 2px;
+  background: var(--fleet-color);
+  opacity: 0.65;
+}
+
+.fleetChoice:hover,
+.fleetChoiceSelected {
+  border-color: var(--fleet-color);
+  background: color-mix(in srgb, var(--fleet-color) 9%, #081720);
+}
+
+.fleetChoice:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.fleetChoice:disabled { cursor: wait; opacity: 0.72; }
+
+.choiceMark {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: #001016;
+  border: 1px solid color-mix(in srgb, var(--fleet-color) 45%, transparent);
+  border-radius: 50%;
+  background: var(--fleet-color);
+  opacity: 0;
+}
+
+.fleetChoiceSelected .choiceMark { opacity: 1; }
+
+.choiceShip {
+  position: relative;
+  display: block;
+  height: 104px;
+  border-bottom: 1px solid rgba(117, 196, 214, 0.1);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.choiceShip img {
+  object-fit: contain;
+  padding: 5px;
+  filter: drop-shadow(0 13px 12px rgba(0, 0, 0, 0.55));
+}
+
+.choiceCopy {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 6px;
+  min-width: 0;
+  padding: 9px 10px 0;
+}
+
+.choiceCopy strong {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--fleet-color);
+  font: 800 12px var(--font-orbitron), sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choiceCopy small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #819ca6;
+  font: 700 9px var(--font-mono-raw), monospace;
+}
+
 .shipStage img {
   object-fit: contain;
   filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.62));
@@ -160,6 +261,7 @@
 }
 
 .primary:hover { background: #76e9f8; }
+.primary:disabled { color: #66808a; background: #132630; cursor: not-allowed; }
 .primary:focus-visible,
 .close:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
 
@@ -193,6 +295,21 @@
 .errorState .statusIcon { color: #ff6571; border-color: rgba(255, 101, 113, 0.4); }
 .errorState .primary { margin-top: 22px; }
 
+.choiceError {
+  margin: 10px 18px -4px;
+  color: #ff7b86;
+  font: 700 11px var(--font-rajdhani), sans-serif;
+  text-align: center;
+}
+
+.busyRadar {
+  position: absolute;
+  right: 32px;
+  bottom: 32px;
+  color: #28d7ef;
+  animation: pulse 1s ease-in-out infinite;
+}
+
 @keyframes pulse {
   50% { transform: scale(1.05); opacity: 0.72; }
 }
@@ -210,14 +327,23 @@
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 18px 18px 0 0;
+    border-radius: 14px 14px 0 0;
   }
   .assignmentHead { padding: 24px 20px 14px; }
   .assignmentHead h2,
   .loadingState h2,
   .errorState h2 { padding-right: 26px; font-size: 24px; }
   .shipStage { min-height: 150px; margin: 0 12px; }
+  .fleetChoices { gap: 6px; padding: 2px 12px 0; }
+  .choiceShip { height: 86px; }
+  .choiceCopy { grid-template-columns: 1fr; gap: 4px; padding: 8px 7px 0; }
+  .choiceCopy strong { font-size: 9px; }
+  .choiceCopy small { font-size: 8px; }
+  .choiceCopy small:last-child { display: none; }
+  .choiceMark { top: 6px; right: 6px; width: 20px; height: 20px; }
   .rules { grid-template-columns: 1fr 1fr; padding: 12px 12px 0; }
   .rules span { min-height: 36px; }
   .primary { width: calc(100% - 24px); margin: 12px; }
+  .choiceError { margin-right: 12px; margin-left: 12px; }
+  .busyRadar { right: 25px; bottom: 27px; }
 }

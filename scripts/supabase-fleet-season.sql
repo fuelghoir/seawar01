@@ -139,7 +139,14 @@ create trigger trg_fleet_seasons_touch
 before update on public.fleet_seasons
 for each row execute function public.touch_fleet_season_updated_at();
 
-create or replace function public.join_active_fleet_season(p_wallet text)
+-- S3 originally launched with automatic assignment. Only explicit choices made
+-- after the choice rollout remain valid.
+delete from public.fleet_season_members
+where season_key = 'S3'
+  and joined_at < '2026-09-01T16:40:00.000Z'::timestamptz;
+
+drop function if exists public.join_active_fleet_season(text);
+create or replace function public.join_active_fleet_season(p_wallet text, p_fleet_id text)
 returns table(season_key text, fleet_id text, joined_at timestamptz)
 language plpgsql
 security definer
@@ -148,7 +155,7 @@ as $$
 declare
   v_wallet text := lower(trim(p_wallet));
   v_season_key text;
-  v_fleet_id text;
+  v_fleet_id text := lower(trim(p_fleet_id));
   v_points_at_join bigint := 0;
 begin
   if v_wallet !~ '^0x[a-f0-9]{40}$' then
@@ -169,25 +176,18 @@ begin
     raise exception 'No active fleet season';
   end if;
 
+  if not exists (
+    select 1 from public.fleet_season_fleets f
+    where f.season_key = v_season_key and f.fleet_id = v_fleet_id
+  ) then
+    raise exception 'Invalid fleet choice';
+  end if;
+
   return query
     select m.season_key, m.fleet_id, m.joined_at
     from public.fleet_season_members m
     where m.season_key = v_season_key and m.wallet = v_wallet;
   if found then return; end if;
-
-  select f.fleet_id
-    into v_fleet_id
-  from public.fleet_season_fleets f
-  left join public.fleet_season_members m
-    on m.season_key = f.season_key and m.fleet_id = f.fleet_id
-  where f.season_key = v_season_key
-  group by f.fleet_id, f.display_order
-  order by count(m.wallet) asc, md5(v_wallet || ':' || f.fleet_id) asc, f.display_order asc
-  limit 1;
-
-  if v_fleet_id is null then
-    raise exception 'Fleet season has no fleets';
-  end if;
 
   select coalesce(ps.points, 0)
     into v_points_at_join
@@ -397,11 +397,11 @@ grant all on public.fleet_season_members to service_role;
 grant all on public.fleet_season_results to service_role;
 grant all on public.fleet_season_payouts to service_role;
 
-revoke all on function public.join_active_fleet_season(text) from public, anon, authenticated;
+revoke all on function public.join_active_fleet_season(text, text) from public, anon, authenticated;
 revoke all on function public.activate_fleet_season(text) from public, anon, authenticated;
 revoke all on function public.end_fleet_season(text) from public, anon, authenticated;
 revoke all on function public.create_fleet_season_snapshot(text, text, text, text, text, integer, text, text, text, text, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.join_active_fleet_season(text) to service_role;
+grant execute on function public.join_active_fleet_season(text, text) to service_role;
 grant execute on function public.activate_fleet_season(text) to service_role;
 grant execute on function public.end_fleet_season(text) to service_role;
 grant execute on function public.create_fleet_season_snapshot(text, text, text, text, text, integer, text, text, text, text, jsonb, jsonb) to service_role;
