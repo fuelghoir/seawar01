@@ -121,6 +121,7 @@ export type PublicFleetSeasonResponse = {
   season: PublicFleetSeason | null;
   membership?: PublicFleetMembership | null;
   choiceRequired?: boolean;
+  choiceOpensAt?: string;
   migrationRequired?: boolean;
 };
 

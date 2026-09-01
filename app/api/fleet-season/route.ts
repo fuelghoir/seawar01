@@ -43,6 +43,9 @@ export async function GET(req: NextRequest) {
       season: publicSeason(dashboard),
       membership: member ? publicMembership(member, dashboard) : null,
       choiceRequired: dashboard.season.status === "active" && !member,
+      choiceOpensAt: dashboard.season.seasonKey === FLEET_CHOICE_RESET_SEASON_KEY
+        ? FLEET_CHOICE_ROLLOUT_AT
+        : undefined,
     });
   } catch (error) {
     if (isMissingFleetSchema(error)) {
