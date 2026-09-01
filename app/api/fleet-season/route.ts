@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { keccak256, toBytes } from "viem";
 import { adminSupabase } from "../../lib/adminSupabase";
 import { loadFleetSeasonDashboard } from "../../lib/fleetSeasonServer";
 
@@ -6,6 +8,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
+
+type FleetAssignmentRow = {
+  season_key: string;
+  fleet_id: string;
+  joined_at: string;
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,8 +54,10 @@ export async function POST(req: NextRequest) {
 
     const admin = adminSupabase();
     const { data, error } = await admin.rpc("join_active_fleet_season", { p_wallet: wallet });
-    if (error) throw new Error(error.message);
-    const assignment = Array.isArray(data) ? data[0] : data;
+    if (error && !isAmbiguousAssignmentError(error.message)) throw new Error(error.message);
+    const assignment = error
+      ? await assignFleetSeasonFallback(admin, wallet)
+      : normalizeAssignment(data);
     if (!assignment) throw new Error("Fleet assignment failed");
 
     const dashboard = await loadFleetSeasonDashboard(admin, {
@@ -118,4 +128,97 @@ function normalizeWallet(value: unknown) {
 function isMissingFleetSchema(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /fleet_seasons|schema cache|does not exist/i.test(message);
+}
+
+function isAmbiguousAssignmentError(message: string) {
+  return /season_key.*ambiguous|ambiguous.*season_key/i.test(message);
+}
+
+function normalizeAssignment(data: unknown): FleetAssignmentRow | null {
+  const row = (Array.isArray(data) ? data[0] : data) as Partial<FleetAssignmentRow> | null;
+  if (!row?.season_key || !row.fleet_id || !row.joined_at) return null;
+  return {
+    season_key: String(row.season_key),
+    fleet_id: String(row.fleet_id),
+    joined_at: String(row.joined_at),
+  };
+}
+
+async function assignFleetSeasonFallback(admin: SupabaseClient, wallet: string): Promise<FleetAssignmentRow> {
+  const now = new Date().toISOString();
+  const { data: season, error: seasonError } = await admin
+    .from("fleet_seasons")
+    .select("season_key")
+    .eq("status", "active")
+    .lte("starts_at", now)
+    .gt("ends_at", now)
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (seasonError) throw new Error(seasonError.message);
+  if (!season?.season_key) throw new Error("No active fleet season");
+
+  const seasonKey = String(season.season_key);
+  const existing = await loadMembership(admin, seasonKey, wallet);
+  if (existing) return existing;
+
+  const { data: fleets, error: fleetsError } = await admin
+    .from("fleet_season_fleets")
+    .select("fleet_id,display_order")
+    .eq("season_key", seasonKey)
+    .order("display_order", { ascending: true });
+  if (fleetsError) throw new Error(fleetsError.message);
+  if (!fleets?.length) throw new Error("Fleet season has no fleets");
+
+  const candidates = await Promise.all(fleets.map(async (fleet) => {
+    const { count, error: countError } = await admin
+      .from("fleet_season_members")
+      .select("wallet", { count: "exact", head: true })
+      .eq("season_key", seasonKey)
+      .eq("fleet_id", fleet.fleet_id);
+    if (countError) throw new Error(countError.message);
+    return {
+      fleetId: String(fleet.fleet_id),
+      displayOrder: Number(fleet.display_order),
+      members: count ?? 0,
+      tieBreak: keccak256(toBytes(`${wallet}:${fleet.fleet_id}`)),
+    };
+  }));
+  candidates.sort((left, right) =>
+    left.members - right.members ||
+    left.tieBreak.localeCompare(right.tieBreak) ||
+    left.displayOrder - right.displayOrder,
+  );
+
+  const { data: player } = await admin
+    .from("player_stats")
+    .select("points")
+    .eq("wallet", wallet)
+    .maybeSingle();
+  const { data: inserted, error: insertError } = await admin
+    .from("fleet_season_members")
+    .insert({
+      season_key: seasonKey,
+      wallet,
+      fleet_id: candidates[0].fleetId,
+      points_at_join: Math.max(0, Math.floor(Number(player?.points ?? 0))),
+    })
+    .select("season_key,fleet_id,joined_at")
+    .maybeSingle();
+  if (insertError && insertError.code !== "23505") throw new Error(insertError.message);
+
+  const assignment = normalizeAssignment(inserted) ?? await loadMembership(admin, seasonKey, wallet);
+  if (!assignment) throw new Error("Fleet assignment failed");
+  return assignment;
+}
+
+async function loadMembership(admin: SupabaseClient, seasonKey: string, wallet: string) {
+  const { data, error } = await admin
+    .from("fleet_season_members")
+    .select("season_key,fleet_id,joined_at")
+    .eq("season_key", seasonKey)
+    .eq("wallet", wallet)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return normalizeAssignment(data);
 }

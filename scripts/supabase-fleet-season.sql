@@ -198,7 +198,7 @@ begin
 
   insert into public.fleet_season_members(season_key, wallet, fleet_id, points_at_join)
   values (v_season_key, v_wallet, v_fleet_id, v_points_at_join)
-  on conflict (season_key, wallet) do nothing;
+  on conflict on constraint fleet_season_members_pkey do nothing;
 
   return query
     select m.season_key, m.fleet_id, m.joined_at
