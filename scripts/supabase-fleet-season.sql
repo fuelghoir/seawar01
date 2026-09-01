@@ -143,7 +143,7 @@ for each row execute function public.touch_fleet_season_updated_at();
 -- after the choice rollout remain valid.
 delete from public.fleet_season_members
 where season_key = 'S3'
-  and joined_at < '2026-09-01T16:40:00.000Z'::timestamptz;
+  and joined_at < '2026-09-01T16:33:00.000Z'::timestamptz;
 
 drop function if exists public.join_active_fleet_season(text);
 create or replace function public.join_active_fleet_season(p_wallet text, p_fleet_id text)

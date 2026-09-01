@@ -3,7 +3,7 @@ export type FleetId = (typeof FLEET_IDS)[number];
 
 export const FLEET_CHOICE_RESET_SEASON_KEY = "S3";
 // Updated immediately before rollout. Memberships created earlier were automatic assignments.
-export const FLEET_CHOICE_ROLLOUT_AT = "2026-09-01T16:40:00.000Z";
+export const FLEET_CHOICE_ROLLOUT_AT = "2026-09-01T16:33:00.000Z";
 
 export const FLEET_PAYOUT_BPS = [6000, 3000, 1000] as const;
 export const FLEET_BPS_TOTAL = 10_000;
