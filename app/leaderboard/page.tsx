@@ -12,7 +12,7 @@ import { FleetMinerSummary, SeasonPoolCard } from "../components/FleetMinerWidge
 import { MobileDock } from "../components/MobileDock";
 import { useSettings, TR } from "../lib/settings";
 import { ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
-import type { PublicFleetMembership, PublicFleetSeason, PublicFleetSeasonResponse } from "../lib/fleetSeason";
+import type { FleetId, PublicFleetMembership, PublicFleetSeason, PublicFleetSeasonResponse } from "../lib/fleetSeason";
 import { FLEET_SEASON_DEMO_RESPONSE } from "../lib/fleetSeasonDemo";
 import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
@@ -23,13 +23,26 @@ function FleetStandings({
   season,
   membership,
   lang,
+  onChangeFleet,
 }: {
   season: PublicFleetSeason;
   membership: PublicFleetMembership | null;
   lang: "en" | "ru";
+  onChangeFleet: () => void;
 }) {
   const ru = lang === "ru";
   const maxWins = Math.max(1, ...season.fleets.map((fleet) => fleet.wins));
+  const [selectedFleetId, setSelectedFleetId] = useState<FleetId>(
+    membership?.fleetId ?? season.fleets[0]?.id ?? "tideguard",
+  );
+  const selectedFleet = season.fleets.find((fleet) => fleet.id === selectedFleetId) ?? season.fleets[0];
+  const selectedMembers = (season.members ?? [])
+    .filter((member) => member.fleetId === selectedFleetId)
+    .sort((left, right) =>
+      right.pointsEarned - left.pointsEarned ||
+      right.wins - left.wins ||
+      left.wallet.localeCompare(right.wallet),
+    );
 
   return (
     <section className={styles.fleetBoard}>
@@ -45,7 +58,10 @@ function FleetStandings({
         <div className={styles.myFleetStrip}>
           <ShieldIcon size={18} />
           <span><small>{ru ? "ТВОЙ ФЛОТ" : "YOUR FLEET"}</small><strong>{membership.fleetName}</strong></span>
-          <b>{membership.wins}W · {membership.pointsEarned.toLocaleString()} PTS</b>
+          <span className={styles.myFleetActions}>
+            <b>{membership.wins}W · {membership.pointsEarned.toLocaleString()} PTS</b>
+            <button type="button" onClick={onChangeFleet}>{ru ? "СМЕНИТЬ · 5 USDC" : "CHANGE · 5 USDC"}</button>
+          </span>
         </div>
       )}
 
@@ -54,10 +70,13 @@ function FleetStandings({
           const isMine = membership?.fleetId === fleet.id;
           const tied = season.fleets.some((other) => other.id !== fleet.id && other.wins === fleet.wins);
           return (
-            <article
+            <button
               key={fleet.id}
-              className={`${styles.fleetRow} ${isMine ? styles.fleetRowMine : ""}`}
+              className={`${styles.fleetRow} ${isMine ? styles.fleetRowMine : ""} ${selectedFleetId === fleet.id ? styles.fleetRowSelected : ""}`}
               style={{ ["--fleet-color" as string]: fleet.color }}
+              type="button"
+              aria-expanded={selectedFleetId === fleet.id}
+              onClick={() => setSelectedFleetId(fleet.id)}
             >
               <strong className={styles.fleetRank}>{tied ? "—" : `0${fleet.rank}`}</strong>
               <span className={styles.fleetShip}><Image src={fleet.image} alt="" fill sizes="86px" /></span>
@@ -74,10 +93,40 @@ function FleetStandings({
                 <strong>{tied ? "TBD" : `${season.shares[fleet.rank - 1]}%`}</strong>
               </span>
               <span className={styles.fleetProgress}><i style={{ width: `${(fleet.wins / maxWins) * 100}%` }} /></span>
-            </article>
+            </button>
           );
         })}
       </div>
+
+      {selectedFleet && (
+        <section className={styles.fleetMembers} style={{ ["--fleet-color" as string]: selectedFleet.color }}>
+          <div className={styles.fleetMembersHead}>
+            <span>
+              <strong>{selectedFleet.name}</strong>
+              <small>{ru ? "РЕЙТИНГ ИГРОКОВ ПО ПОЙНТАМ S3" : "CAPTAIN RANKING BY S3 POINTS"}</small>
+            </span>
+            <b>{selectedMembers.length} {ru ? "ИГРОКОВ" : "CAPTAINS"}</b>
+          </div>
+          <div className={`${styles.fleetMemberRow} ${styles.fleetMemberHeader}`}>
+            <span>#</span>
+            <span>{ru ? "КАПИТАН" : "CAPTAIN"}</span>
+            <span>W</span>
+            <span>GP</span>
+            <span>PTS</span>
+          </div>
+          {selectedMembers.length === 0 ? (
+            <p className={styles.fleetMembersEmpty}>{ru ? "Во флоте пока нет игроков." : "No captains have joined this fleet yet."}</p>
+          ) : selectedMembers.map((member, index) => (
+            <div className={styles.fleetMemberRow} key={member.wallet}>
+              <b>{String(index + 1).padStart(2, "0")}</b>
+              <WalletName address={member.wallet} className={styles.fleetMemberWallet} />
+              <span>{member.wins}</span>
+              <span>{member.games}</span>
+              <strong>{member.pointsEarned.toLocaleString()}</strong>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className={styles.fleetBoardFoot}>
         <span><b>60 / 30 / 10</b>{ru ? "по итоговому месту" : "by final place"}</span>
@@ -304,6 +353,7 @@ export default function LeaderboardPage() {
             season={fleetSeason}
             membership={fleetSeasonData.membership ?? null}
             lang={lang}
+            onChangeFleet={() => router.push("/?fleetChange=1")}
           />
         ) : loading ? (
           <div className={styles.loadingWrap}>

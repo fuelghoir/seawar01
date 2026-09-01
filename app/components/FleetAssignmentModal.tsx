@@ -9,6 +9,7 @@ import styles from "./FleetAssignmentModal.module.css";
 type FleetAssignmentModalProps = {
   open: boolean;
   busy: boolean;
+  busyLabel?: string;
   error: string;
   lang: "en" | "ru";
   season: PublicFleetSeason | null;
@@ -21,6 +22,7 @@ type FleetAssignmentModalProps = {
 export function FleetAssignmentModal({
   open,
   busy,
+  busyLabel,
   error,
   lang,
   season,
@@ -31,13 +33,21 @@ export function FleetAssignmentModal({
 }: FleetAssignmentModalProps) {
   const primaryRef = useRef<HTMLButtonElement>(null);
   const [selectedFleetId, setSelectedFleetId] = useState<FleetId | null>(null);
+  const [changeMode, setChangeMode] = useState(false);
   const ru = lang === "ru";
   const fleet = season?.fleets.find((entry) => entry.id === membership?.fleetId) ?? null;
   const selectedFleet = season?.fleets.find((entry) => entry.id === selectedFleetId) ?? null;
 
   useEffect(() => {
-    if (open && !membership) setSelectedFleetId(null);
-  }, [membership, open]);
+    if (!open) return;
+    setSelectedFleetId(null);
+    setChangeMode(false);
+  }, [open]);
+
+  useEffect(() => {
+    setSelectedFleetId(null);
+    setChangeMode(false);
+  }, [membership?.fleetId]);
 
   useEffect(() => {
     if (!open) return;
@@ -70,7 +80,7 @@ export function FleetAssignmentModal({
           X
         </button>
 
-        {membership ? (
+        {membership && !changeMode ? (
           <>
             <div className={styles.assignmentHead}>
               <span>{ru ? "СЕЗОН 3 · ФЛОТ ЗАКРЕПЛЁН" : "SEASON 3 · FLEET LOCKED"}</span>
@@ -92,18 +102,22 @@ export function FleetAssignmentModal({
               {ru ? "ПЕРЕЙТИ К ВЫБОРУ ИГРЫ" : "CONTINUE TO BATTLE MODES"}
               <ChevronRightIcon size={18} />
             </button>
+            <button className={styles.changeFleet} type="button" onClick={() => setChangeMode(true)}>
+              {ru ? "СМЕНИТЬ ФЛОТ · 5 USDC" : "CHANGE FLEET · 5 USDC"}
+            </button>
           </>
         ) : (
           <>
             <div className={styles.assignmentHead}>
-              <span>{ru ? "СЕЗОН 3 · ВЫБОР НА ВЕСЬ СЕЗОН" : "SEASON 3 · ONE CHOICE"}</span>
-              <h2 id="fleet-assignment-title">{ru ? "ВЫБЕРИ СВОЙ ФЛОТ" : "CHOOSE YOUR FLEET"}</h2>
-              <p>{ru ? "Ты сам решаешь, за какой флот играть. После подтверждения сменить его нельзя." : "You decide who to fight for. Your choice locks after confirmation."}</p>
+              <span>{changeMode ? (ru ? "СЕЗОН 3 · СМЕНА ЗА 5 USDC" : "SEASON 3 · 5 USDC CHANGE") : (ru ? "СЕЗОН 3 · ВЫБОР НА ВЕСЬ СЕЗОН" : "SEASON 3 · ONE CHOICE")}</span>
+              <h2 id="fleet-assignment-title">{changeMode ? (ru ? "ВЫБЕРИ НОВЫЙ ФЛОТ" : "CHOOSE A NEW FLEET") : (ru ? "ВЫБЕРИ СВОЙ ФЛОТ" : "CHOOSE YOUR FLEET")}</h2>
+              <p>{changeMode ? (ru ? "После подтверждения кошелёк отправит 5 USDC. Твои сезонные показатели перейдут в новый флот." : "Confirm to send 5 USDC. Your season stats will move with you.") : (ru ? "Ты сам решаешь, за какой флот играть. После подтверждения смена стоит 5 USDC." : "You decide who to fight for. Changing later costs 5 USDC.")}</p>
             </div>
 
             <div className={styles.fleetChoices} role="radiogroup" aria-label={ru ? "Выбор флота" : "Choose a fleet"}>
               {(season?.fleets ?? []).map((entry) => {
                 const selected = selectedFleetId === entry.id;
+                const current = membership?.fleetId === entry.id;
                 return (
                   <button
                     key={entry.id}
@@ -112,10 +126,11 @@ export function FleetAssignmentModal({
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    disabled={busy}
+                    disabled={busy || current}
                     onClick={() => setSelectedFleetId(entry.id)}
                   >
                     <span className={styles.choiceMark}>{selected ? <CheckIcon size={14} /> : null}</span>
+                    {current && <span className={styles.currentFleet}>{ru ? "ТЕКУЩИЙ" : "CURRENT"}</span>}
                     <span className={styles.choiceShip}><Image src={entry.image} alt="" fill sizes="180px" /></span>
                     <span className={styles.choiceCopy}>
                       <strong>{entry.name}</strong>
@@ -129,10 +144,18 @@ export function FleetAssignmentModal({
 
             <div className={styles.rules}>
               <span><TrophyIcon size={16} /> {ru ? "Больше побед — выше место" : "More wins means a higher rank"}</span>
-              <span><ShieldIcon size={16} /> {ru ? "Выбор нельзя изменить" : "Your choice cannot be changed"}</span>
+              <span><ShieldIcon size={16} /> {changeMode ? (ru ? "Оплата проверяется в сети Base" : "Payment is verified on Base") : (ru ? "Смена позже стоит 5 USDC" : "Changing later costs 5 USDC")}</span>
             </div>
 
             {error && <p className={styles.choiceError}>{error}</p>}
+
+            {selectedFleet && (
+              <div className={styles.selectedFleet} style={{ ["--fleet-color" as string]: selectedFleet.color }}>
+                <CheckIcon size={16} />
+                <span>{ru ? "ВЫБРАН" : "SELECTED"}</span>
+                <strong>{selectedFleet.name}</strong>
+              </div>
+            )}
 
             <button
               ref={primaryRef}
@@ -142,14 +165,21 @@ export function FleetAssignmentModal({
               onClick={() => selectedFleetId && onSelectFleet(selectedFleetId)}
             >
               {busy
-                ? (ru ? "ЗАКРЕПЛЯЕМ ФЛОТ..." : "LOCKING YOUR FLEET...")
+                ? (busyLabel || (ru ? "СОХРАНЯЕМ ФЛОТ..." : "SAVING YOUR FLEET..."))
                 : selectedFleet
-                  ? (ru ? `ВЫБРАТЬ ${selectedFleet.name.toUpperCase()}` : `JOIN ${selectedFleet.name.toUpperCase()}`)
+                  ? changeMode
+                    ? (ru ? `ОПЛАТИТЬ 5 USDC · ${selectedFleet.name.toUpperCase()}` : `PAY 5 USDC · JOIN ${selectedFleet.name.toUpperCase()}`)
+                    : (ru ? `ВЫБРАТЬ ${selectedFleet.name.toUpperCase()}` : `JOIN ${selectedFleet.name.toUpperCase()}`)
                   : (ru ? "СНАЧАЛА ВЫБЕРИ ФЛОТ" : "SELECT A FLEET")}
               {!busy && <ChevronRightIcon size={18} />}
             </button>
 
             {busy && <span className={styles.busyRadar}><AnchorIcon size={18} /></span>}
+            {changeMode && !busy && (
+              <button className={styles.cancelChange} type="button" onClick={() => setChangeMode(false)}>
+                {ru ? "ОТМЕНИТЬ СМЕНУ" : "CANCEL CHANGE"}
+              </button>
+            )}
           </>
         )}
       </section>

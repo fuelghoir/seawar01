@@ -1101,17 +1101,6 @@
   box-shadow: 0 0 18px rgba(255, 200, 80, 0.08);
 }
 
-.previewCardButton {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
 .clickablePanel {
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease;

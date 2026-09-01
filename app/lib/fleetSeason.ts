@@ -4,6 +4,7 @@ export type FleetId = (typeof FLEET_IDS)[number];
 export const FLEET_CHOICE_RESET_SEASON_KEY = "S3";
 // Updated immediately before rollout. Memberships created earlier were automatic assignments.
 export const FLEET_CHOICE_ROLLOUT_AT = "2026-09-01T16:33:00.000Z";
+export const FLEET_CHANGE_PRICE_USDC_MICRO = 5_000_000;
 
 export const FLEET_PAYOUT_BPS = [6000, 3000, 1000] as const;
 export const FLEET_BPS_TOTAL = 10_000;
@@ -94,6 +95,15 @@ export type PublicFleetStanding = {
   pointsEarned: number;
 };
 
+export type PublicFleetMember = {
+  wallet: string;
+  fleetId: FleetId;
+  games: number;
+  wins: number;
+  pointsEarned: number;
+  eligible: boolean;
+};
+
 export type PublicFleetSeason = {
   key: string;
   title: string;
@@ -105,6 +115,7 @@ export type PublicFleetSeason = {
   shares: number[];
   drop: { secret: true };
   fleets: PublicFleetStanding[];
+  members: PublicFleetMember[];
 };
 
 export type PublicFleetMembership = {

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CSSProperties, TouchEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useConnect, useSignMessage, useSwitchChain } from "wagmi";
+import { waitForTransactionReceipt as waitForReceipt } from "@wagmi/core";
+import { useAccount, useConfig, useConnect, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import {
@@ -48,8 +49,7 @@ import { ShareRewardButton } from "./components/ShareRewardButton";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeCheckin } from "./components/WelcomeCheckin";
 import { CaptainOnboarding } from "./components/CaptainOnboarding";
-import { FleetMinerSummary, SeasonPoolCard, SeasonRewardsIntro } from "./components/FleetMinerWidgets";
-import { DropClaimPanel } from "./components/DropClaimPanel";
+import { FleetMinerSummary } from "./components/FleetMinerWidgets";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
@@ -73,10 +73,13 @@ import {
 } from "./components/Icons";
 import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
-import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
+import { SEASON_UI_ENABLED } from "./lib/featureFlags";
 import { useTransactionWarmup } from "./lib/useTransactionWarmup";
 import type { FleetId, PublicFleetSeasonResponse } from "./lib/fleetSeason";
+import { FLEET_CHANGE_PRICE_USDC_MICRO, isFleetId } from "./lib/fleetSeason";
 import { FLEET_SEASON_DEMO_RESPONSE } from "./lib/fleetSeasonDemo";
+import { erc20Abi, SHOP_TREASURY_ADDRESS, USDC_ADDRESS } from "./contracts/seaBattleAbi";
+import { clearWalletRequest, markWalletRequestStarted } from "./lib/walletRequestRecovery";
 import { useOnboarding } from "./providers/OnboardingProvider";
 import {
   recordAcquisitionVisit,
@@ -109,6 +112,23 @@ type HomeClientProps = {
 
 type MobileShowcasePage = "battle" | "miner";
 
+function readPendingFleetChange(key: string): { txHash: `0x${string}`; fleetId: FleetId } | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) ?? "null") as { txHash?: unknown; fleetId?: unknown } | null;
+    if (!value || !/^0x[a-fA-F0-9]{64}$/.test(String(value.txHash)) || !isFleetId(value.fleetId)) return null;
+    return { txHash: String(value.txHash).toLowerCase() as `0x${string}`, fleetId: value.fleetId };
+  } catch {
+    return null;
+  }
+}
+
+function fleetAssignmentBusyLabel(stage: "idle" | "wallet" | "confirming" | "saving", lang: "en" | "ru") {
+  const ru = lang === "ru";
+  if (stage === "wallet") return ru ? "ПОДТВЕРДИ 5 USDC В КОШЕЛЬКЕ" : "CONFIRM 5 USDC IN WALLET";
+  if (stage === "confirming") return ru ? "ЖДЁМ ПЛАТЁЖ В BASE..." : "CONFIRMING ON BASE...";
+  return ru ? "СОХРАНЯЕМ ФЛОТ..." : "SAVING YOUR FLEET...";
+}
+
 export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeClientProps) {
   const router = useRouter();
   const { context, isInMiniApp, isReady } = useMiniApp();
@@ -119,7 +139,9 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     status: connectStatus,
     error: connectError,
   } = useConnect();
-  const { switchChain } = useSwitchChain();
+  const { switchChain, switchChainAsync } = useSwitchChain();
+  const wagmiConfig = useConfig();
+  const { writeContractAsync: writeFleetChange } = useWriteContract();
   const { signMessageAsync } = useSignMessage();
   const { lang, effects, setLang } = useSettings();
   const {
@@ -144,13 +166,13 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [showPlay, setShowPlay] = useState(false);
   const [showFleetAssignment, setShowFleetAssignment] = useState(false);
   const [fleetAssignmentBusy, setFleetAssignmentBusy] = useState(false);
+  const [fleetAssignmentStage, setFleetAssignmentStage] = useState<"idle" | "wallet" | "confirming" | "saving">("idle");
   const [fleetAssignmentError, setFleetAssignmentError] = useState("");
   const [fleetSeasonLoaded, setFleetSeasonLoaded] = useState(false);
   const [fleetSeasonData, setFleetSeasonData] = useState<PublicFleetSeasonResponse>({ season: null });
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showFleetSeasonIntro, setShowFleetSeasonIntro] = useState(false);
-  const [showSeasonIntro, setShowSeasonIntro] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(initialIsNarrowScreen);
   const [connectingConnectorId, setConnectingConnectorId] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<
@@ -180,7 +202,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     const demoParams = process.env.NODE_ENV === "development" && typeof window !== "undefined"
       ? new URLSearchParams(window.location.search)
       : null;
-    if (demoParams && ["fleetDemo", "fleetChoiceDemo", "fleetIntroDemo"].some((key) => demoParams.get(key) === "1")) {
+    if (demoParams && ["fleetDemo", "fleetChoiceDemo", "fleetChangeDemo", "fleetIntroDemo"].some((key) => demoParams.get(key) === "1")) {
       const demoData = demoParams.get("fleetChoiceDemo") === "1"
         ? { ...FLEET_SEASON_DEMO_RESPONSE, membership: null }
         : FLEET_SEASON_DEMO_RESPONSE;
@@ -209,14 +231,53 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
   const chooseFleet = useCallback(async (fleetId: FleetId) => {
     if (!address) return;
+    const paidChange = Boolean(
+      fleetSeasonData.membership && fleetSeasonData.membership.fleetId !== fleetId,
+    );
     setShowFleetAssignment(true);
     setFleetAssignmentBusy(true);
     setFleetAssignmentError("");
     try {
+      let txHash: `0x${string}` | undefined;
+      let pendingKey: string | null = null;
+
+      if (paidChange) {
+        pendingKey = `sea-battle-fleet-change-${address.toLowerCase()}`;
+        const stored = readPendingFleetChange(pendingKey);
+        if (stored && stored.fleetId !== fleetId) {
+          throw new Error(lang === "ru" ? `Сначала заверши смену на ${stored.fleetId}.` : `Finish the pending change to ${stored.fleetId} first.`);
+        }
+
+        if (stored) {
+          txHash = stored.txHash;
+        } else {
+          if (chainId !== base.id) {
+            await switchChainAsync({ chainId: base.id });
+          }
+          setFleetAssignmentStage("wallet");
+          markWalletRequestStarted("fleet-change");
+          txHash = await writeFleetChange({
+            address: USDC_ADDRESS,
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [SHOP_TREASURY_ADDRESS, BigInt(FLEET_CHANGE_PRICE_USDC_MICRO)],
+            chainId: base.id,
+          });
+          localStorage.setItem(pendingKey, JSON.stringify({ txHash, fleetId }));
+        }
+
+        if (!txHash) throw new Error(lang === "ru" ? "Не удалось получить хэш платежа." : "Could not get payment hash.");
+        setFleetAssignmentStage("confirming");
+        const receipt = await waitForReceipt(wagmiConfig, { hash: txHash });
+        clearWalletRequest();
+        if (receipt.status !== "success") throw new Error(lang === "ru" ? "Платёж USDC отменён сетью." : "USDC payment reverted.");
+      }
+
+      setFleetAssignmentStage("saving");
       const res = await fetch("/api/fleet-season", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet: address, fleetId }),
+        body: JSON.stringify({ wallet: address, fleetId, txHash }),
       });
       const data = await res.json().catch(() => null) as (PublicFleetSeasonResponse & { error?: string }) | null;
       if (!res.ok || !data?.membership) {
@@ -224,12 +285,21 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       }
       setFleetSeasonData(data);
       setFleetSeasonLoaded(true);
+      if (pendingKey) localStorage.removeItem(pendingKey);
     } catch (error) {
-      setFleetAssignmentError(error instanceof Error ? error.message : (lang === "ru" ? "Не удалось сохранить выбор флота" : "Could not save fleet choice"));
+      clearWalletRequest();
+      const raw = error instanceof Error ? error.message : "";
+      const rejected = /user rejected|user denied|rejected the request/i.test(raw);
+      setFleetAssignmentError(
+        rejected
+          ? (lang === "ru" ? "Транзакция отменена в кошельке." : "Transaction rejected in wallet.")
+          : raw || (lang === "ru" ? "Не удалось сохранить выбор флота" : "Could not save fleet choice"),
+      );
     } finally {
       setFleetAssignmentBusy(false);
+      setFleetAssignmentStage("idle");
     }
-  }, [address, lang]);
+  }, [address, chainId, fleetSeasonData.membership, lang, switchChainAsync, wagmiConfig, writeFleetChange]);
 
   const openPlay = useCallback(async () => {
     if (!address) {
@@ -256,8 +326,19 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     if (process.env.NODE_ENV !== "development" || !fleetSeasonLoaded) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("fleetChoiceDemo") === "1") setShowFleetAssignment(true);
+    if (params.get("fleetChangeDemo") === "1") setShowFleetAssignment(true);
     if (params.get("fleetIntroDemo") === "1") setShowFleetSeasonIntro(true);
   }, [fleetSeasonLoaded]);
+
+  useEffect(() => {
+    if (!fleetSeasonLoaded || !fleetSeasonData.membership) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("fleetChange") !== "1") return;
+    setFleetAssignmentError("");
+    setShowFleetAssignment(true);
+    url.searchParams.delete("fleetChange");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [fleetSeasonData.membership, fleetSeasonLoaded]);
 
   useEffect(() => {
     checkinStatusGeneration.current += 1;
@@ -605,21 +686,18 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       && new URLSearchParams(window.location.search).get("fleetIntroDemo") === "1";
     if (!isConnected || !address || !profile || !onboardingLoaded) {
       setShowFleetSeasonIntro(forceFleetIntroDemo);
-      setShowSeasonIntro(false);
       setShowWelcome(false);
       return;
     }
 
     if (onboarding?.required) {
       setShowFleetSeasonIntro(false);
-      setShowSeasonIntro(false);
       if (onboarding?.step !== "checkin") setShowWelcome(false);
       return;
     }
 
     if (!fleetSeasonLoaded) {
       setShowFleetSeasonIntro(false);
-      setShowSeasonIntro(false);
       setShowWelcome(false);
       return;
     }
@@ -628,7 +706,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       ? fleetSeasonData.season
       : null;
     if (activeFleetSeason) {
-      setShowSeasonIntro(false);
       const key = `sea-battle-fleet-season-intro-${activeFleetSeason.key}-${address.toLowerCase()}`;
       if (sessionStorage.getItem(key) !== "1") {
         setShowFleetSeasonIntro(true);
@@ -641,18 +718,8 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     }
 
     setShowFleetSeasonIntro(false);
-    if (!season?.isEnded) {
-      const key = `sea-battle-usdc-season-intro-${address.toLowerCase()}`;
-      if (USDC_SEASON_REWARDS_ENABLED && sessionStorage.getItem(key) !== "1") {
-        setShowSeasonIntro(true);
-        setShowWelcome(false);
-        return;
-      }
-    }
-
-    setShowSeasonIntro(false);
     setShowWelcome(checkin?.canCheckin === true);
-  }, [isConnected, address, profile, season, onboarding, onboardingLoaded, checkin?.canCheckin, fleetSeasonData.season, fleetSeasonLoaded]);
+  }, [isConnected, address, profile, onboarding, onboardingLoaded, checkin?.canCheckin, fleetSeasonData.season, fleetSeasonLoaded]);
 
   const closeFleetSeasonIntro = useCallback(() => {
     if (address && fleetSeasonData.season) {
@@ -664,14 +731,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
     setShowFleetSeasonIntro(false);
     setShowWelcome(checkin?.canCheckin === true);
   }, [address, checkin?.canCheckin, fleetSeasonData.season]);
-
-  const closeSeasonIntro = useCallback(() => {
-    if (address) {
-      sessionStorage.setItem(`sea-battle-usdc-season-intro-${address.toLowerCase()}`, "1");
-    }
-    setShowSeasonIntro(false);
-    setShowWelcome(checkin?.canCheckin === true);
-  }, [address, checkin?.canCheckin]);
 
   useEffect(() => {
     if (!onboarding?.required) return;
@@ -929,6 +988,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
       <FleetAssignmentModal
         open={showFleetAssignment}
         busy={fleetAssignmentBusy}
+        busyLabel={fleetAssignmentBusyLabel(fleetAssignmentStage, lang)}
         error={fleetAssignmentError}
         lang={lang}
         season={fleetSeasonData.season}
@@ -1030,16 +1090,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         />
       )}
 
-      {address && (
-        <SeasonRewardsIntro
-          open={showSeasonIntro}
-          onClose={closeSeasonIntro}
-          onOpenProfile={() => setOpenSection("profile")}
-          endDate={season?.endDate}
-        />
-      )}
-
-      {!showFleetSeasonIntro && !showSeasonIntro && showWelcome && address && (
+      {!showFleetSeasonIntro && showWelcome && address && (
         <WelcomeCheckin
           address={address}
           walletSession={checkinWalletSession}
@@ -1127,7 +1178,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                       {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
                     </div>
                   )}
-                  {fleetSeasonData.season ? (
+                  {fleetSeasonData.season && (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <FleetSeasonHomeCard
                         season={fleetSeasonData.season}
@@ -1137,11 +1188,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                         onOpen={() => router.push("/leaderboard")}
                       />
                     </div>
-                  ) : USDC_SEASON_REWARDS_ENABLED ? (
-                    <div className={styles.mobileSeasonRewardBlock}>
-                      <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
-                    </div>
-                  ) : null}
+                  )}
                   {SEASON_UI_ENABLED && (
                     <div className={styles.mobileBattlePassBlock}>
                       <SeasonRoadmap
@@ -1208,7 +1255,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 />
 
                 {address && <CreatorRewardsSummary address={address} />}
-                {address && <DropClaimPanel address={address} />}
                 {address && (
                   <ShareRewardButton
                     kind="profile"
@@ -1337,7 +1383,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
                   {canShowCheckin && renderMobileCheckinButton()}
 
-                  {fleetSeasonData.season ? (
+                  {fleetSeasonData.season && (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <FleetSeasonHomeCard
                         season={fleetSeasonData.season}
@@ -1347,15 +1393,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                         onOpen={() => router.push("/leaderboard")}
                       />
                     </div>
-                  ) : USDC_SEASON_REWARDS_ENABLED ? (
-                    <div className={styles.mobileSeasonRewardBlock}>
-                      <SeasonPoolCard
-                        variant="wide"
-                        address={address}
-                        endDate={season?.endDate}
-                      />
-                    </div>
-                  ) : null}
+                  )}
 
                   <SecretSbtCard
                     wins={profileView.totalWins}
@@ -1554,17 +1592,14 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 />
               )}
               {address && <CreatorRewardsSummary address={address} />}
-              {fleetSeasonData.season ? (
+              {fleetSeasonData.season && (
                 <FleetSeasonHomeCard
                   season={fleetSeasonData.season}
                   membership={fleetSeasonData.membership ?? null}
                   lang={lang}
                   onOpen={() => router.push("/leaderboard")}
                 />
-              ) : USDC_SEASON_REWARDS_ENABLED ? (
-                <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
-              ) : null}
-              {address && <DropClaimPanel address={address} />}
+              )}
             </div>
           )}
 
@@ -1650,7 +1685,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           <div className={styles.shopBody}>
             <ShopPreview
               season={season}
-              address={address}
               fleetSeasonData={fleetSeasonData}
               onOpenLeaderboard={() => router.push("/leaderboard")}
               onOpenShop={() => router.push("/shop")}
@@ -2181,21 +2215,19 @@ function MobileRecentRow({ game, lang }: { game: GameHistoryEntry; lang: string 
 
 function ShopPreview({
   season,
-  address,
   fleetSeasonData,
   onOpenLeaderboard,
   onOpenShop,
 }: {
   season: SeasonState | null;
-  address?: `0x${string}`;
   fleetSeasonData: PublicFleetSeasonResponse;
   onOpenLeaderboard: () => void;
   onOpenShop: () => void;
 }) {
   const { lang } = useSettings();
   const tr = TR[lang];
-  const [previewTab, setPreviewTab] = useState<"fleet" | "claim" | "battle">(
-    fleetSeasonData.season ? "fleet" : USDC_SEASON_REWARDS_ENABLED ? "claim" : "battle",
+  const [previewTab, setPreviewTab] = useState<"fleet" | "battle">(
+    fleetSeasonData.season ? "fleet" : "battle",
   );
   useEffect(() => {
     if (fleetSeasonData.season) setPreviewTab("fleet");
@@ -2250,15 +2282,6 @@ function ShopPreview({
                 Season 3
               </button>
             )}
-            {USDC_SEASON_REWARDS_ENABLED && (
-              <button
-                className={`${styles.previewTab} ${previewTab === "claim" ? styles.previewTabActive : ""}`}
-                onClick={() => setPreviewTab("claim")}
-                type="button"
-              >
-                Claim
-              </button>
-            )}
             <button
               className={`${styles.previewTab} ${previewTab === "battle" ? styles.previewTabActive : ""}`}
               onClick={() => setPreviewTab("battle")}
@@ -2276,10 +2299,6 @@ function ShopPreview({
               variant="wide"
               onOpen={onOpenLeaderboard}
             />
-          ) : previewTab === "claim" && USDC_SEASON_REWARDS_ENABLED ? (
-            <div className={styles.previewCardButton}>
-              <SeasonPoolCard variant="sidebar" address={address} />
-            </div>
           ) : (
             <SeasonRoadmap season={season} onOpen={onOpenShop} />
           )}
