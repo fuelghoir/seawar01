@@ -196,27 +196,20 @@
 
 .choiceCopy {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 5px 6px;
+  place-items: center;
   min-width: 0;
-  padding: 9px 10px 0;
+  min-height: 42px;
+  padding: 8px 8px 10px;
+  text-align: center;
 }
 
 .choiceCopy strong {
-  grid-column: 1 / -1;
+  width: 100%;
   overflow: hidden;
   color: var(--fleet-color);
   font: 800 12px var(--font-orbitron), sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.choiceCopy small {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #819ca6;
-  font: 700 9px var(--font-mono-raw), monospace;
 }
 
 .shipStage img {
@@ -389,10 +382,8 @@
   .shipStage { min-height: 150px; margin: 0 12px; }
   .fleetChoices { gap: 6px; padding: 2px 12px 0; }
   .choiceShip { height: 86px; }
-  .choiceCopy { grid-template-columns: 1fr; gap: 4px; padding: 8px 7px 0; }
+  .choiceCopy { min-height: 36px; padding: 7px 6px 9px; }
   .choiceCopy strong { font-size: 9px; }
-  .choiceCopy small { font-size: 8px; }
-  .choiceCopy small:last-child { display: none; }
   .choiceMark { top: 6px; right: 6px; width: 20px; height: 20px; }
   .currentFleet { top: 6px; left: 6px; font-size: 6px; }
   .rules { grid-template-columns: 1fr 1fr; padding: 12px 12px 0; }

@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import type { FleetId, PublicFleetMembership, PublicFleetSeason } from "../lib/fleetSeason";
-import { AnchorIcon, CheckIcon, ChevronRightIcon, ShieldIcon, TrophyIcon, UsersIcon } from "./Icons";
+import { FLEET_IDS, type FleetId, type PublicFleetMembership, type PublicFleetSeason } from "../lib/fleetSeason";
+import { AnchorIcon, CheckIcon, ChevronRightIcon, ShieldIcon, TrophyIcon } from "./Icons";
 import styles from "./FleetAssignmentModal.module.css";
 
 type FleetAssignmentModalProps = {
@@ -37,6 +37,9 @@ export function FleetAssignmentModal({
   const ru = lang === "ru";
   const fleet = season?.fleets.find((entry) => entry.id === membership?.fleetId) ?? null;
   const selectedFleet = season?.fleets.find((entry) => entry.id === selectedFleetId) ?? null;
+  const fleetChoices = [...(season?.fleets ?? [])].sort(
+    (left, right) => FLEET_IDS.indexOf(left.id) - FLEET_IDS.indexOf(right.id),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -115,7 +118,7 @@ export function FleetAssignmentModal({
             </div>
 
             <div className={styles.fleetChoices} role="radiogroup" aria-label={ru ? "Выбор флота" : "Choose a fleet"}>
-              {(season?.fleets ?? []).map((entry) => {
+              {fleetChoices.map((entry) => {
                 const selected = selectedFleetId === entry.id;
                 const current = membership?.fleetId === entry.id;
                 return (
@@ -134,8 +137,6 @@ export function FleetAssignmentModal({
                     <span className={styles.choiceShip}><Image src={entry.image} alt="" fill sizes="180px" /></span>
                     <span className={styles.choiceCopy}>
                       <strong>{entry.name}</strong>
-                      <small><TrophyIcon size={11} /> {entry.wins.toLocaleString()} W</small>
-                      <small><UsersIcon size={11} /> {entry.members}</small>
                     </span>
                   </button>
                 );
