@@ -14,6 +14,8 @@ import {
 const PAGE_SIZE = 1000;
 const POINTS_BATCH_SIZE = 100;
 const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
+const LEGACY_BOT_WALLET = "0xddbd0fba98b5d017cad2d0915beca2280dc3000b";
+const EXCLUDED_FLEET_WALLETS = new Set([BOT_STATS_OPPONENT, LEGACY_BOT_WALLET]);
 
 export type FleetSeasonRecord = {
   seasonKey: string;
@@ -103,7 +105,8 @@ export async function loadFleetSeasonDashboard(
     })) as FleetDefinition[];
   const safeFleets = fleets.length === 3 ? fleets : DEFAULT_FLEETS;
 
-  const memberRows = await loadMembers(admin, season.seasonKey);
+  const memberRows = (await loadMembers(admin, season.seasonKey))
+    .filter((row) => !isExcludedFleetWallet(row.wallet));
   const currentPlayerStats = await loadCurrentPlayerStats(admin, memberRows.map((row) => row.wallet));
   const gameRows = await loadGames(admin, season.startsAt, statsEndDate(season));
   const members: FleetMemberInput[] = memberRows
@@ -202,11 +205,15 @@ async function loadGames(admin: SupabaseClient, startsAt: string, endsAt: string
     const pageRows = (data ?? []) as typeof rows;
     rows.push(...pageRows.filter((row) =>
       String(row.game_mode ?? "").toLowerCase() !== "bot" &&
-      String(row.player1 ?? "").toLowerCase() !== BOT_STATS_OPPONENT &&
-      String(row.player2 ?? "").toLowerCase() !== BOT_STATS_OPPONENT
+      !isExcludedFleetWallet(row.player1) &&
+      !isExcludedFleetWallet(row.player2)
     ));
     if (pageRows.length < PAGE_SIZE) return rows;
   }
+}
+
+function isExcludedFleetWallet(wallet: string | null | undefined) {
+  return EXCLUDED_FLEET_WALLETS.has(String(wallet ?? "").toLowerCase());
 }
 
 function statsEndDate(season: FleetSeasonRecord) {

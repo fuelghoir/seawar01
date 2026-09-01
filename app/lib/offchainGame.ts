@@ -3,6 +3,7 @@ import { getItemQuantity, SEASON_KEY } from "./season";
 import { isBaseAppUserAgent } from "./baseApp";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
+const LEGACY_BOT_WALLET = "0xddbd0fba98b5d017cad2d0915beca2280dc3000b";
 const V7_WAGER_LAUNCHED_AT = "2026-06-02T16:02:21.000Z";
 
 // ─── Offchain game CRUD ───
@@ -963,6 +964,7 @@ export async function getLeaderboard(
       .select("wallet, points", { count: "exact" })
       .gt("points", 0)
       .neq("wallet", BOT_STATS_OPPONENT)
+      .neq("wallet", LEGACY_BOT_WALLET)
       .eq("season_key", activeSeasonKey)
       .order("points", { ascending: false })
       .range(from, to);
@@ -991,6 +993,7 @@ export async function getLeaderboard(
     .select("wallet, points, wins, games_played, total_hits, checkin_streak", { count: "exact" })
     .gt("points", 0)
     .neq("wallet", BOT_STATS_OPPONENT)
+    .neq("wallet", LEGACY_BOT_WALLET)
     .order("points", { ascending: false })
     .range(from, to);
 
