@@ -1,0 +1,223 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(1 6 12 / 88%);
+}
+
+.modal {
+  position: relative;
+  width: min(520px, 100%);
+  overflow: hidden;
+  color: #edfaff;
+  border: 1px solid rgb(119 168 188 / 24%);
+  border-radius: 18px;
+  background: #07111b;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62);
+  font-family: var(--font-rajdhani), "Rajdhani", sans-serif;
+}
+
+.modal::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #35e6c1 0 33.33%, #66a6ff 33.33% 66.66%, #f3bc62 66.66%);
+}
+
+.close {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #8ea8b2;
+  font-family: var(--font-mono-raw), monospace;
+  border: 1px solid rgba(142, 190, 204, 0.22);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 4%);
+  cursor: pointer;
+}
+
+.close:hover { color: #ffffff; border-color: rgba(142, 190, 204, 0.5); }
+.close:disabled { opacity: 0.4; cursor: default; }
+
+.assignmentHead,
+.loadingState,
+.errorState {
+  padding: 26px 26px 16px;
+}
+
+.assignmentHead > span,
+.loadingState > span:not(.radar),
+.errorState > span:not(.statusIcon) {
+  color: #f1c75b;
+  font-family: var(--font-mono-raw), monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.assignmentHead h2,
+.loadingState h2,
+.errorState h2 {
+  margin: 7px 0;
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.assignmentHead p,
+.loadingState p,
+.errorState p {
+  margin: 0;
+  color: #9fb5bd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.shipStage {
+  --fleet-color: #28d7ef;
+  position: relative;
+  min-height: 180px;
+  margin: 0 18px;
+  overflow: hidden;
+  color: var(--fleet-color);
+  border-top: 1px solid color-mix(in srgb, var(--fleet-color) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--fleet-color) 40%, transparent);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 36px 36px, 36px 36px;
+}
+
+.shipStage img {
+  object-fit: contain;
+  filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.62));
+}
+
+.fleetSeal {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  color: var(--fleet-color);
+  font-family: var(--font-mono-raw), monospace;
+  font-size: 9px;
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--fleet-color) 50%, transparent);
+  background: rgba(2, 10, 15, 0.82);
+}
+
+.rules {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 14px 18px 0;
+}
+
+.rules span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 8px 10px;
+  color: #a9bec6;
+  font-size: 10px;
+  border-left: 2px solid #28d7ef;
+  background: rgba(40, 215, 239, 0.055);
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: calc(100% - 36px);
+  min-height: 48px;
+  margin: 14px 18px 18px;
+  padding: 0 14px;
+  color: #001016;
+  font-family: var(--font-orbitron), sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #35e6c1, #2cc8ec);
+  cursor: pointer;
+}
+
+.primary:hover { background: #76e9f8; }
+.primary:focus-visible,
+.close:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+
+.loadingState,
+.errorState {
+  display: flex;
+  min-height: 300px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.radar,
+.statusIcon {
+  display: grid;
+  width: 82px;
+  height: 82px;
+  place-items: center;
+  margin-bottom: 20px;
+  color: #28d7ef;
+  border: 1px solid rgba(40, 215, 239, 0.4);
+  border-radius: 50%;
+}
+
+.radar {
+  box-shadow: 0 0 0 14px rgba(40, 215, 239, 0.04), 0 0 0 28px rgba(40, 215, 239, 0.025);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.errorState .statusIcon { color: #ff6571; border-color: rgba(255, 101, 113, 0.4); }
+.errorState .primary { margin-top: 22px; }
+
+@keyframes pulse {
+  50% { transform: scale(1.05); opacity: 0.72; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar { animation: none; }
+}
+
+@media (max-width: 600px) {
+  .backdrop { align-items: end; padding: 0; }
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 18px 18px 0 0;
+  }
+  .assignmentHead { padding: 24px 20px 14px; }
+  .assignmentHead h2,
+  .loadingState h2,
+  .errorState h2 { padding-right: 26px; font-size: 24px; }
+  .shipStage { min-height: 150px; margin: 0 12px; }
+  .rules { grid-template-columns: 1fr 1fr; padding: 12px 12px 0; }
+  .rules span { min-height: 36px; }
+  .primary { width: calc(100% - 24px); margin: 12px; }
+}

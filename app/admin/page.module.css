@@ -1289,6 +1289,27 @@
   }
 }
 
+.legacySeason {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(125, 174, 194, 0.14);
+}
+
+.legacySeason summary {
+  width: fit-content;
+  color: rgba(202, 221, 228, 0.46);
+  font-family: var(--font-mono-raw), monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.legacySeason[open] summary {
+  margin-bottom: 16px;
+  color: rgba(202, 221, 228, 0.72);
+}
+
 @media (max-width: 520px) {
   .statsGrid,
   .tabs,

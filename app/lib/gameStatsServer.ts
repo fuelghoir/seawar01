@@ -234,7 +234,7 @@ async function getActiveSeasonKey(admin: SupabaseClient): Promise<string> {
     .select("bp_season_key")
     .eq("id", "default")
     .maybeSingle();
-  return data?.bp_season_key ?? "S1";
+  return data?.bp_season_key ?? "S2";
 }
 
 async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
@@ -265,6 +265,15 @@ async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
 
 async function addSeasonLeaderboardPoints(admin: SupabaseClient, wallet: string, points: number) {
   if (points <= 0) return;
+  const { data: fleetSeason } = await admin
+    .from("fleet_seasons")
+    .select("season_key")
+    .eq("status", "active")
+    .lte("starts_at", new Date().toISOString())
+    .gt("ends_at", new Date().toISOString())
+    .maybeSingle();
+  if (fleetSeason) return;
+
   const seasonKey = await getActiveSeasonKey(admin);
   const { data, error } = await admin
     .from("season_points")

@@ -958,3 +958,149 @@
     margin-top: 2px;
   }
 }
+
+.fleetBoard {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 14px;
+  background: #07131e;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.fleetBoardHead,
+.fleetBoardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.14);
+}
+
+.fleetBoardHead > span,
+.fleetBoardHead > small {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.fleetBoardHead > span {
+  color: #edf7fa;
+  font-family: var(--font-orbitron), "Orbitron", monospace;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fleetBoardHead > small {
+  color: #f3bc62;
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.myFleetStrip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 10px 0;
+  padding: 10px 12px;
+  color: #35e6c1;
+  border: 1px solid rgba(53, 230, 193, 0.24);
+  border-radius: 10px;
+  background: rgba(53, 230, 193, 0.055);
+}
+
+.myFleetStrip span { display: grid; min-width: 0; }
+.myFleetStrip small { color: rgba(255, 255, 255, 0.42); font: 700 7px var(--font-mono), monospace; }
+.myFleetStrip strong { overflow: hidden; color: #fff; font: 800 12px var(--font-orbitron), monospace; text-overflow: ellipsis; white-space: nowrap; }
+.myFleetStrip > b { color: #f3bc62; font: 800 13px var(--font-orbitron), monospace; }
+
+.fleetRows {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.fleetRow {
+  --fleet-color: #28d7ef;
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px 76px minmax(0, 1fr) 68px 56px;
+  grid-template-rows: minmax(62px, auto) 4px;
+  align-items: center;
+  column-gap: 8px;
+  overflow: hidden;
+  padding: 7px 10px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-left: 3px solid var(--fleet-color);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.fleetRowMine {
+  border-color: color-mix(in srgb, var(--fleet-color) 42%, transparent);
+  border-left-color: var(--fleet-color);
+  background: color-mix(in srgb, var(--fleet-color) 7%, #07131e);
+}
+
+.fleetRank { color: var(--fleet-color); font: 900 17px var(--font-orbitron), monospace; }
+
+.fleetShip {
+  position: relative;
+  width: 76px;
+  height: 54px;
+}
+
+.fleetShip img { object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5)); }
+.fleetIdentity,
+.fleetWins,
+.fleetShare { display: grid; min-width: 0; }
+.fleetIdentity > strong { overflow: hidden; color: var(--fleet-color); font: 800 12px var(--font-orbitron), monospace; text-overflow: ellipsis; white-space: nowrap; }
+.fleetIdentity > small { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: rgba(255, 255, 255, 0.44); font-size: 10px; }
+.fleetWins small,
+.fleetShare small { color: rgba(255, 255, 255, 0.36); font: 700 7px var(--font-mono), monospace; }
+.fleetWins strong { color: #eef8fb; font: 800 13px var(--font-orbitron), monospace; }
+.fleetShare { text-align: right; }
+.fleetShare strong { color: #f3bc62; font: 900 17px var(--font-orbitron), monospace; }
+
+.fleetProgress {
+  grid-column: 3 / 6;
+  align-self: end;
+  height: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fleetProgress i { display: block; height: 100%; background: var(--fleet-color); }
+
+.fleetBoardFoot {
+  border-top: 1px solid rgba(var(--accent-rgb), 0.12);
+  border-bottom: 0;
+}
+
+.fleetBoardFoot > span { display: grid; gap: 2px; color: rgba(255, 255, 255, 0.42); font-size: 9px; }
+.fleetBoardFoot > span:last-child { text-align: right; }
+.fleetBoardFoot b { color: #f1f7f9; font: 800 9px var(--font-orbitron), monospace; }
+
+@media (max-width: 520px) {
+  .fleetBoardHead { padding: 12px; }
+  .fleetBoardHead > small { font-size: 7px; }
+  .fleetRow {
+    grid-template-columns: 26px 62px minmax(0, 1fr) 48px 44px;
+    grid-template-rows: minmax(58px, auto) 4px;
+    column-gap: 6px;
+    padding: 6px 7px 8px;
+  }
+  .fleetRank { font-size: 14px; }
+  .fleetShip { width: 62px; height: 48px; }
+  .fleetIdentity > strong { font-size: 10px; }
+  .fleetIdentity > small { font-size: 8px; }
+  .fleetWins strong { font-size: 10px; }
+  .fleetShare strong { font-size: 14px; }
+  .fleetProgress { grid-column: 3 / 6; }
+  .fleetBoardFoot { align-items: flex-start; padding: 12px; }
+}

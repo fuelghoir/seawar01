@@ -3,7 +3,6 @@ import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { adminSupabase } from "../../../lib/adminSupabase";
-import { supabase } from "../../../lib/supabase";
 import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
@@ -149,7 +148,8 @@ async function getClaimCandidate(
   dropId: string,
   wallet: string,
 ): Promise<ClaimCandidate | { error: string; status: number }> {
-  const allocation = await supabase
+  const db = adminSupabase();
+  const allocation = await db
     .from("drop_allocations")
     .select("drop_id,wallet,amount_raw,claimed_at,drop_campaigns(id,token_address,status,contract_address)")
     .eq("drop_id", dropId)
@@ -188,7 +188,7 @@ async function getClaimCandidate(
     return { error: "No allocation for this wallet", status: 404 };
   }
 
-  const reward = await supabase
+  const reward = await db
     .from("creator_rewards")
     .select("id,wallet,reward_kind,status,amount_raw,token_address,reward_label")
     .eq("id", creatorRewardId)
@@ -266,7 +266,7 @@ function tokenForCreatorReward(kind: string, tokenAddress: string | null | undef
 }
 
 async function markClaimedInDb(dropId: string, wallet: string) {
-  const db = adminSupabaseOrAnon();
+  const db = adminSupabase();
   const creatorRewardId = parseCreatorRewardDropId(dropId);
   if (creatorRewardId !== null) {
     await db
@@ -282,9 +282,4 @@ async function markClaimedInDb(dropId: string, wallet: string) {
     .update({ claimed_at: new Date().toISOString() })
     .eq("drop_id", dropId)
     .eq("wallet", wallet);
-}
-
-function adminSupabaseOrAnon() {
-  const admin = adminSupabase();
-  return admin ? admin : supabase;
 }

@@ -544,8 +544,8 @@ export async function getSeasonState(wallet: string): Promise<SeasonState> {
   if (configError) throw new Error(configError.message);
 
   const seasonKey = configData?.season_key || SEASON_KEY;
-  const bpSeasonKey = configData?.bp_season_key || "S1";
-  const endDate = configData?.end_date ?? "2026-08-26T00:00:00.000Z";
+  const bpSeasonKey = configData?.bp_season_key || "S2";
+  const endDate = configData?.end_date ?? "2027-01-01T00:00:00.000Z";
   const isEnded = configData?.is_ended ?? false;
   const virtualPoolUsdc = configData?.virtual_pool_usdc ?? 0;
 

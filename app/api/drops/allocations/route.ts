@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { base } from "viem/chains";
-import { supabase } from "../../../lib/supabase";
+import { adminSupabase } from "../../../lib/adminSupabase";
 import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
@@ -13,13 +12,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
   }
 
+  const db = adminSupabase();
   const [allocations, creatorRewards] = await Promise.all([
-    supabase
+    db
       .from("drop_allocations")
       .select("drop_id,wallet,points,amount_raw,claimed_at,claim_tx_hash,drop_campaigns(id,title,token_address,token_symbol,decimals,status,contract_address)")
       .eq("wallet", wallet)
       .order("created_at", { ascending: false }),
-    supabase
+    db
       .from("creator_rewards")
       .select("id,wallet,reward_kind,amount_raw,token_address,reward_label,status,tx_hash,created_at")
       .eq("wallet", wallet)
@@ -116,7 +116,7 @@ async function filterUnclaimedCreatorRewards(
       .catch(() => false);
 
     if (claimed) {
-      await adminSupabaseOrAnon()
+      await adminSupabase()
         .from("creator_rewards")
         .update({ status: "paid" })
         .eq("id", reward.id)
@@ -156,11 +156,4 @@ function resolveDropClaimContract() {
 function dropIdToBytes32(dropId: string): `0x${string}` {
   if (/^0x[0-9a-fA-F]{64}$/.test(dropId)) return dropId as `0x${string}`;
   return keccak256(toBytes(dropId));
-}
-
-function adminSupabaseOrAnon() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && serviceKey) return createClient(url, serviceKey);
-  return supabase;
 }

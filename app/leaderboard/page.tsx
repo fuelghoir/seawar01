@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -10,10 +11,80 @@ import { SettingsPanel } from "../components/SettingsPanel";
 import { FleetMinerSummary, SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { MobileDock } from "../components/MobileDock";
 import { useSettings, TR } from "../lib/settings";
+import { ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
+import type { PublicFleetMembership, PublicFleetSeason, PublicFleetSeasonResponse } from "../lib/fleetSeason";
+import { FLEET_SEASON_DEMO_RESPONSE } from "../lib/fleetSeasonDemo";
 import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
 
 type PageItem = number | "gap";
+
+function FleetStandings({
+  season,
+  membership,
+  lang,
+}: {
+  season: PublicFleetSeason;
+  membership: PublicFleetMembership | null;
+  lang: "en" | "ru";
+}) {
+  const ru = lang === "ru";
+  const maxWins = Math.max(1, ...season.fleets.map((fleet) => fleet.wins));
+
+  return (
+    <section className={styles.fleetBoard}>
+      <div className={styles.fleetBoardHead}>
+        <span>
+          <TrophyIcon size={15} />
+          {ru ? "Рейтинг флотов" : "Fleet standings"}
+        </span>
+        <small><ShieldIcon size={13} /> {ru ? "Общий дроп скрыт" : "Drop classified"}</small>
+      </div>
+
+      {membership && (
+        <div className={styles.myFleetStrip}>
+          <ShieldIcon size={18} />
+          <span><small>{ru ? "ТВОЙ ФЛОТ" : "YOUR FLEET"}</small><strong>{membership.fleetName}</strong></span>
+          <b>{membership.wins}W · {membership.pointsEarned.toLocaleString()} PTS</b>
+        </div>
+      )}
+
+      <div className={styles.fleetRows}>
+        {season.fleets.map((fleet) => {
+          const isMine = membership?.fleetId === fleet.id;
+          return (
+            <article
+              key={fleet.id}
+              className={`${styles.fleetRow} ${isMine ? styles.fleetRowMine : ""}`}
+              style={{ ["--fleet-color" as string]: fleet.color }}
+            >
+              <strong className={styles.fleetRank}>0{fleet.rank}</strong>
+              <span className={styles.fleetShip}><Image src={fleet.image} alt="" fill sizes="86px" /></span>
+              <span className={styles.fleetIdentity}>
+                <strong>{fleet.name}</strong>
+                <small><UsersIcon size={12} /> {fleet.members} {ru ? "игроков" : "captains"}</small>
+              </span>
+              <span className={styles.fleetWins}>
+                <small>{ru ? "ПОБЕДЫ" : "WINS"}</small>
+                <strong>{fleet.wins.toLocaleString()}</strong>
+              </span>
+              <span className={styles.fleetShare}>
+                <small>{ru ? "ДОЛЯ" : "SHARE"}</small>
+                <strong>{season.shares[fleet.rank - 1]}%</strong>
+              </span>
+              <span className={styles.fleetProgress}><i style={{ width: `${(fleet.wins / maxWins) * 100}%` }} /></span>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className={styles.fleetBoardFoot}>
+        <span><b>60 / 30 / 10</b>{ru ? "по итоговому месту" : "by final place"}</span>
+        <span><b>{ru ? "50% ПО ПОЙНТАМ" : "50% BY POINTS"}</b>{ru ? "игра и майнер учитываются" : "games and Miner count"}</span>
+      </div>
+    </section>
+  );
+}
 
 function LeaderboardPodium({
   entries,
@@ -72,12 +143,13 @@ export default function LeaderboardPage() {
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [page, setPage] = useState(1);
-  const [mode, setMode] = useState<"allTime" | "season">("season");
+  const [mode, setMode] = useState<"allTime" | "season" | "fleet">("season");
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [season, setSeason] = useState<SeasonState | null>(null);
+  const [fleetSeasonData, setFleetSeasonData] = useState<PublicFleetSeasonResponse>({ season: null });
   const isBaseApp = typeof window !== "undefined" && isBaseAppUserAgent(window.navigator.userAgent);
 
   useEffect(() => {
@@ -85,7 +157,33 @@ export default function LeaderboardPage() {
   }, [address]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("fleetDemo") === "1") {
+      setFleetSeasonData(FLEET_SEASON_DEMO_RESPONSE);
+      setMode("fleet");
+      setPage(1);
+      return;
+    }
+
+    const query = address ? `?wallet=${encodeURIComponent(address)}` : "";
+    fetch(`/api/fleet-season${query}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: PublicFleetSeasonResponse) => {
+        setFleetSeasonData(data);
+        if (data.season) {
+          setMode("fleet");
+          setPage(1);
+        }
+      })
+      .catch(() => {});
+  }, [address]);
+
+  useEffect(() => {
     let active = true;
+
+    if (mode === "fleet") {
+      setLoading(false);
+      return () => { active = false; };
+    }
 
     setLoading(true);
     getLeaderboard(page, LEADERBOARD_PAGE_SIZE, mode)
@@ -111,6 +209,8 @@ export default function LeaderboardPage() {
   }, [page, mode]);
 
   const myAddr = address?.toLowerCase();
+  const fleetSeason = fleetSeasonData.season;
+  const fleetPlayers = fleetSeason?.fleets.reduce((sum, fleet) => sum + fleet.members, 0) ?? 0;
   const pageItems = getPageItems(page, totalPages);
   const firstRank = (page - 1) * LEADERBOARD_PAGE_SIZE + 1;
   const lastRank = firstRank + entries.length - 1;
@@ -137,17 +237,24 @@ export default function LeaderboardPage() {
         </div>
 
         <div className={styles.leaderHero}>
-          <span>{lang === "ru" ? "\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u043a\u0430\u043f\u0438\u0442\u0430\u043d\u043e\u0432" : "Captain rankings"}</span>
-          <strong>{total.toLocaleString()} {lang === "ru" ? "\u0438\u0433\u0440\u043e\u043a\u043e\u0432" : "players"}</strong>
-          <p>{tr.lb_subtitle}</p>
+          <span>{mode === "fleet" ? (lang === "ru" ? "Сезонная битва флотов" : "Season fleet battle") : (lang === "ru" ? "Рейтинг капитанов" : "Captain rankings")}</span>
+          <strong>{(mode === "fleet" ? fleetPlayers : total).toLocaleString()} {lang === "ru" ? "игроков" : "players"}</strong>
+          <p>{mode === "fleet" ? (lang === "ru" ? "Победы двигают весь флот" : "Every win moves the whole fleet") : tr.lb_subtitle}</p>
         </div>
 
         <div className={styles.tabsContainer}>
           <button
-            className={`${styles.tabBtn} ${mode === "season" ? styles.tabActive : ""}`}
-            onClick={() => { setMode("season"); setPage(1); }}
+            className={`${styles.tabBtn} ${mode === (fleetSeason ? "fleet" : "season") ? styles.tabActive : ""}`}
+            onClick={() => {
+              setMode(fleetSeason ? "fleet" : "season");
+              setPage(1);
+            }}
           >
-            {season?.isEnded ? (lang === "ru" ? "Скоро Сезон 2" : "Season 2 soon") : (tr.leaderboard_season || "Current Season")}
+            {fleetSeason
+              ? (fleetSeason.status === "active" ? "Fleet Season" : (lang === "ru" ? "Итоги флотов" : "Fleet Results"))
+              : season?.isEnded
+                ? (lang === "ru" ? "Скоро новый сезон" : "New season soon")
+                : (tr.leaderboard_season || "Current Season")}
           </button>
           <button
             className={`${styles.tabBtn} ${mode === "allTime" ? styles.tabActive : ""}`}
@@ -157,7 +264,19 @@ export default function LeaderboardPage() {
           </button>
         </div>
 
-        {showHelp && (
+        {showHelp && mode === "fleet" && (
+          <div className={styles.helpBox}>
+            <p className={styles.helpTitle}>{lang === "ru" ? "Как работает сезон" : "How Fleet Season works"}</p>
+            <ul className={styles.helpList}>
+              <li>{lang === "ru" ? "Флот назначается при первом Play и не меняется." : "Your fleet is assigned on first Play and stays locked."}</li>
+              <li>{lang === "ru" ? "В рейтинге считаются только победы всего флота." : "Only total fleet wins decide the ranking."}</li>
+              <li><strong>60% / 30% / 10%</strong> {lang === "ru" ? "делятся по итоговым местам." : "is split by final place."}</li>
+              <li><strong>50% + 50%</strong> {lang === "ru" ? "половина награды флота делится поровну, половина по пойнтам S3. Майнер учитывается." : "half the fleet reward is equal, half follows S3 points. Miner points count."}</li>
+            </ul>
+          </div>
+        )}
+
+        {showHelp && mode !== "fleet" && (
           <div className={styles.helpBox}>
             <p className={styles.helpTitle}>{tr.lb_help_title}</p>
             <ul className={styles.helpList}>
@@ -170,7 +289,13 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {loading ? (
+        {mode === "fleet" && fleetSeason ? (
+          <FleetStandings
+            season={fleetSeason}
+            membership={fleetSeasonData.membership ?? null}
+            lang={lang}
+          />
+        ) : loading ? (
           <div className={styles.loadingWrap}>
             <div className={styles.spinner} />
           </div>
@@ -284,7 +409,7 @@ export default function LeaderboardPage() {
           </>
         )}
 
-        <section className={styles.rewardIntel}>
+        {!fleetSeason && <section className={styles.rewardIntel}>
           <div className={styles.rewardIntelHead}>
             <span>{lang === "ru" ? "\u041d\u0430\u0433\u0440\u0430\u0434\u044b \u0441\u0435\u0437\u043e\u043d\u0430" : "Season rewards"}</span>
             <small>{lang === "ru" ? "\u041f\u0443\u043b \u0438 \u043c\u0430\u0439\u043d\u0435\u0440 \u0444\u043b\u043e\u0442\u0430" : "Pool and fleet miner"}</small>
@@ -300,7 +425,7 @@ export default function LeaderboardPage() {
               variant="mobile"
             />
           </div>
-        </section>
+        </section>}
       </div>
       <MobileDock active="leaderboard" />
     </div>

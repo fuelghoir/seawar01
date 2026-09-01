@@ -19,8 +19,6 @@ DECLARE
     'creator_submissions',
     'creator_rewards',
     'wallet_activity',
-    'drop_campaigns',
-    'drop_allocations',
     'external_quest_campaigns',
     'external_quest_participations',
     'external_quest_claims'
@@ -77,6 +75,21 @@ BEGIN
     DROP POLICY IF EXISTS insert_referrals ON referrals;
     REVOKE INSERT, UPDATE, DELETE ON referrals FROM public, anon, authenticated;
     GRANT SELECT, INSERT, UPDATE, DELETE ON referrals TO service_role;
+  END IF;
+
+  -- Drop totals and allocations are private. Claims are served by server routes.
+  IF to_regclass('public.drop_campaigns') IS NOT NULL THEN
+    ALTER TABLE public.drop_campaigns ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS select_drop_campaigns ON public.drop_campaigns;
+    REVOKE ALL ON public.drop_campaigns FROM public, anon, authenticated;
+    GRANT ALL ON public.drop_campaigns TO service_role;
+  END IF;
+
+  IF to_regclass('public.drop_allocations') IS NOT NULL THEN
+    ALTER TABLE public.drop_allocations ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS select_drop_allocations ON public.drop_allocations;
+    REVOKE ALL ON public.drop_allocations FROM public, anon, authenticated;
+    GRANT ALL ON public.drop_allocations TO service_role;
   END IF;
 
 END;

@@ -53,6 +53,8 @@ import { DropClaimPanel } from "./components/DropClaimPanel";
 import { AppHeader } from "./components/AppHeader";
 import { HeroBattleGrid } from "./components/HeroBattleGrid";
 import { PlayModal } from "./components/PlayModal";
+import { FleetAssignmentModal } from "./components/FleetAssignmentModal";
+import { FleetSeasonHomeCard } from "./components/FleetSeasonHomeCard";
 import { HomeCard } from "./components/HomeCard";
 import { MobileDock, type MobileDockTab } from "./components/MobileDock";
 import {
@@ -72,6 +74,8 @@ import { useSettings, TR } from "./lib/settings";
 import { PLAYER_DATA_REFRESH_EVENT } from "./lib/playerDataEvents";
 import { SEASON_UI_ENABLED, USDC_SEASON_REWARDS_ENABLED } from "./lib/featureFlags";
 import { useTransactionWarmup } from "./lib/useTransactionWarmup";
+import type { PublicFleetSeasonResponse } from "./lib/fleetSeason";
+import { FLEET_SEASON_DEMO_RESPONSE } from "./lib/fleetSeasonDemo";
 import { useOnboarding } from "./providers/OnboardingProvider";
 import {
   recordAcquisitionVisit,
@@ -137,6 +141,11 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   const [referralCaptureStatus, setReferralCaptureStatus] = useState<ReferralCaptureStatus | "idle">("idle");
   const [checkinClaimPending, setCheckinClaimPending] = useState(false);
   const [showPlay, setShowPlay] = useState(false);
+  const [showFleetAssignment, setShowFleetAssignment] = useState(false);
+  const [fleetAssignmentBusy, setFleetAssignmentBusy] = useState(false);
+  const [fleetAssignmentError, setFleetAssignmentError] = useState("");
+  const [fleetSeasonLoaded, setFleetSeasonLoaded] = useState(false);
+  const [fleetSeasonData, setFleetSeasonData] = useState<PublicFleetSeasonResponse>({ season: null });
   const [showWalletConnect, setShowWalletConnect] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showSeasonIntro, setShowSeasonIntro] = useState(false);
@@ -166,11 +175,80 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
   currentCheckinWalletRef.current = address?.toLowerCase() ?? null;
   currentCheckinWalletSessionRef.current = checkinWalletSession;
 
-  const openPlay = useCallback(() => setShowPlay(true), []);
+  const loadFleetSeason = useCallback(async () => {
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("fleetDemo") === "1") {
+      setFleetSeasonData(FLEET_SEASON_DEMO_RESPONSE);
+      setFleetSeasonLoaded(true);
+      return FLEET_SEASON_DEMO_RESPONSE;
+    }
+
+    try {
+      const query = address ? `?wallet=${encodeURIComponent(address)}` : "";
+      const res = await fetch(`/api/fleet-season${query}`, {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => null) as PublicFleetSeasonResponse | null;
+      if (!res.ok || !data) throw new Error("Fleet season unavailable");
+      setFleetSeasonData(data);
+      return data;
+    } catch {
+      const empty: PublicFleetSeasonResponse = { season: null };
+      setFleetSeasonData(empty);
+      return empty;
+    } finally {
+      setFleetSeasonLoaded(true);
+    }
+  }, [address]);
+
+  const assignFleet = useCallback(async () => {
+    if (!address) return;
+    setShowFleetAssignment(true);
+    setFleetAssignmentBusy(true);
+    setFleetAssignmentError("");
+    try {
+      const res = await fetch("/api/fleet-season", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: address }),
+      });
+      const data = await res.json().catch(() => null) as (PublicFleetSeasonResponse & { error?: string }) | null;
+      if (!res.ok || !data?.membership) {
+        throw new Error(data?.error || (lang === "ru" ? "Не удалось назначить флот" : "Could not assign fleet"));
+      }
+      setFleetSeasonData(data);
+      setFleetSeasonLoaded(true);
+    } catch (error) {
+      setFleetAssignmentError(error instanceof Error ? error.message : (lang === "ru" ? "Не удалось назначить флот" : "Could not assign fleet"));
+    } finally {
+      setFleetAssignmentBusy(false);
+    }
+  }, [address, lang]);
+
+  const openPlay = useCallback(async () => {
+    if (!address) {
+      setShowPlay(true);
+      return;
+    }
+
+    const data = fleetSeasonLoaded ? fleetSeasonData : await loadFleetSeason();
+    if (!data.season || data.season.status !== "active" || data.membership) {
+      setShowPlay(true);
+      return;
+    }
+    await assignFleet();
+  }, [address, assignFleet, fleetSeasonData, fleetSeasonLoaded, loadFleetSeason]);
+
+  useEffect(() => {
+    setFleetSeasonLoaded(false);
+    setFleetSeasonData({ season: null });
+    void loadFleetSeason();
+  }, [address, loadFleetSeason]);
 
   useEffect(() => {
     checkinStatusGeneration.current += 1;
     setShowPlay(false);
+    setShowFleetAssignment(false);
+    setFleetAssignmentError("");
     referralAttemptGeneration.current += 1;
     recordedReferralKey.current = null;
     confirmedCheckinTxKey.current = null;
@@ -807,6 +885,21 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
         tutorialBotMode={Boolean(onboarding?.required && onboarding.step === "battle")}
       />
 
+      <FleetAssignmentModal
+        open={showFleetAssignment}
+        busy={fleetAssignmentBusy}
+        error={fleetAssignmentError}
+        lang={lang}
+        season={fleetSeasonData.season}
+        membership={fleetSeasonData.membership ?? null}
+        onContinue={() => {
+          setShowFleetAssignment(false);
+          setShowPlay(true);
+        }}
+        onRetry={() => void assignFleet()}
+        onClose={() => setShowFleetAssignment(false)}
+      />
+
       {showWalletConnect && !address && (
         <div className={styles.walletModalBackdrop} onClick={() => setShowWalletConnect(false)}>
           <div
@@ -993,11 +1086,21 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                       {renderMobileCheckinButton(styles.mobileCheckinInProfile)}
                     </div>
                   )}
-                  {USDC_SEASON_REWARDS_ENABLED && (
+                  {fleetSeasonData.season ? (
+                    <div className={styles.mobileSeasonRewardBlock}>
+                      <FleetSeasonHomeCard
+                        season={fleetSeasonData.season}
+                        membership={fleetSeasonData.membership ?? null}
+                        lang={lang}
+                        variant="wide"
+                        onOpen={() => router.push("/leaderboard")}
+                      />
+                    </div>
+                  ) : USDC_SEASON_REWARDS_ENABLED ? (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
                     </div>
-                  )}
+                  ) : null}
                   {SEASON_UI_ENABLED && (
                     <div className={styles.mobileBattlePassBlock}>
                       <SeasonRoadmap
@@ -1147,6 +1250,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                   >
                     ‹
                   </button>
+
                   <button
                     type="button"
                     className={`${styles.mobileShowcaseArrow} ${styles.mobileShowcaseArrowRight}`}
@@ -1192,7 +1296,17 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
 
                   {canShowCheckin && renderMobileCheckinButton()}
 
-                  {USDC_SEASON_REWARDS_ENABLED && (
+                  {fleetSeasonData.season ? (
+                    <div className={styles.mobileSeasonRewardBlock}>
+                      <FleetSeasonHomeCard
+                        season={fleetSeasonData.season}
+                        membership={fleetSeasonData.membership ?? null}
+                        lang={lang}
+                        variant="wide"
+                        onOpen={() => router.push("/leaderboard")}
+                      />
+                    </div>
+                  ) : USDC_SEASON_REWARDS_ENABLED ? (
                     <div className={styles.mobileSeasonRewardBlock}>
                       <SeasonPoolCard
                         variant="wide"
@@ -1200,7 +1314,7 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                         endDate={season?.endDate}
                       />
                     </div>
-                  )}
+                  ) : null}
 
                   <SecretSbtCard
                     wins={profileView.totalWins}
@@ -1389,9 +1503,17 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                 />
               )}
               {address && <CreatorRewardsSummary address={address} />}
-              {USDC_SEASON_REWARDS_ENABLED && (
+              {fleetSeasonData.season ? (
+                <FleetSeasonHomeCard
+                  season={fleetSeasonData.season}
+                  membership={fleetSeasonData.membership ?? null}
+                  lang={lang}
+                  variant="wide"
+                  onOpen={() => router.push("/leaderboard")}
+                />
+              ) : USDC_SEASON_REWARDS_ENABLED ? (
                 <SeasonPoolCard variant="wide" address={address} endDate={season?.endDate} />
-              )}
+              ) : null}
               {address && <DropClaimPanel address={address} />}
             </div>
           )}
@@ -1447,6 +1569,16 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             </span>
             <span className={styles.playNowShimmer} aria-hidden="true" />
           </button>
+
+          {fleetSeasonData.season && (
+            <FleetSeasonHomeCard
+              season={fleetSeasonData.season}
+              membership={fleetSeasonData.membership ?? null}
+              lang={lang}
+              variant="wide"
+              onOpen={() => router.push("/leaderboard")}
+            />
+          )}
 
           <div className={styles.recentSection}>
             <SectionHeader label={tr.recent_games} accent="#3b82f6" />

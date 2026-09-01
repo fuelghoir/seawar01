@@ -70,7 +70,7 @@ export default function SeasonPage() {
         // ignore
       }
     }
-    return Date.UTC(2026, 7, 26, 0, 0, 0);
+    return Date.UTC(2027, 0, 1, 0, 0, 0);
   }, [season?.endDate]);
 
   const countdown = useCountdown(targetMs);
@@ -312,7 +312,16 @@ export default function SeasonPage() {
   const seasonClaimBusy = claimingSeasonLevels.length > 0 || seasonClaimPending;
   const dropReady = countdown.remainingMs <= 0;
   const connectPending = connectStatus === "pending";
-  const activeSeasonKey = season?.bpSeasonKey ?? "S1";
+  const activeSeasonKey = season?.bpSeasonKey ?? "S2";
+  const battlePassEndLabel = useMemo(() => {
+    const value = season?.endDate ?? "2027-01-01T00:00:00.000Z";
+    return new Intl.DateTimeFormat(ru ? "ru-RU" : "en-US", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(value));
+  }, [ru, season?.endDate]);
   const focusedRewardIndex = Math.max(0, Math.min(seasonLevels.length - 1, nextSeasonLevel - 1));
   const rewardWindowSize = 10;
   const rewardWindowStart = Math.min(
@@ -356,9 +365,9 @@ export default function SeasonPage() {
           <span>{`Battle Pass · ${activeSeasonKey}`}</span>
           <h1>{ru ? "Награды сезона" : "Season Rewards"}</h1>
           <p>
-            {season?.isEnded 
-              ? (ru ? "Награды за прошлый сезон отправлены. Ожидайте Сезон 2!" : "Previous season rewards sent. Waiting for Season 2!")
-              : (ru ? "Пул USDC, таймер до дропа и Battle Pass награды в одном месте." : "USDC pool, drop countdown, and Battle Pass claims in one place.")}
+            {ru
+              ? `Battle Pass ${activeSeasonKey} идет до ${battlePassEndLabel}. Сумма USDC-наград Fleet Season останется секретной до финала.`
+              : `Battle Pass ${activeSeasonKey} runs until ${battlePassEndLabel}. The Fleet Season USDC reward stays secret until the final snapshot.`}
           </p>
         </div>
       </header>

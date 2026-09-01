@@ -401,7 +401,12 @@ async function getGamePointMultiplier(admin: SupabaseClient, wallet: string) {
 
 async function addSeasonXp(admin: SupabaseClient, wallet: string, xp: number) {
   if (xp <= 0) return;
-  const seasonKey = "S1";
+  const { data: seasonConfig } = await admin
+    .from("season_config")
+    .select("bp_season_key")
+    .eq("id", "default")
+    .maybeSingle();
+  const seasonKey = seasonConfig?.bp_season_key ?? "S2";
   const { data, error } = await admin
     .from("season_progress")
     .select("xp,claimed_levels")

@@ -413,7 +413,7 @@ async function getActiveSeasonKey(admin: SupabaseClient): Promise<string> {
     .select("bp_season_key")
     .eq("id", "default")
     .maybeSingle();
-  return data?.bp_season_key ?? "S1";
+  return data?.bp_season_key ?? "S2";
 }
 
 export async function addSeasonXpServer(

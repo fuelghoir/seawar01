@@ -18,10 +18,10 @@ export async function GET(_req: NextRequest) {
     if (error) throw new Error(error.message);
 
     return NextResponse.json({
-      endDate: config?.end_date ?? "2026-08-26T00:00:00.000Z",
+      endDate: config?.end_date ?? "2027-01-01T00:00:00.000Z",
       isEnded: config?.is_ended ?? false,
       seasonKey: config?.season_key || "S1",
-      bpSeasonKey: config?.bp_season_key || "S1",
+      bpSeasonKey: config?.bp_season_key || "S2",
       virtualPoolUsdc: config?.virtual_pool_usdc || 0,
       minTxCount: config?.min_tx_count ?? 10,
     });
@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
     const action = String(body?.action ?? "").trim();
 
     if (action === "update_config") {
-      const endDate = String(body?.endDate ?? "2026-08-26T00:00:00.000Z").trim();
+      const endDate = String(body?.endDate ?? "2027-01-01T00:00:00.000Z").trim();
       const isEnded = Boolean(body?.isEnded);
       const seasonKey = String(body?.seasonKey || "S1").trim();
-      const bpSeasonKey = String(body?.bpSeasonKey || "S1").trim();
+      const bpSeasonKey = String(body?.bpSeasonKey || "S2").trim();
       const virtualPoolUsdc = Math.max(0, Number(body?.virtualPoolUsdc || 0));
       const minTxCount = Math.max(0, Number(body?.minTxCount ?? 10));
 

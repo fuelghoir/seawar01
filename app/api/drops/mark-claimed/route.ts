@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, keccak256, toBytes } from "viem";
 import { base } from "viem/chains";
-import { createClient } from "@supabase/supabase-js";
-import { supabase } from "../../../lib/supabase";
+import { adminSupabase } from "../../../lib/adminSupabase";
 import { DROP_CLAIM_CONTRACT_ADDRESS } from "../../../contracts/dropClaimAbi";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
@@ -21,9 +20,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid drop id" }, { status: 400 });
   }
 
+  const db = adminSupabase();
   const creatorRewardId = parseCreatorRewardDropId(dropId);
   const campaignResult = creatorRewardId === null
-    ? await supabase
+    ? await db
         .from("drop_campaigns")
         .select("contract_address")
         .eq("id", dropId)
@@ -66,7 +66,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Claim not found on-chain yet" }, { status: 409 });
   }
 
-  const db = adminSupabaseOrAnon();
   const update = creatorRewardId === null
     ? await db
         .from("drop_allocations")
@@ -114,11 +113,4 @@ function resolveDropClaimContract(value: string | null | undefined): `0x${string
       ZERO_ADDR,
   ).toLowerCase();
   return fallback === ZERO_ADDR ? null : (fallback as `0x${string}`);
-}
-
-function adminSupabaseOrAnon() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && serviceKey) return createClient(url, serviceKey);
-  return supabase;
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useAccount, useConnect, useSignMessage } from "wagmi";
 import { useSettings } from "../lib/settings";
+import { FleetSeasonAdminPanel } from "./FleetSeasonAdminPanel";
 import styles from "./page.module.css";
 
 type Submission = {
@@ -281,10 +282,10 @@ export default function AdminPage() {
 
   // Drops tokens state
   const [availableTokens, setAvailableTokens] = useState<TokenInfo[]>([]);
-  const [seasonEndDate, setSeasonEndDate] = useState("2026-08-26T00:00");
+  const [seasonEndDate, setSeasonEndDate] = useState("2027-01-01T00:00");
   const [seasonIsEnded, setSeasonIsEnded] = useState(false);
   const [seasonKey, setSeasonKey] = useState("S1");
-  const [bpSeasonKey, setBpSeasonKey] = useState("S1");
+  const [bpSeasonKey, setBpSeasonKey] = useState("S2");
   const [virtualPoolUsdc, setVirtualPoolUsdc] = useState("0");
   const [minTxCount, setMinTxCount] = useState("10");
   const [seasonConfigBusy, setSeasonConfigBusy] = useState(false);
@@ -373,11 +374,11 @@ export default function AdminPage() {
           const localVal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
           setSeasonEndDate(localVal);
         } catch {
-          setSeasonEndDate("2026-08-26T00:00");
+          setSeasonEndDate("2027-01-01T00:00");
         }
         setSeasonIsEnded(!!seasonConfigData.isEnded);
         setSeasonKey(seasonConfigData.seasonKey || "S1");
-        setBpSeasonKey(seasonConfigData.bpSeasonKey || "S1");
+        setBpSeasonKey(seasonConfigData.bpSeasonKey || "S2");
         setVirtualPoolUsdc(String(seasonConfigData.virtualPoolUsdc || 0));
         setMinTxCount(String(seasonConfigData.minTxCount ?? 10));
       }
@@ -1989,10 +1990,13 @@ export default function AdminPage() {
 
           {tab === "season" && (
             <section className={styles.panel}>
-              <h2>{isRu ? "Настройки сезона" : "Season Settings"}</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>
+              <FleetSeasonAdminPanel isRu={isRu} />
+              <details className={styles.legacySeason}>
+                <summary>{isRu ? "Старые настройки S1/S2" : "Legacy S1/S2 settings"}</summary>
+                <h2>{isRu ? "Настройки старого сезона" : "Legacy Season Settings"}</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span>{isRu ? "Дата окончания сезона (UTC)" : "Season End Date (UTC)"}</span>
+                  <span>{isRu ? "Battle Pass заканчивается (UTC)" : "Battle Pass Ends (UTC)"}</span>
                   <input
                     type="datetime-local"
                     value={seasonEndDate}
@@ -2031,7 +2035,7 @@ export default function AdminPage() {
                     type="text"
                     value={bpSeasonKey}
                     onChange={(e) => setBpSeasonKey(e.target.value)}
-                    placeholder="S1"
+                    placeholder="S2"
                     style={{
                       background: 'rgba(5, 10, 22, 0.82)',
                       border: '1px solid rgba(0, 212, 255, 0.24)',
@@ -2100,7 +2104,8 @@ export default function AdminPage() {
                 >
                   {seasonConfigBusy ? (isRu ? "Сохраняем..." : "Saving...") : (isRu ? "Сохранить настройки" : "Save Settings")}
                 </button>
-              </div>
+                </div>
+              </details>
             </section>
           )}
 
