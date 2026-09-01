@@ -1373,7 +1373,17 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
           <FleetMinerSummary
             address={address}
             onOpen={() => router.push("/shop#fleet-nft")}
+            hidePoolCard={Boolean(fleetSeasonData.season)}
           />
+
+          {fleetSeasonData.season && (
+            <FleetSeasonHomeCard
+              season={fleetSeasonData.season}
+              membership={fleetSeasonData.membership ?? null}
+              lang={lang}
+              onOpen={() => router.push("/leaderboard")}
+            />
+          )}
 
           {canShowCheckin && (
           <HomeCard
@@ -1508,7 +1518,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
                   season={fleetSeasonData.season}
                   membership={fleetSeasonData.membership ?? null}
                   lang={lang}
-                  variant="wide"
                   onOpen={() => router.push("/leaderboard")}
                 />
               ) : USDC_SEASON_REWARDS_ENABLED ? (
@@ -1569,16 +1578,6 @@ export default function Home({ initialIsNarrowScreen, initialTab = null }: HomeC
             </span>
             <span className={styles.playNowShimmer} aria-hidden="true" />
           </button>
-
-          {fleetSeasonData.season && (
-            <FleetSeasonHomeCard
-              season={fleetSeasonData.season}
-              membership={fleetSeasonData.membership ?? null}
-              lang={lang}
-              variant="wide"
-              onOpen={() => router.push("/leaderboard")}
-            />
-          )}
 
           <div className={styles.recentSection}>
             <SectionHeader label={tr.recent_games} accent="#3b82f6" />
