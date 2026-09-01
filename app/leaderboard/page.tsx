@@ -8,7 +8,6 @@ import { getLeaderboard, LEADERBOARD_PAGE_SIZE, LeaderboardEntry } from "../lib/
 import { getSeasonState, type SeasonState } from "../lib/season";
 import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
-import { FleetMinerSummary, SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { MobileDock } from "../components/MobileDock";
 import { useSettings, TR } from "../lib/settings";
 import { ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
@@ -18,6 +17,46 @@ import { isBaseAppUserAgent } from "../lib/baseApp";
 import styles from "./page.module.css";
 
 type PageItem = number | "gap";
+
+function requirementProgress(current: number, target: number) {
+  if (target <= 0) return 100;
+  return Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+}
+
+function FleetBoardSkeleton({ lang }: { lang: "en" | "ru" }) {
+  const ru = lang === "ru";
+
+  return (
+    <section
+      className={`${styles.fleetBoard} ${styles.fleetBoardSkeleton}`}
+      aria-busy="true"
+      aria-label={ru ? "Загрузка рейтинга флотов" : "Loading fleet standings"}
+    >
+      <div className={styles.fleetBoardHead}>
+        <span><TrophyIcon size={15} /> {ru ? "Рейтинг флотов" : "Fleet standings"}</span>
+        <small>{ru ? "Синхронизация сезона" : "Syncing live season"}</small>
+      </div>
+      <div className={styles.fleetSkeletonMine} aria-hidden="true">
+        <i />
+        <span><i /><i /></span>
+        <i />
+      </div>
+      <div className={styles.fleetSkeletonRows} aria-hidden="true">
+        {[0, 1, 2].map((row) => (
+          <div key={row}>
+            <i />
+            <span><i /><i /></span>
+            <i />
+          </div>
+        ))}
+      </div>
+      <div className={styles.fleetSkeletonMembers} aria-hidden="true">
+        <span><i /><i /></span>
+        {[0, 1, 2].map((row) => <i key={row} />)}
+      </div>
+    </section>
+  );
+}
 
 function FleetStandings({
   season,
@@ -43,6 +82,8 @@ function FleetStandings({
       right.wins - left.wins ||
       left.wallet.localeCompare(right.wallet),
     );
+  const transactionsReady = membership ? membership.transactions >= season.minTransactions : false;
+  const pointsReady = membership ? membership.pointsEarned >= season.minPoints : false;
 
   return (
     <section className={styles.fleetBoard}>
@@ -51,7 +92,7 @@ function FleetStandings({
           <TrophyIcon size={15} />
           {ru ? "Рейтинг флотов" : "Fleet standings"}
         </span>
-        <small><TrophyIcon size={13} /> {ru ? "Живой порядок по победам" : "Live order by total wins"}</small>
+        <small><TrophyIcon size={13} /> {ru ? "Порядок по PvP-победам" : "Live order by PvP wins"}</small>
       </div>
 
       {membership && (
@@ -65,10 +106,32 @@ function FleetStandings({
             </span>
           </div>
           {!membership.eligible && (
-            <div className={styles.fleetEligibilityWarning}>
-              <strong>{ru ? "ТЫ ПОКА НЕ ELIGIBLE" : "NOT ELIGIBLE YET"}</strong>
-              <span>{membership.transactions}/{season.minTransactions} TX · {membership.pointsEarned.toLocaleString()}/{season.minPoints.toLocaleString()} PTS</span>
-              <small>{ru ? "Для дропа нужны оба условия" : "Both requirements must be met for the drop"}</small>
+            <div className={styles.fleetEligibility}>
+              <div className={styles.fleetEligibilityIntro}>
+                <ShieldIcon size={17} />
+                <span>
+                  <strong>{ru ? "ПОКА НЕТ ДОСТУПА К ДРОПУ" : "NOT ELIGIBLE YET"}</strong>
+                  <small>{ru ? "Выполни оба условия до конца сезона" : "Complete both requirements before season end"}</small>
+                </span>
+              </div>
+              <div className={styles.fleetRequirements}>
+                <div className={styles.fleetRequirement} data-ready={transactionsReady}>
+                  <span>
+                    <small>{ru ? "ТРАНЗАКЦИИ" : "TRANSACTIONS"}</small>
+                    <strong>{membership.transactions.toLocaleString()} / {season.minTransactions.toLocaleString()}</strong>
+                    <b>{transactionsReady ? (ru ? "ГОТОВО" : "READY") : (ru ? "НУЖНО" : "REQUIRED")}</b>
+                  </span>
+                  <i><span style={{ width: `${requirementProgress(membership.transactions, season.minTransactions)}%` }} /></i>
+                </div>
+                <div className={styles.fleetRequirement} data-ready={pointsReady}>
+                  <span>
+                    <small>{ru ? "ПОЙНТЫ S3" : "S3 POINTS"}</small>
+                    <strong>{membership.pointsEarned.toLocaleString()} / {season.minPoints.toLocaleString()}</strong>
+                    <b>{pointsReady ? (ru ? "ГОТОВО" : "READY") : (ru ? "НУЖНО" : "REQUIRED")}</b>
+                  </span>
+                  <i><span style={{ width: `${requirementProgress(membership.pointsEarned, season.minPoints)}%` }} /></i>
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -208,7 +271,7 @@ export default function LeaderboardPage() {
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [page, setPage] = useState(1);
-  const [mode, setMode] = useState<"allTime" | "season" | "fleet">("season");
+  const [mode, setMode] = useState<"allTime" | "season" | "fleet">("fleet");
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -231,18 +294,34 @@ export default function LeaderboardPage() {
       return;
     }
 
+    let active = true;
+    setFleetSeasonLoaded(false);
     const query = address ? `?wallet=${encodeURIComponent(address)}` : "";
     fetch(`/api/fleet-season${query}`, { cache: "no-store" })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error("Fleet season request failed");
+        return response.json();
+      })
       .then((data: PublicFleetSeasonResponse) => {
+        if (!active) return;
         setFleetSeasonData(data);
         if (data.season) {
           setMode("fleet");
           setPage(1);
+        } else {
+          setMode("season");
         }
       })
-      .catch(() => {})
-      .finally(() => setFleetSeasonLoaded(true));
+      .catch(() => {
+        if (active) setMode("season");
+      })
+      .finally(() => {
+        if (active) setFleetSeasonLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [address]);
 
   useEffect(() => {
@@ -306,20 +385,25 @@ export default function LeaderboardPage() {
 
         <div className={styles.leaderHero}>
           <span>{mode === "fleet" ? (lang === "ru" ? "Сезонная битва флотов" : "Season fleet battle") : (lang === "ru" ? "Рейтинг капитанов" : "Captain rankings")}</span>
-          <strong>{(mode === "fleet" ? fleetPlayers : total).toLocaleString()} {lang === "ru" ? "игроков" : "players"}</strong>
-          <p>{mode === "fleet" ? (lang === "ru" ? "Победы двигают весь флот" : "Every win moves the whole fleet") : tr.lb_subtitle}</p>
+          {!fleetSeasonLoaded && mode === "fleet" ? (
+            <span className={styles.heroCountSkeleton} aria-label={lang === "ru" ? "Загрузка игроков" : "Loading players"} />
+          ) : (
+            <strong>{(mode === "fleet" ? fleetPlayers : total).toLocaleString()} {lang === "ru" ? "игроков" : "players"}</strong>
+          )}
+          <p>{mode === "fleet" ? (lang === "ru" ? "Каждая PvP-победа двигает весь флот" : "Every PvP win moves the whole fleet") : tr.lb_subtitle}</p>
         </div>
 
         <div className={styles.tabsContainer}>
           <button
             className={`${styles.tabBtn} ${mode === (fleetSeason ? "fleet" : "season") ? styles.tabActive : ""}`}
+            disabled={!fleetSeasonLoaded}
             onClick={() => {
               setMode(fleetSeason ? "fleet" : "season");
               setPage(1);
             }}
           >
             {!fleetSeasonLoaded
-              ? "Season 3"
+              ? (lang === "ru" ? "Флотский сезон" : "Fleet Season")
               : fleetSeason
               ? (fleetSeason.status === "active" ? "Fleet Season" : (lang === "ru" ? "Итоги флотов" : "Fleet Results"))
               : season?.isEnded
@@ -328,6 +412,7 @@ export default function LeaderboardPage() {
           </button>
           <button
             className={`${styles.tabBtn} ${mode === "allTime" ? styles.tabActive : ""}`}
+            disabled={!fleetSeasonLoaded}
             onClick={() => { setMode("allTime"); setPage(1); }}
           >
             {tr.leaderboard_alltime || "All-Time"}
@@ -339,7 +424,7 @@ export default function LeaderboardPage() {
             <p className={styles.helpTitle}>{lang === "ru" ? "Как работает сезон" : "How Fleet Season works"}</p>
             <ul className={styles.helpList}>
               <li>{lang === "ru" ? "Ты сам выбираешь флот при первом Play. Позже его можно сменить за 5 USDC." : "You choose your fleet on first Play. Changing later costs 5 USDC."}</li>
-              <li>{lang === "ru" ? "В рейтинге считаются только победы всего флота." : "Only total fleet wins decide the ranking."}</li>
+              <li>{lang === "ru" ? "Место флота определяют только PvP-победы его игроков." : "Only player-vs-player wins decide the fleet ranking."}</li>
               <li><strong>60% / 30% / 10%</strong> {lang === "ru" ? "делятся по итоговым местам." : "is split by final place."}</li>
               <li><strong>100% PTS</strong> {lang === "ru" ? "награда внутри флота распределяется пропорционально поинтам S3. Майнер учитывается." : "the fleet reward is distributed proportionally to S3 points. Miner points count."}</li>
               <li><strong>10,000 PTS + {fleetSeason?.minTransactions ?? 10} TX</strong> {lang === "ru" ? "оба условия обязательны; TX — это игры и чек-ины суммарно." : "both are required; TX is combined games and check-ins."}</li>
@@ -361,9 +446,7 @@ export default function LeaderboardPage() {
         )}
 
         {!fleetSeasonLoaded ? (
-          <div className={styles.loadingWrap}>
-            <div className={styles.spinner} />
-          </div>
+          <FleetBoardSkeleton lang={lang} />
         ) : mode === "fleet" && fleetSeason ? (
           <FleetStandings
             season={fleetSeason}
@@ -485,23 +568,6 @@ export default function LeaderboardPage() {
           </>
         )}
 
-        {!fleetSeason && <section className={styles.rewardIntel}>
-          <div className={styles.rewardIntelHead}>
-            <span>{lang === "ru" ? "\u041d\u0430\u0433\u0440\u0430\u0434\u044b \u0441\u0435\u0437\u043e\u043d\u0430" : "Season rewards"}</span>
-            <small>{lang === "ru" ? "\u041f\u0443\u043b \u0438 \u043c\u0430\u0439\u043d\u0435\u0440 \u0444\u043b\u043e\u0442\u0430" : "Pool and fleet miner"}</small>
-          </div>
-          <div className={styles.airdropPoolBlock}>
-            <SeasonPoolCard variant="wide" address={address} />
-          </div>
-          <div className={styles.airdropMinerBlock}>
-            <FleetMinerSummary
-              address={address}
-              onOpen={() => router.push("/shop#fleet-nft")}
-              hidePoolCard
-              variant="mobile"
-            />
-          </div>
-        </section>}
       </div>
       <MobileDock active="leaderboard" />
     </div>

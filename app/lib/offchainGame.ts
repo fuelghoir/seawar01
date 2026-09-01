@@ -962,6 +962,7 @@ export async function getLeaderboard(
       .from("season_progress")
       .select("wallet, points", { count: "exact" })
       .gt("points", 0)
+      .neq("wallet", BOT_STATS_OPPONENT)
       .eq("season_key", activeSeasonKey)
       .order("points", { ascending: false })
       .range(from, to);
@@ -989,6 +990,7 @@ export async function getLeaderboard(
     .from("player_stats")
     .select("wallet, points, wins, games_played, total_hits, checkin_streak", { count: "exact" })
     .gt("points", 0)
+    .neq("wallet", BOT_STATS_OPPONENT)
     .order("points", { ascending: false })
     .range(from, to);
 

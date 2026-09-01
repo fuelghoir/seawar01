@@ -13,6 +13,7 @@ import {
 
 const PAGE_SIZE = 1000;
 const POINTS_BATCH_SIZE = 100;
+const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 
 export type FleetSeasonRecord = {
   seasonKey: string;
@@ -186,19 +187,25 @@ async function loadGames(admin: SupabaseClient, startsAt: string, endsAt: string
     player2: string | null;
     winner: string | null;
     created_at: string;
+    game_mode: string | null;
   }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await admin
       .from("games")
-      .select("id,player1,player2,winner,created_at")
+      .select("id,player1,player2,winner,created_at,game_mode")
       .eq("state", 3)
       .gte("created_at", startsAt)
       .lt("created_at", endsAt)
       .order("id", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
-    rows.push(...((data ?? []) as typeof rows));
-    if ((data?.length ?? 0) < PAGE_SIZE) return rows;
+    const pageRows = (data ?? []) as typeof rows;
+    rows.push(...pageRows.filter((row) =>
+      String(row.game_mode ?? "").toLowerCase() !== "bot" &&
+      String(row.player1 ?? "").toLowerCase() !== BOT_STATS_OPPONENT &&
+      String(row.player2 ?? "").toLowerCase() !== BOT_STATS_OPPONENT
+    ));
+    if (pageRows.length < PAGE_SIZE) return rows;
   }
 }
 

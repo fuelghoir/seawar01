@@ -181,6 +181,11 @@
   border-color: rgba(var(--accent-rgb), 0.5);
 }
 
+.tabBtn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .tabActive {
   background: rgba(var(--accent-rgb), 0.2);
   color: var(--accent);
@@ -545,65 +550,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.airdropPoolBlock,
-.airdropMinerBlock {
-  width: 100%;
-  min-width: 0;
-  position: relative;
-  isolation: isolate;
-}
-
-.airdropPoolBlock > * {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Desktop leaderboard reuses the exact compact miner plate from Home's left rail. */
-@media (min-width: 721px) {
-  .airdropMinerBlock {
-    width: min(252px, 100%);
-  }
-
-  .airdropMinerBlock :global([class*="summaryStack"]) {
-    gap: 6px !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerCard"]) {
-    min-height: 128px !important;
-    padding: 8px 10px !important;
-    border-radius: 8px !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerGlow"]) {
-    width: 90px !important;
-    height: 90px !important;
-    top: -10px !important;
-    right: -10px !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerShip"]) {
-    width: 58% !important;
-    right: -5px !important;
-    top: 12px !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerCopy"]) h2 {
-    margin: 2px 0 1px !important;
-    font-size: 11px !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerCopy"]) p {
-    font-size: 9px !important;
-    line-height: 1.2 !important;
-  }
-
-  .airdropMinerBlock :global([class*="minerCard"]) button {
-    min-height: 26px !important;
-    margin-top: 6px !important;
-    font-size: 8px !important;
-  }
-}
-
 @media (max-width: 720px) {
   .mobileSeasonIntel { display: block; }
 }
@@ -685,6 +631,16 @@
   margin: 2px 0 0;
   color: rgba(219, 234, 239, 0.58);
   font-size: 12px;
+}
+
+.heroCountSkeleton {
+  display: block;
+  width: 148px;
+  height: 22px;
+  margin: 2px 0;
+  border-radius: 4px;
+  background: rgba(240, 184, 93, 0.2);
+  animation: fleetSkeletonPulse 1.15s ease-in-out infinite alternate;
 }
 
 .podium {
@@ -789,41 +745,6 @@
 
 .mobileMeta {
   display: none;
-}
-
-.rewardIntel {
-  width: 100%;
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(126, 164, 180, 0.16);
-}
-
-.rewardIntelHead {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.rewardIntelHead span,
-.rewardIntelHead small {
-  font-family: var(--font-orbitron), "Orbitron", monospace;
-  text-transform: uppercase;
-}
-
-.rewardIntelHead span {
-  color: #f0b85d;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-}
-
-.rewardIntelHead small {
-  color: rgba(210, 228, 234, 0.36);
-  font-size: 7px;
-  letter-spacing: 0.06em;
 }
 
 @media (max-width: 720px) {
@@ -935,35 +856,13 @@
     transform: none;
   }
 
-  .rewardIntelHead {
-    align-items: center;
-    flex-direction: column;
-    gap: 4px;
-    padding: 4px 0 2px;
-    text-align: center;
-  }
-
-  .rewardIntel {
-    gap: 12px;
-    padding-top: 18px;
-  }
-
-  .airdropPoolBlock,
-  .airdropMinerBlock {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .airdropMinerBlock {
-    margin-top: 2px;
-  }
 }
 
 .fleetBoard {
   width: 100%;
   overflow: hidden;
   border: 1px solid rgba(var(--accent-rgb), 0.22);
-  border-radius: 14px;
+  border-radius: 10px;
   background: #07131e;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
 }
@@ -1010,7 +909,7 @@
   padding: 10px 12px;
   color: #35e6c1;
   border: 1px solid rgba(53, 230, 193, 0.24);
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(53, 230, 193, 0.055);
 }
 
@@ -1030,20 +929,94 @@
 .myFleetActions > button:hover { color: #ffffff; }
 .myFleetActions > button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
-.fleetEligibilityWarning {
+.fleetEligibility {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
   gap: 10px;
-  padding: 9px 14px;
-  color: #f4c963;
-  border-bottom: 1px solid rgba(244, 201, 99, 0.18);
-  background: rgba(95, 62, 4, 0.16);
+  padding: 12px 14px 14px;
+  border-bottom: 1px solid rgba(244, 201, 99, 0.2);
+  background: rgba(95, 62, 4, 0.14);
 }
 
-.fleetEligibilityWarning strong { font: 900 9px var(--font-orbitron), monospace; }
-.fleetEligibilityWarning span { color: #ffffff; font: 800 10px var(--font-mono), monospace; text-align: center; }
-.fleetEligibilityWarning small { color: rgba(255, 255, 255, 0.48); font: 700 7px var(--font-mono), monospace; text-align: right; }
+.fleetEligibilityIntro {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #f4c963;
+}
+
+.fleetEligibilityIntro > span {
+  display: grid;
+  gap: 2px;
+}
+
+.fleetEligibilityIntro strong {
+  font: 900 9px var(--font-orbitron), monospace;
+}
+
+.fleetEligibilityIntro small {
+  color: rgba(255, 255, 255, 0.5);
+  font: 700 8px var(--font-mono), monospace;
+}
+
+.fleetRequirements {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fleetRequirement {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fleetRequirement > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.fleetRequirement small {
+  color: rgba(255, 255, 255, 0.42);
+  font: 800 7px var(--font-mono), monospace;
+}
+
+.fleetRequirement strong {
+  grid-row: 2;
+  color: #ffffff;
+  font: 900 11px var(--font-orbitron), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.fleetRequirement b {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  color: #f4c963;
+  font: 900 7px var(--font-mono), monospace;
+}
+
+.fleetRequirement[data-ready="true"] b {
+  color: #35e6c1;
+}
+
+.fleetRequirement > i {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.fleetRequirement > i > span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  background: #f4c963;
+}
+
+.fleetRequirement[data-ready="true"] > i > span {
+  background: #35e6c1;
+}
 
 .fleetRows {
   display: grid;
@@ -1063,7 +1036,7 @@
   padding: 7px 10px 9px;
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-left: 3px solid var(--fleet-color);
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.025);
   color: inherit;
   font: inherit;
@@ -1168,6 +1141,130 @@
 .fleetBoardFoot > span:last-child { text-align: right; }
 .fleetBoardFoot b { color: #f1f7f9; font: 800 9px var(--font-orbitron), monospace; }
 
+.fleetBoardSkeleton {
+  min-height: 520px;
+}
+
+.fleetSkeletonMine {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  margin: 10px 10px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(53, 230, 193, 0.14);
+  border-radius: 8px;
+  background: rgba(53, 230, 193, 0.035);
+}
+
+.fleetSkeletonMine > i,
+.fleetSkeletonMine span > i,
+.fleetSkeletonRows i,
+.fleetSkeletonMembers i {
+  display: block;
+  border-radius: 3px;
+  background: rgba(164, 202, 214, 0.1);
+  animation: fleetSkeletonPulse 1.15s ease-in-out infinite alternate;
+}
+
+.fleetSkeletonMine > i {
+  width: 18px;
+  height: 18px;
+}
+
+.fleetSkeletonMine > span,
+.fleetSkeletonMembers > span {
+  display: grid;
+  gap: 6px;
+}
+
+.fleetSkeletonMine span > i:first-child {
+  width: 62px;
+  height: 6px;
+}
+
+.fleetSkeletonMine span > i:last-child {
+  width: 108px;
+  height: 12px;
+}
+
+.fleetSkeletonMine > i:last-child {
+  width: 88px;
+  height: 13px;
+}
+
+.fleetSkeletonRows {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.fleetSkeletonRows > div {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) 68px;
+  align-items: center;
+  gap: 12px;
+  min-height: 78px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fleetSkeletonRows > div > i:first-child {
+  width: 72px;
+  height: 44px;
+}
+
+.fleetSkeletonRows span {
+  display: grid;
+  gap: 8px;
+}
+
+.fleetSkeletonRows span i:first-child {
+  width: min(118px, 75%);
+  height: 12px;
+}
+
+.fleetSkeletonRows span i:last-child {
+  width: min(82px, 55%);
+  height: 7px;
+}
+
+.fleetSkeletonRows > div > i:last-child {
+  width: 58px;
+  height: 17px;
+}
+
+.fleetSkeletonMembers {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border-top: 1px solid rgba(var(--accent-rgb), 0.1);
+}
+
+.fleetSkeletonMembers > span i:first-child {
+  width: 128px;
+  height: 11px;
+}
+
+.fleetSkeletonMembers > span i:last-child {
+  width: 196px;
+  height: 7px;
+}
+
+.fleetSkeletonMembers > i {
+  width: 100%;
+  height: 18px;
+}
+
+@keyframes fleetSkeletonPulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 520px) {
   .fleetBoardHead { padding: 12px; }
   .fleetBoardHead > small { font-size: 7px; }
@@ -1186,10 +1283,15 @@
   .fleetProgress { grid-column: 3 / 6; }
   .fleetMembersHead { padding: 9px 10px; }
   .fleetMembersHead small { font-size: 7px; }
-  .fleetEligibilityWarning { grid-template-columns: 1fr; gap: 4px; padding: 9px 10px; }
-  .fleetEligibilityWarning span { font-size: 9px; text-align: left; }
-  .fleetEligibilityWarning small { text-align: left; }
   .fleetMemberRow { grid-template-columns: 24px minmax(0, 1fr) 30px 30px 72px; gap: 5px; padding: 6px 10px; font-size: 8px; }
   .fleetMemberRow > strong { font-size: 9px; }
   .fleetBoardFoot { align-items: flex-start; padding: 12px; }
+}
+
+@media (max-width: 420px) {
+  .fleetEligibility { padding: 11px 10px 13px; }
+  .fleetRequirements { grid-template-columns: 1fr; }
+  .fleetSkeletonRows > div { grid-template-columns: 62px minmax(0, 1fr) 48px; }
+  .fleetSkeletonRows > div > i:first-child { width: 56px; }
+  .fleetSkeletonRows > div > i:last-child { width: 42px; }
 }
