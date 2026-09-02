@@ -858,6 +858,87 @@
 
 }
 
+.fleetClassified {
+  width: 100%;
+  min-height: 390px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 34px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border-radius: 10px;
+  background: #07131e;
+  text-align: center;
+}
+
+.fleetClassifiedIcon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 5px;
+  place-items: center;
+  color: #35e6c1;
+  border: 1px solid rgba(53, 230, 193, 0.4);
+  border-radius: 50%;
+  background: rgba(53, 230, 193, 0.055);
+}
+
+.fleetClassified > small {
+  color: #f1c75b;
+  font: 900 8px var(--font-mono-raw), monospace;
+}
+
+.fleetClassified h2 {
+  margin: 0;
+  color: #f3fbfd;
+  font: 900 20px var(--font-orbitron), sans-serif;
+}
+
+.fleetClassified p {
+  max-width: 390px;
+  margin: 0;
+  color: rgba(220, 239, 245, 0.58);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.fleetClassifiedLines {
+  width: min(290px, 90%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 9px 0 4px;
+}
+
+.fleetClassifiedLines i {
+  height: 3px;
+  background: #28d7ef;
+}
+
+.fleetClassifiedLines i:nth-child(2) { background: #ff6571; }
+.fleetClassifiedLines i:nth-child(3) { background: #f1c75b; }
+
+.fleetClassified button {
+  min-width: min(290px, 100%);
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: #001016;
+  font: 900 9px var(--font-orbitron), sans-serif;
+  border: 0;
+  border-radius: 8px;
+  background: #35e6c1;
+  cursor: pointer;
+}
+
+.fleetClassified button:hover { background: #76e9f8; }
+.fleetClassified button:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+
 .fleetBoard {
   width: 100%;
   overflow: hidden;

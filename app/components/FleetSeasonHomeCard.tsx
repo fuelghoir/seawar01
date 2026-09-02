@@ -24,7 +24,7 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
     return (
       <button className={`${styles.card} ${styles.wide}`} type="button" onClick={onOpen}>
         <span className={styles.wideHead}>
-          <span className={styles.icon} style={{ ["--fleet-color" as string]: yourFleet?.color ?? leadingFleet?.color ?? "#28d7ef" }}>
+          <span className={styles.icon} style={{ ["--fleet-color" as string]: yourFleet?.color ?? "#28d7ef" }}>
             <ShieldIcon size={20} />
           </span>
           <span className={styles.copy}>
@@ -34,7 +34,7 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
           <span className={styles.live}>{season.status === "active" ? "LIVE" : "FINAL"}</span>
         </span>
 
-        <span className={styles.miniRows}>
+        {membership ? <span className={styles.miniRows}>
           {season.fleets.map((fleet) => {
             const tied = season.fleets.some((other) => other.id !== fleet.id && other.wins === fleet.wins);
             return <span className={styles.miniRow} key={fleet.id} style={{ ["--fleet-color" as string]: fleet.color }}>
@@ -45,7 +45,11 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
               <em>{tied ? "--" : `${season.shares[fleet.rank - 1]}%`}</em>
             </span>;
           })}
-        </span>
+        </span> : <span className={styles.classifiedRows}>
+          <b>{ru ? "РЕЙТИНГ ЗАСЕКРЕЧЕН" : "STANDINGS CLASSIFIED"}</b>
+          <small>{ru ? "Откроется после выбора флота" : "Unlocks after your fleet choice"}</small>
+          <i aria-hidden="true"><span /><span /><span /></i>
+        </span>}
 
         <span className={styles.wideFoot}>
           <span><b>{ru ? "ДРОП СКРЫТ" : "DROP CLASSIFIED"}</b><small>{ru ? "100% пропорционально поинтам" : "100% proportional to points"}</small></span>
@@ -57,7 +61,7 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
 
   return (
     <button className={styles.card} type="button" onClick={onOpen}>
-      <span className={styles.icon} style={{ ["--fleet-color" as string]: yourFleet?.color ?? leadingFleet?.color ?? "#28d7ef" }}>
+      <span className={styles.icon} style={{ ["--fleet-color" as string]: yourFleet?.color ?? "#28d7ef" }}>
         <ShieldIcon size={20} />
       </span>
       <span className={styles.copy}>
@@ -65,8 +69,8 @@ export function FleetSeasonHomeCard({ season, membership, lang, variant = "compa
         <strong>{yourFleet ? `${yourFleet.name} · #${yourFleet.rank}` : (ru ? "Выбери флот при Play" : "Choose a fleet on Play")}</strong>
       </span>
       <span className={styles.leader}>
-        <small><TrophyIcon size={11} /> {leaderIsTied ? (ru ? "НИЧЬЯ" : "TIED") : (ru ? "ЛИДЕР" : "LEADER")}</small>
-        <strong>{leaderIsTied ? (ru ? "Лидера пока нет" : "No leader yet") : leadingFleet?.name}</strong>
+        <small>{membership ? <TrophyIcon size={11} /> : <ShieldIcon size={11} />} {membership ? (leaderIsTied ? (ru ? "НИЧЬЯ" : "TIED") : (ru ? "ЛИДЕР" : "LEADER")) : (ru ? "ЗАСЕКРЕЧЕНО" : "CLASSIFIED")}</small>
+        <strong>{membership ? (leaderIsTied ? (ru ? "Лидера пока нет" : "No leader yet") : leadingFleet?.name) : (ru ? "После выбора флота" : "After fleet choice")}</strong>
       </span>
       <ChevronRightIcon size={17} />
     </button>

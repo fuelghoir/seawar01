@@ -126,6 +126,37 @@
   .wideFoot { padding-right: 12px; padding-left: 12px; }
 }
 
+.classifiedRows {
+  min-height: 104px;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  padding: 14px;
+  text-align: center;
+}
+
+.classifiedRows b {
+  color: #f1c75b;
+  font: 900 9px var(--font-orbitron), sans-serif;
+}
+
+.classifiedRows small {
+  color: #7f9ba5;
+  font: 700 8px var(--font-rajdhani), sans-serif;
+}
+
+.classifiedRows i {
+  width: 150px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 8px auto 0;
+}
+
+.classifiedRows i span { height: 3px; background: #28d7ef; }
+.classifiedRows i span:nth-child(2) { background: #ff6571; }
+.classifiedRows i span:nth-child(3) { background: #f1c75b; }
+
 @container (max-width: 280px) {
   .card:not(.wide) { grid-template-columns: auto minmax(0, 1fr) auto; }
   .card:not(.wide) .leader { display: none; }

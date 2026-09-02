@@ -72,7 +72,6 @@ import {
 import { SettingsPanel } from "../components/SettingsPanel";
 import { MobileDock } from "../components/MobileDock";
 import FleetNftPanel from "../components/FleetNftPanel";
-import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
 import { MissionGuide } from "../components/MissionGuide";
 import {
@@ -88,7 +87,6 @@ import { useSettings, TR } from "../lib/settings";
 import { notifyPlayerDataRefresh, PLAYER_DATA_REFRESH_EVENT } from "../lib/playerDataEvents";
 import {
   SEASON_UI_ENABLED,
-  USDC_SEASON_REWARDS_ENABLED,
 } from "../lib/featureFlags";
 import {
   clearWalletRequest,
@@ -1835,8 +1833,6 @@ export default function ShopPage() {
             <div className={styles.shopFleetBlock}>
               <FleetNftPanel />
             </div>
-            {USDC_SEASON_REWARDS_ENABLED && <SeasonPoolCard variant="wide" />}
-
             {SEASON_UI_ENABLED && <section className={`${styles.card} ${styles.seasonCard}`} id="shop-season">
               <div className={styles.cardTop}>
                 <span className={styles.cardIcon} aria-hidden="true">

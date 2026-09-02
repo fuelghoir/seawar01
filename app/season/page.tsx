@@ -1,6 +1,7 @@
 "use client";
 
 import { waitForTransactionReceipt as waitForReceipt } from "@wagmi/core";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { encodeFunctionData } from "viem";
@@ -15,14 +16,12 @@ import {
   useWriteContract,
 } from "wagmi";
 import { base } from "wagmi/chains";
-import { DropClaimPanel } from "../components/DropClaimPanel";
-import { SeasonPoolCard } from "../components/FleetMinerWidgets";
 import { CheckIcon, ChevronRightIcon, TrophyIcon } from "../components/Icons";
 import { ItemArt, type ItemArtKind } from "../components/ItemArt";
 import { MobileDock } from "../components/MobileDock";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { seaBattleAbi, SEABATTLE_CONTRACT_ADDRESS } from "../contracts/seaBattleAbi";
-import { USDC_SEASON_REWARDS_ENABLED } from "../lib/featureFlags";
+import { DEFAULT_FLEETS } from "../lib/fleetSeason";
 import { notifyPlayerDataRefresh } from "../lib/playerDataEvents";
 import {
   claimSeasonLevels,
@@ -62,19 +61,6 @@ export default function SeasonPage() {
   const [seasonClaimFallbackMined, setSeasonClaimFallbackMined] = useState(false);
   const seasonClaimLevelsRef = useRef<number[]>([]);
   const seasonClaimHandledRef = useRef(false);
-  const targetMs = useMemo(() => {
-    if (season?.endDate) {
-      try {
-        return new Date(season.endDate).getTime();
-      } catch {
-        // ignore
-      }
-    }
-    return Date.UTC(2027, 0, 1, 0, 0, 0);
-  }, [season?.endDate]);
-
-  const countdown = useCountdown(targetMs);
-
   const orderedConnectors = useMemo(() => {
     const baseConnectors = connectors.filter(isBaseAccountConnector);
     const otherConnectors = connectors.filter((connector) => !isBaseAccountConnector(connector));
@@ -310,7 +296,6 @@ export default function SeasonPage() {
   const claimedSeasonRewards = seasonLevels.filter((level) => level.claimed).length;
   const claimingLevel = claimingSeasonLevels.length === 1 ? claimingSeasonLevels[0] : null;
   const seasonClaimBusy = claimingSeasonLevels.length > 0 || seasonClaimPending;
-  const dropReady = countdown.remainingMs <= 0;
   const connectPending = connectStatus === "pending";
   const activeSeasonKey = season?.bpSeasonKey ?? "S2";
   const battlePassEndLabel = useMemo(() => {
@@ -345,14 +330,6 @@ export default function SeasonPage() {
         : ru
           ? `Получить все · ${readySeasonRewards}`
           : `Claim all · ${readySeasonRewards}`;
-  const dropButtonLabel = dropReady
-    ? ru
-      ? "Клейм USDC дропа открыт"
-      : "USDC claim is open"
-    : ru
-      ? `Клейм через ${countdown.label}`
-      : `Claim opens in ${countdown.label}`;
-
   return (
     <main className={styles.container}>
       <SettingsPanel />
@@ -372,59 +349,34 @@ export default function SeasonPage() {
         </div>
       </header>
 
-      <section className={styles.heroGrid}>
-        <div className={styles.poolSlot}>
-          <SeasonPoolCard
-            variant="wide"
-            address={address}
-            clickable={false}
-            endDate={season?.endDate}
-          />
+      <section className={styles.fleetSeasonBanner}>
+        <div className={styles.fleetSeasonCopy}>
+          <span>{ru ? "СЕЗОН 3 · УЖЕ ИДЁТ" : "SEASON 3 · LIVE NOW"}</span>
+          <h2>{ru ? "БИТВА ФЛОТОВ" : "FLEET SEASON"}</h2>
+          <p>
+            {ru
+              ? "Выбери один из трёх флотов. Победы определят итоговое место, а сумма USDC-дропа останется секретной до финала."
+              : "Choose one of three fleets. Wins decide the final rank, while the USDC drop stays classified until the final snapshot."}
+          </p>
         </div>
-
-        {USDC_SEASON_REWARDS_ENABLED && (
-          season?.isEnded ? (
-            <section className={styles.dropGate}>
-              <div className={styles.dropHead}>
-                <span>{ru ? "USDC дроп" : "USDC drop"}</span>
-                <b style={{ color: '#ffcc00' }}>{ru ? "ОЖИДАНИЕ" : "WAITING"}</b>
-              </div>
-              <button className={styles.dropButton} type="button" disabled={true} style={{ opacity: 1, border: '1px solid #ffcc00', color: '#ffcc00', background: 'transparent' }}>
-                <span>{ru ? "Прошлый сезон закрыт" : "Previous season closed"}</span>
-              </button>
-              <p>
-                {ru
-                  ? "Сезон 3 уже идёт в битве флотов."
-                  : "Season 3 is live in the fleet battle."}
-              </p>
-            </section>
-          ) : address ? (
-            <DropClaimPanel address={address} />
-          ) : (
-            <section className={styles.dropGate}>
-              <div className={styles.dropHead}>
-                <span>{ru ? "USDC дроп" : "USDC drop"}</span>
-                <b>Aug 26, 2026 · 00:00 UTC</b>
-              </div>
-              <button className={styles.dropButton} type="button" disabled={true}>
-                <TrophyIcon size={16} />
-                <span>{dropButtonLabel}</span>
-              </button>
-              <p>
-                {ru
-                  ? "Подключи кошелек, чтобы проверить claim."
-                  : "Connect a wallet to check your claim."}
-              </p>
-            </section>
-          )
-        )}
+        <div className={styles.fleetSeasonShips} aria-hidden="true">
+          {DEFAULT_FLEETS.map((fleet) => (
+            <span key={fleet.id} style={{ ["--fleet-color" as string]: fleet.color }}>
+              <Image src={fleet.image} alt="" fill sizes="150px" />
+            </span>
+          ))}
+        </div>
+        <Link className={styles.fleetSeasonAction} href="/leaderboard">
+          {ru ? "ОТКРЫТЬ СЕЗОН 3" : "OPEN SEASON 3"}
+          <ChevronRightIcon size={17} />
+        </Link>
       </section>
 
       {!isConnected && (
         <section className={styles.connectPanel}>
           <div>
             <span>{ru ? "Кошелек" : "Wallet"}</span>
-            <b>{ru ? "Подключи, чтобы клеймить" : "Connect to claim"}</b>
+            <b>{ru ? "Подключи для Battle Pass" : "Connect for Battle Pass"}</b>
           </div>
           <div className={styles.connectorList}>
             {orderedConnectors.map((connector) => {
@@ -594,28 +546,6 @@ export default function SeasonPage() {
       <MobileDock active="shop" />
     </main>
   );
-}
-
-function useCountdown(targetMs: number) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  return useMemo(() => {
-    const remainingMs = Math.max(0, targetMs - now);
-    const totalSeconds = Math.floor(remainingMs / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    const label = days > 0
-      ? `${days}d ${hours}h ${minutes}m`
-      : `${hours}h ${minutes}m ${seconds}s`;
-    return { remainingMs, label };
-  }, [now, targetMs]);
 }
 
 function isBaseAccountConnector(connector: { id: string; name: string }) {

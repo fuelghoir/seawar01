@@ -10,7 +10,7 @@ import { WalletName } from "../components/WalletName";
 import { SettingsPanel } from "../components/SettingsPanel";
 import { MobileDock } from "../components/MobileDock";
 import { useSettings, TR } from "../lib/settings";
-import { ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
+import { ChevronRightIcon, ShieldIcon, TrophyIcon, UsersIcon } from "../components/Icons";
 import type { FleetId, PublicFleetMembership, PublicFleetSeason, PublicFleetSeasonResponse } from "../lib/fleetSeason";
 import { FLEET_SEASON_DEMO_RESPONSE } from "../lib/fleetSeasonDemo";
 import { isBaseAppUserAgent } from "../lib/baseApp";
@@ -54,6 +54,28 @@ function FleetBoardSkeleton({ lang }: { lang: "en" | "ru" }) {
         <span><i /><i /></span>
         {[0, 1, 2].map((row) => <i key={row} />)}
       </div>
+    </section>
+  );
+}
+
+function FleetStandingsLocked({ lang, onChooseFleet }: { lang: "en" | "ru"; onChooseFleet: () => void }) {
+  const ru = lang === "ru";
+
+  return (
+    <section className={styles.fleetClassified}>
+      <span className={styles.fleetClassifiedIcon}><ShieldIcon size={28} /></span>
+      <small>{ru ? "СЕЗОН 3 · ДОСТУП К ФЛОТАМ" : "SEASON 3 · FLEET ACCESS"}</small>
+      <h2>{ru ? "СНАЧАЛА ВЫБЕРИ ФЛОТ" : "CHOOSE YOUR FLEET FIRST"}</h2>
+      <p>
+        {ru
+          ? "Победы, места и составы флотов откроются после того, как твой выбор будет закреплён."
+          : "Wins, ranks, and fleet rosters unlock after your choice is locked."}
+      </p>
+      <span className={styles.fleetClassifiedLines} aria-hidden="true"><i /><i /><i /></span>
+      <button type="button" onClick={onChooseFleet}>
+        {ru ? "ВЕРНУТЬСЯ К PLAY" : "RETURN TO PLAY"}
+        <ChevronRightIcon size={17} />
+      </button>
     </section>
   );
 }
@@ -286,8 +308,13 @@ export default function LeaderboardPage() {
   }, [address]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("fleetDemo") === "1") {
-      setFleetSeasonData(FLEET_SEASON_DEMO_RESPONSE);
+    const demoParams = new URLSearchParams(window.location.search);
+    if (process.env.NODE_ENV === "development" && demoParams.get("fleetDemo") === "1") {
+      setFleetSeasonData(
+        demoParams.get("fleetLockedDemo") === "1"
+          ? { ...FLEET_SEASON_DEMO_RESPONSE, membership: null }
+          : FLEET_SEASON_DEMO_RESPONSE,
+      );
       setFleetSeasonLoaded(true);
       setMode("fleet");
       setPage(1);
@@ -357,6 +384,8 @@ export default function LeaderboardPage() {
 
   const myAddr = address?.toLowerCase();
   const fleetSeason = fleetSeasonData.season;
+  const fleetMembership = fleetSeasonData.membership ?? null;
+  const fleetStatsHidden = mode === "fleet" && Boolean(fleetSeason) && !fleetMembership;
   const fleetPlayers = fleetSeason?.fleets.reduce((sum, fleet) => sum + fleet.members, 0) ?? 0;
   const pageItems = getPageItems(page, totalPages);
   const firstRank = (page - 1) * LEADERBOARD_PAGE_SIZE + 1;
@@ -387,6 +416,8 @@ export default function LeaderboardPage() {
           <span>{mode === "fleet" ? (lang === "ru" ? "Сезонная битва флотов" : "Season fleet battle") : (lang === "ru" ? "Рейтинг капитанов" : "Captain rankings")}</span>
           {!fleetSeasonLoaded && mode === "fleet" ? (
             <span className={styles.heroCountSkeleton} aria-label={lang === "ru" ? "Загрузка игроков" : "Loading players"} />
+          ) : fleetStatsHidden ? (
+            <strong>{lang === "ru" ? "ЗАСЕКРЕЧЕНО" : "CLASSIFIED"}</strong>
           ) : (
             <strong>{(mode === "fleet" ? fleetPlayers : total).toLocaleString()} {lang === "ru" ? "игроков" : "players"}</strong>
           )}
@@ -447,10 +478,12 @@ export default function LeaderboardPage() {
 
         {!fleetSeasonLoaded ? (
           <FleetBoardSkeleton lang={lang} />
+        ) : mode === "fleet" && fleetSeason && !fleetMembership ? (
+          <FleetStandingsLocked lang={lang} onChooseFleet={() => router.push("/")} />
         ) : mode === "fleet" && fleetSeason ? (
           <FleetStandings
             season={fleetSeason}
-            membership={fleetSeasonData.membership ?? null}
+            membership={fleetMembership}
             lang={lang}
             onChangeFleet={() => router.push("/?fleetChange=1")}
           />
