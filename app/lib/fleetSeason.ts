@@ -24,6 +24,7 @@ export type FleetMemberInput = {
   joinedAt: string;
   pointsAtJoin: number;
   currentPoints: number;
+  seasonPoints?: number;
   transactions: number;
 };
 
@@ -32,6 +33,8 @@ export type FleetGameInput = {
   player1: string | null;
   player2: string | null;
   winner: string | null;
+  player1Hits?: number;
+  player2Hits?: number;
   createdAt: string;
 };
 
@@ -180,6 +183,7 @@ export function computeFleetSeasonStats(
   const safeMinTransactions = Math.max(0, Math.floor(minTransactions));
   const safeMinPoints = Math.max(0, Math.floor(minPoints));
   const membersByWallet = new Map<string, FleetMemberStats>();
+  const verifiedGamePoints = new Map<string, number>();
 
   for (const input of memberInputs) {
     const wallet = normalizeWallet(input.wallet);
@@ -190,7 +194,9 @@ export function computeFleetSeasonStats(
       games: 0,
       wins: 0,
       transactions: Math.max(0, Math.floor(Number(input.transactions || 0))),
-      pointsEarned: Math.max(0, Math.floor(Number(input.currentPoints || 0) - Number(input.pointsAtJoin || 0))),
+      pointsEarned: input.seasonPoints === undefined
+        ? Math.max(0, Math.floor(Number(input.currentPoints || 0) - Number(input.pointsAtJoin || 0)))
+        : Math.max(0, Math.floor(Number(input.seasonPoints || 0))),
       eligible: safeMinTransactions === 0 && safeMinPoints === 0,
     });
   }
@@ -211,12 +217,19 @@ export function computeFleetSeasonStats(
       if (!member || createdAt < Date.parse(member.joinedAt)) continue;
       member.games += 1;
       if (winner === wallet) member.wins += 1;
+      const playerHits = wallet === normalizeWallet(game.player1)
+        ? game.player1Hits
+        : game.player2Hits;
+      const earned = Math.max(0, Math.floor(Number(playerHits ?? 0))) + (winner === wallet ? 50 : 0);
+      verifiedGamePoints.set(wallet, (verifiedGamePoints.get(wallet) ?? 0) + earned);
     }
   }
 
   const members = Array.from(membersByWallet.values()).map((member) => ({
     ...member,
-    eligible: member.transactions >= safeMinTransactions && member.pointsEarned >= safeMinPoints,
+    pointsEarned: Math.max(member.pointsEarned, verifiedGamePoints.get(member.wallet) ?? 0),
+    eligible: member.transactions >= safeMinTransactions
+      && Math.max(member.pointsEarned, verifiedGamePoints.get(member.wallet) ?? 0) >= safeMinPoints,
   }));
 
   const unsorted = fleetDefinitions.map((fleet) => {

@@ -107,7 +107,11 @@ export async function loadFleetSeasonDashboard(
 
   const memberRows = (await loadMembers(admin, season.seasonKey))
     .filter((row) => !isExcludedFleetWallet(row.wallet));
-  const currentPlayerStats = await loadCurrentPlayerStats(admin, memberRows.map((row) => row.wallet));
+  const memberWallets = memberRows.map((row) => row.wallet);
+  const [currentPlayerStats, fleetSeasonPoints] = await Promise.all([
+    loadCurrentPlayerStats(admin, memberWallets),
+    loadFleetSeasonPoints(admin, season.seasonKey, memberWallets),
+  ]);
   const gameRows = await loadGames(admin, season.startsAt, statsEndDate(season));
   const members: FleetMemberInput[] = memberRows
     .filter((row) => isFleetId(row.fleet_id))
@@ -119,6 +123,7 @@ export async function loadFleetSeasonDashboard(
       currentPoints: season.status === "active"
         ? currentPlayerStats.get(String(row.wallet).toLowerCase())?.points ?? 0
         : Math.max(0, Math.floor(Number(row.points_at_end ?? row.points_at_join ?? 0))),
+      seasonPoints: fleetSeasonPoints.get(String(row.wallet).toLowerCase()),
       transactions: currentPlayerStats.get(String(row.wallet).toLowerCase())?.transactions ?? 0,
     }));
   const games: FleetGameInput[] = gameRows.map((row) => ({
@@ -126,6 +131,8 @@ export async function loadFleetSeasonDashboard(
     player1: row.player1 ? String(row.player1) : null,
     player2: row.player2 ? String(row.player2) : null,
     winner: row.winner ? String(row.winner) : null,
+    player1Hits: Math.max(0, Math.floor(Number(row.player1_hits ?? 0))),
+    player2Hits: Math.max(0, Math.floor(Number(row.player2_hits ?? 0))),
     createdAt: String(row.created_at),
   }));
 
@@ -183,18 +190,41 @@ async function loadCurrentPlayerStats(admin: SupabaseClient, wallets: string[]) 
   return result;
 }
 
+async function loadFleetSeasonPoints(admin: SupabaseClient, seasonKey: string, wallets: string[]) {
+  const result = new Map<string, number>();
+  const uniqueWallets = Array.from(new Set(wallets.map((wallet) => wallet.toLowerCase())));
+  for (let index = 0; index < uniqueWallets.length; index += POINTS_BATCH_SIZE) {
+    const batch = uniqueWallets.slice(index, index + POINTS_BATCH_SIZE);
+    const { data, error } = await admin
+      .from("season_progress")
+      .select("wallet,points")
+      .eq("season_key", seasonKey)
+      .in("wallet", batch);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      result.set(
+        String(row.wallet).toLowerCase(),
+        Math.max(0, Math.floor(Number(row.points ?? 0))),
+      );
+    }
+  }
+  return result;
+}
+
 async function loadGames(admin: SupabaseClient, startsAt: string, endsAt: string) {
   const rows: Array<{
     id: number;
     player1: string | null;
     player2: string | null;
     winner: string | null;
+    player1_hits: number | null;
+    player2_hits: number | null;
     created_at: string;
   }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await admin
       .from("games")
-      .select("id,player1,player2,winner,created_at")
+      .select("id,player1,player2,winner,player1_hits,player2_hits,created_at")
       .eq("state", 3)
       .gte("created_at", startsAt)
       .lt("created_at", endsAt)
