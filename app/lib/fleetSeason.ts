@@ -25,6 +25,7 @@ export type FleetMemberInput = {
   pointsAtJoin: number;
   currentPoints: number;
   seasonPoints?: number;
+  gameBonusPoints?: number;
   transactions: number;
 };
 
@@ -220,7 +221,9 @@ export function computeFleetSeasonStats(
       const playerHits = wallet === normalizeWallet(game.player1)
         ? game.player1Hits
         : game.player2Hits;
-      const earned = Math.max(0, Math.floor(Number(playerHits ?? 0))) + (winner === wallet ? 50 : 0);
+      const earned = Math.max(0, Math.floor(Number(playerHits ?? 0)))
+        + (winner === wallet ? 50 : 0)
+        + Math.max(0, Math.floor(Number(member.gameBonusPoints ?? 0)));
       verifiedGamePoints.set(wallet, (verifiedGamePoints.get(wallet) ?? 0) + earned);
     }
   }

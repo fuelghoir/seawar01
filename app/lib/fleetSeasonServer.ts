@@ -13,6 +13,7 @@ import {
 
 const PAGE_SIZE = 1000;
 const POINTS_BATCH_SIZE = 100;
+const BASE_APP_GAME_BONUS = 1_000;
 const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 const LEGACY_BOT_WALLET = "0xddbd0fba98b5d017cad2d0915beca2280dc3000b";
 const EXCLUDED_FLEET_WALLETS = new Set([BOT_STATS_OPPONENT, LEGACY_BOT_WALLET]);
@@ -108,9 +109,10 @@ export async function loadFleetSeasonDashboard(
   const memberRows = (await loadMembers(admin, season.seasonKey))
     .filter((row) => !isExcludedFleetWallet(row.wallet));
   const memberWallets = memberRows.map((row) => row.wallet);
-  const [currentPlayerStats, fleetSeasonPoints] = await Promise.all([
+  const [currentPlayerStats, fleetSeasonPoints, baseAppWallets] = await Promise.all([
     loadCurrentPlayerStats(admin, memberWallets),
     loadFleetSeasonPoints(admin, season.seasonKey, memberWallets),
+    loadBaseAppWallets(admin, memberWallets),
   ]);
   const gameRows = await loadGames(admin, season.startsAt, statsEndDate(season));
   const members: FleetMemberInput[] = memberRows
@@ -124,6 +126,9 @@ export async function loadFleetSeasonDashboard(
         ? currentPlayerStats.get(String(row.wallet).toLowerCase())?.points ?? 0
         : Math.max(0, Math.floor(Number(row.points_at_end ?? row.points_at_join ?? 0))),
       seasonPoints: fleetSeasonPoints.get(String(row.wallet).toLowerCase()),
+      gameBonusPoints: baseAppWallets.has(String(row.wallet).toLowerCase())
+        ? BASE_APP_GAME_BONUS
+        : 0,
       transactions: currentPlayerStats.get(String(row.wallet).toLowerCase())?.transactions ?? 0,
     }));
   const games: FleetGameInput[] = gameRows.map((row) => ({
@@ -208,6 +213,60 @@ async function loadFleetSeasonPoints(admin: SupabaseClient, seasonKey: string, w
       );
     }
   }
+  return result;
+}
+
+async function loadBaseAppWallets(admin: SupabaseClient, wallets: string[]) {
+  const result = new Set<string>();
+  const uniqueWallets = Array.from(new Set(wallets.map((wallet) => wallet.toLowerCase())));
+  const sessionWallets = new Map<string, Set<string>>();
+
+  for (let index = 0; index < uniqueWallets.length; index += POINTS_BATCH_SIZE) {
+    const batch = uniqueWallets.slice(index, index + POINTS_BATCH_SIZE);
+    const [{ data: links, error: linksError }, { data: checkins, error: checkinsError }] = await Promise.all([
+      admin
+        .from("acquisition_wallet_links")
+        .select("session_id,wallet")
+        .in("wallet", batch),
+      admin
+        .from("daily_checkin_claims")
+        .select("wallet")
+        .eq("is_base_app", true)
+        .in("wallet", batch),
+    ]);
+
+    if (!linksError) {
+      for (const row of links ?? []) {
+        const sessionId = String(row.session_id ?? "");
+        const wallet = String(row.wallet ?? "").toLowerCase();
+        if (!sessionId || !wallet) continue;
+        const linkedWallets = sessionWallets.get(sessionId) ?? new Set<string>();
+        linkedWallets.add(wallet);
+        sessionWallets.set(sessionId, linkedWallets);
+      }
+    }
+
+    if (!checkinsError) {
+      for (const row of checkins ?? []) {
+        result.add(String(row.wallet ?? "").toLowerCase());
+      }
+    }
+  }
+
+  const sessionIds = Array.from(sessionWallets.keys());
+  for (let index = 0; index < sessionIds.length; index += POINTS_BATCH_SIZE) {
+    const batch = sessionIds.slice(index, index + POINTS_BATCH_SIZE);
+    const { data, error } = await admin
+      .from("acquisition_sessions")
+      .select("id")
+      .eq("platform", "base_app")
+      .in("id", batch);
+    if (error) continue;
+    for (const row of data ?? []) {
+      for (const wallet of sessionWallets.get(String(row.id)) ?? []) result.add(wallet);
+    }
+  }
+
   return result;
 }
 

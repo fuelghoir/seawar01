@@ -88,6 +88,17 @@ with valid_members as (
     and member.joined_at >= '2026-09-01T16:33:00.000Z'::timestamptz
     and season.status in ('active', 'ended', 'snapshotted')
 ),
+base_app_wallets as (
+  select distinct lower(claim.wallet) as wallet
+  from public.daily_checkin_claims claim
+  where claim.is_base_app = true
+  union
+  select distinct lower(link.wallet) as wallet
+  from public.acquisition_wallet_links link
+  join public.acquisition_sessions session
+    on session.id = link.session_id
+  where session.platform = 'base_app'
+),
 game_points as (
   select
     member.wallet,
@@ -99,6 +110,10 @@ game_points as (
         else 0
       end
       + case when lower(coalesce(game.winner, '')) = member.wallet then 50 else 0 end
+      + case
+          when game.id is not null and base_app.wallet is not null then 1000
+          else 0
+        end
     ), 0)::integer as points
   from valid_members member
   left join public.games game
@@ -109,6 +124,8 @@ game_points as (
      lower(game.player1) = member.wallet
      or lower(coalesce(game.player2, '')) = member.wallet
    )
+  left join base_app_wallets base_app
+    on base_app.wallet = member.wallet
   group by member.wallet, member.season_key
 ),
 miner_points as (

@@ -3,6 +3,10 @@ import {
   awardReferralFirstGameBonusServer,
   awardReferralGamePointsServer,
 } from "./referralServer";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "./fleetSeasonPointsServer";
 
 export const BOT_STATS_OPPONENT = "0x0000000000000000000000000000000000000001";
 
@@ -123,12 +127,17 @@ export async function resolveFinishedGameStats(
       if (isBaseApp && player.wallet === requestedWallet) {
         points += 1000;
       }
+      const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(
+        admin,
+        player.wallet,
+      ).catch(() => null);
       await bumpPlayerStats(admin, player.wallet, {
         points,
         wins: player.won ? 1 : 0,
         gamesPlayed: 1,
         hits: player.hits,
       });
+      await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
       await addSeasonXp(admin, player.wallet, rawPoints).catch(() => {});
       await addSeasonLeaderboardPoints(admin, player.wallet, rawPoints).catch(() => {});
       await awardReferralGamePointsServer(

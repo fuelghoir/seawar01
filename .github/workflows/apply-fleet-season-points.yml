@@ -1,4 +1,4 @@
-name: Apply Fleet Season points ledger
+name: Backfill Fleet Season points
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  migrate:
+  backfill:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
