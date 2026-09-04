@@ -20,6 +20,10 @@ import {
   parseAbiItem,
   type Hex,
 } from "viem";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "./fleetSeasonPointsServer";
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
 const TX_HASH_RE = /^0x[a-f0-9]{64}$/;
@@ -139,6 +143,7 @@ export async function grantRawPointsServer(
 ) {
   const points = Math.floor(Number(pointsValue));
   if (points <= 0) return;
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
 
   const { data, error } = await admin
     .from("player_stats")
@@ -156,6 +161,7 @@ export async function grantRawPointsServer(
       })
       .eq("wallet", wallet);
     if (updateError) throw new Error(updateError.message);
+    await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
     return;
   }
 
@@ -164,6 +170,7 @@ export async function grantRawPointsServer(
     points,
   });
   if (insertError) throw new Error(insertError.message);
+  await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
 }
 
 export async function buyPointItemServer(

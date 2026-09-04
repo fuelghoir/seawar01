@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminSupabase, type AdminClient } from "../../../lib/adminSupabase";
 import { isBaseAppUserAgent } from "../../../lib/baseApp";
 import { addSeasonXpServer, normalizeSeasonWallet } from "../../../lib/seasonServer";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../../lib/fleetSeasonPointsServer";
 
 export const runtime = "nodejs";
 
@@ -45,6 +49,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const admin = adminSupabase();
+    const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
     const atomic = await admin.rpc("claim_daily_checkin_atomic", {
       p_wallet: wallet,
       p_is_base_app: isBaseApp,
@@ -53,6 +58,9 @@ export async function POST(req: NextRequest) {
     if (!atomic.error) {
       const result = normalizeRpcResult(atomic.data);
       if (!result) throw new Error("Invalid daily check-in response");
+      if (!result.alreadyClaimed) {
+        await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, result.points).catch(() => {});
+      }
       return jsonResponse(result);
     }
 
@@ -65,6 +73,9 @@ export async function POST(req: NextRequest) {
     // The conditional player_stats update is the compare-and-swap: only one
     // concurrent request can move last_checkin from its observed value to today.
     const fallback = await claimDailyCheckinWithCas(admin, wallet, isBaseApp);
+    if (!fallback.alreadyClaimed) {
+      await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, fallback.points).catch(() => {});
+    }
     return jsonResponse(fallback);
   } catch (error) {
     console.error("Daily check-in failed:", error);

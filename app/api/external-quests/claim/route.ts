@@ -5,6 +5,10 @@ import { GLOBAL_EXTERNAL_QUESTS } from "../../../lib/externalQuests";
 import {
   getSocialConnection,
 } from "../../../lib/socialConnectionsServer";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../../lib/fleetSeasonPointsServer";
 
 const TELEGRAM_MEMBER_STATUSES = new Set(["creator", "administrator", "member"]);
 
@@ -135,8 +139,12 @@ export async function POST(req: NextRequest) {
     const isBaseApp = isBaseAppUserAgent(req.headers.get("user-agent"));
     await verifyQuest(admin, wallet, quest.kind);
 
+    const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
     const awarded = await claimQuest(admin, wallet, quest.quest_key, isBaseApp);
     const finalReward = isBaseApp ? quest.points * 2 : quest.points;
+    if (awarded) {
+      await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, finalReward).catch(() => {});
+    }
     return NextResponse.json({
       reward: awarded ? finalReward : 0,
       alreadyClaimed: !awarded,

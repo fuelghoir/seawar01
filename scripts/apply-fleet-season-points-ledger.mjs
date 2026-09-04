@@ -5,6 +5,10 @@ const BATCH_SIZE = 100;
 const BASE_APP_GAME_BONUS = 1_000;
 const FLEET_CHOICE_ROLLOUT_AT = "2026-09-01T16:33:00.000Z";
 const WALLET_RE = /^0x[a-f0-9]{40}$/;
+const EXCLUDED_WALLETS = new Set([
+  "0x0000000000000000000000000000000000000001",
+  "0xddbd0fba98b5d017cad2d0915beca2280dc3000b",
+]);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -43,7 +47,7 @@ const members = await fetchPaged((from, to) => {
 const memberByWallet = new Map();
 for (const row of members) {
   const wallet = normalizeWallet(row.wallet);
-  if (!wallet) continue;
+  if (!wallet || EXCLUDED_WALLETS.has(wallet)) continue;
   memberByWallet.set(wallet, {
     wallet,
     joinedAt: String(row.joined_at),
@@ -74,6 +78,27 @@ const minerClaims = await fetchPaged((from, to) => supabase
   .lt("created_at", statsEnd)
   .order("created_at", { ascending: true })
   .range(from, to));
+const checkinClaims = await fetchPaged((from, to) => supabase
+  .from("daily_checkin_claims")
+  .select("wallet,points,claimed_at")
+  .gte("claimed_at", String(season.starts_at))
+  .lt("claimed_at", statsEnd)
+  .order("claimed_at", { ascending: true })
+  .range(from, to));
+const externalQuestClaims = await fetchPaged((from, to) => supabase
+  .from("external_quest_claims")
+  .select("wallet,points,claimed_at")
+  .gte("claimed_at", String(season.starts_at))
+  .lt("claimed_at", statsEnd)
+  .order("claimed_at", { ascending: true })
+  .range(from, to));
+const limitedSbtRewards = await fetchPaged((from, to) => supabase
+  .from("limited_sbt_weekly_rewards")
+  .select("wallet,points,claimed_at")
+  .gte("claimed_at", String(season.starts_at))
+  .lt("claimed_at", statsEnd)
+  .order("claimed_at", { ascending: true })
+  .range(from, to));
 
 const verifiedPoints = new Map(wallets.map((wallet) => [wallet, 0]));
 for (const game of games) {
@@ -94,10 +119,16 @@ for (const game of games) {
 }
 
 for (const claim of minerClaims) {
-  const wallet = normalizeWallet(claim.wallet);
-  const member = wallet ? memberByWallet.get(wallet) : null;
-  if (!member || Date.parse(String(claim.created_at)) < Date.parse(member.joinedAt)) continue;
-  verifiedPoints.set(wallet, (verifiedPoints.get(wallet) ?? 0) + nonNegativeInteger(claim.points));
+  addVerifiedClaimPoints(claim, "created_at");
+}
+for (const claim of checkinClaims) {
+  addVerifiedClaimPoints(claim, "claimed_at");
+}
+for (const claim of externalQuestClaims) {
+  addVerifiedClaimPoints(claim, "claimed_at");
+}
+for (const claim of limitedSbtRewards) {
+  addVerifiedClaimPoints(claim, "claimed_at");
 }
 
 const updates = [];
@@ -249,4 +280,11 @@ function normalizeWallet(value) {
 
 function nonNegativeInteger(value) {
   return Math.max(0, Math.floor(Number(value ?? 0)));
+}
+
+function addVerifiedClaimPoints(claim, timestampKey) {
+  const wallet = normalizeWallet(claim.wallet);
+  const member = wallet ? memberByWallet.get(wallet) : null;
+  if (!member || Date.parse(String(claim[timestampKey])) < Date.parse(member.joinedAt)) return;
+  verifiedPoints.set(wallet, (verifiedPoints.get(wallet) ?? 0) + nonNegativeInteger(claim.points));
 }

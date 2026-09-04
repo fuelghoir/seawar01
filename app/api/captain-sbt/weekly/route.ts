@@ -4,6 +4,10 @@ import { createPublicClient, http, isAddress } from "viem";
 import { base } from "viem/chains";
 import { captainSbtAbi, CAPTAIN_SBT_CONTRACT_ADDRESS } from "../../../contracts/seaBattleAbi";
 import { getLimitedSbtWeekKey, LIMITED_SBT_WEEKLY_POINTS } from "../../../lib/limitedSbt";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../../lib/fleetSeasonPointsServer";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
@@ -41,6 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const weekKey = getLimitedSbtWeekKey();
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
   const insert = await admin
     .from("limited_sbt_weekly_rewards")
     .insert({
@@ -87,5 +92,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  await recordFleetSeasonPointGain(
+    admin,
+    fleetPointsCheckpoint,
+    LIMITED_SBT_WEEKLY_POINTS,
+  ).catch(() => {});
   return NextResponse.json({ points: LIMITED_SBT_WEEKLY_POINTS, weekKey });
 }

@@ -11,6 +11,10 @@ import {
   verifyPromoCode,
   type PromoCodePayload,
 } from "../../../lib/promoCodes";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../../lib/fleetSeasonPointsServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +46,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
   const { error: rpcError } = await admin.rpc("redeem_promo_code", {
     p_wallet: wallet,
     p_promo_id: promo.id,
@@ -55,6 +60,7 @@ export async function POST(req: NextRequest) {
     const status = rpcError.message.toLowerCase().includes("already redeemed") ? 409 : 500;
     return NextResponse.json({ error: rpcError.message }, { status });
   }
+  await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, promo.points).catch(() => {});
 
   return noStoreJson({
     ok: true,

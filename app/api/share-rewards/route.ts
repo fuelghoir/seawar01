@@ -12,6 +12,10 @@ import {
   type AdminClient,
   type SocialConnection,
 } from "../../lib/socialConnectionsServer";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../lib/fleetSeasonPointsServer";
 
 const PROFILE_SHARE_POINTS = 500;
 const GAME_SHARE_POINTS = 100;
@@ -213,6 +217,7 @@ async function findVerifiedSharePost(
 }
 
 async function grantPoints(admin: AdminClient, wallet: string, points: number) {
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
   const { data, error } = await admin
     .from("player_stats")
     .select("points")
@@ -227,11 +232,13 @@ async function grantPoints(admin: AdminClient, wallet: string, points: number) {
       .update({ points: totalPoints, updated_at: new Date().toISOString() })
       .eq("wallet", wallet);
     if (updateError) throw new Error(updateError.message);
+    await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
     return totalPoints;
   }
 
   const { error: insertError } = await admin.from("player_stats").insert({ wallet, points });
   if (insertError) throw new Error(insertError.message);
+  await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
   return points;
 }
 

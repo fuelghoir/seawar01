@@ -10,6 +10,10 @@ import {
   FLEET_MINER_SLOTS_CONTRACT_ADDRESS,
   fleetMinerSlotsAbi,
 } from "../../../contracts/fleetMinerSlotsAbi";
+import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "../../../lib/fleetSeasonPointsServer";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const BASE_RPCS = [
@@ -139,6 +143,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "PassivePointsClaimed event not found" }, { status: 400 });
   }
 
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, wallet).catch(() => null);
   const { data, error } = await admin.rpc("grant_fleet_nft_points", {
     p_wallet: wallet,
     p_tx_hash: txHash,
@@ -148,9 +153,11 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  const awardedPoints = Number(data ?? 0);
+  await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, awardedPoints).catch(() => {});
 
   return NextResponse.json({
-    points: Number(data ?? 0),
+    points: awardedPoints,
     tokenId: claim.tokenId.toString(),
     sources: Array.from(claim.sources),
   });

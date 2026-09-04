@@ -9,6 +9,10 @@ import {
   awardReferralGamePointsServer,
 } from "./referralServer";
 import {
+  getFleetSeasonPointsCheckpoint,
+  recordFleetSeasonPointGain,
+} from "./fleetSeasonPointsServer";
+import {
   ChallengeSettlement,
   ChallengeStatus,
   PublicChallenge,
@@ -353,6 +357,7 @@ async function bumpPlayerStats(
   const addr = wallet.toLowerCase();
   const multiplier = await getGamePointMultiplier(admin, addr);
   const points = Math.floor(Math.max(0, delta.points) * multiplier);
+  const fleetPointsCheckpoint = await getFleetSeasonPointsCheckpoint(admin, addr).catch(() => null);
 
   const { data, error } = await admin
     .from("player_stats")
@@ -384,6 +389,7 @@ async function bumpPlayerStats(
     if (insertError) throw new Error(insertError.message);
   }
 
+  await recordFleetSeasonPointGain(admin, fleetPointsCheckpoint, points).catch(() => {});
   await addSeasonXp(admin, addr, Math.max(1, delta.points)).catch(() => {});
   await awardReferralGamePointsServer(admin, addr, points, referralSourceKey).catch(() => {});
   await awardReferralFirstGameBonusServer(admin, addr).catch(() => {});
